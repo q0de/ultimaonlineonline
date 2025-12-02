@@ -700,17 +700,26 @@
                         <input type="range" id="runFrameSlider" min="10" max="100" value="80" onchange="updateRunFrameDuration()" style="width: 100%;">
                     </div>
                     <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Frame Skip (use every Nth frame)</label>
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Frame Selection</label>
                         <select id="frameSkipSelect" onchange="updateFrameSkip()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
-                            <option value="1">Use all frames (1, 2, 3...)</option>
-                            <option value="2" selected>Skip every other (1, 3, 5...)</option>
+                            <option value="all">All frames (0,1,2,3...9)</option>
+                            <option value="skip2" selected>Skip every other (0,2,4,6,8)</option>
+                            <option value="first5">First 5 only (0,1,2,3,4)</option>
+                            <option value="last5">Last 5 only (5,6,7,8,9)</option>
+                        </select>
+                    </div>
+                    <div style="padding: 5px 0;">
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Animation Sync</label>
+                        <select id="animSyncSelect" onchange="updateAnimSync()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
+                            <option value="time" selected>Time-based (independent)</option>
+                            <option value="movement">Movement-synced (UO style)</option>
                         </select>
                     </div>
                     <div style="padding: 5px 0; font-size: 10px; color: #666; border-top: 1px solid #333; margin-top: 8px; padding-top: 8px;">
-                        <strong style="color: #888;">Presets:</strong><br>
-                        • ClassicUO: 80ms/frame, 5 frames<br>
-                        • Your exports: 10 frames total<br>
-                        • Skip=2 uses frames 0,2,4,6,8
+                        <strong style="color: #888;">Debug Info (top-right corner)</strong><br>
+                        • Green box = current frame<br>
+                        • Cyan = frames in use<br>
+                        • Gray = skipped frames
                     </div>
                 </div>
             </div>
@@ -7353,6 +7362,8 @@ CORNERS:
         let WALK_ANIM_FRAME_DURATION = 80; // ClassicUO: 80ms per frame
         let RUN_ANIM_FRAME_DURATION = 80;  // ClassicUO: Same for run (just moves faster through tiles)
         let FRAME_SKIP = 2;  // Use every 2nd frame (0, 2, 4, 6, 8) to get 5 frames from 10
+        let FRAME_SELECTION_MODE = 'skip2'; // 'all', 'skip2', 'first5', 'last5'
+        let ANIM_SYNC_MODE = 'time'; // 'time' or 'movement'
         
         const RUN_DISTANCE_THRESHOLD = 100; // Pixels from character to trigger run (UO-style)
         
@@ -7363,17 +7374,20 @@ CORNERS:
                 case 'classic':
                     WALK_ANIM_FRAME_DURATION = 80;
                     RUN_ANIM_FRAME_DURATION = 80;
-                    FRAME_SKIP = 2;
+                    FRAME_SELECTION_MODE = 'skip2';
+                    ANIM_SYNC_MODE = 'movement';
                     break;
                 case 'smooth':
                     WALK_ANIM_FRAME_DURATION = 40;
                     RUN_ANIM_FRAME_DURATION = 20;
-                    FRAME_SKIP = 1;
+                    FRAME_SELECTION_MODE = 'all';
+                    ANIM_SYNC_MODE = 'time';
                     break;
                 case 'fast':
                     WALK_ANIM_FRAME_DURATION = 80;
                     RUN_ANIM_FRAME_DURATION = 40;
-                    FRAME_SKIP = 2;
+                    FRAME_SELECTION_MODE = 'skip2';
+                    ANIM_SYNC_MODE = 'time';
                     break;
                 case 'custom':
                     // Keep current slider values
@@ -7384,8 +7398,9 @@ CORNERS:
             document.getElementById('walkFrameLabel').textContent = WALK_ANIM_FRAME_DURATION;
             document.getElementById('runFrameSlider').value = RUN_ANIM_FRAME_DURATION;
             document.getElementById('runFrameLabel').textContent = RUN_ANIM_FRAME_DURATION;
-            document.getElementById('frameSkipSelect').value = FRAME_SKIP;
-            console.log(`Animation mode: ${mode} - Walk: ${WALK_ANIM_FRAME_DURATION}ms, Run: ${RUN_ANIM_FRAME_DURATION}ms, Skip: ${FRAME_SKIP}`);
+            document.getElementById('frameSkipSelect').value = FRAME_SELECTION_MODE;
+            document.getElementById('animSyncSelect').value = ANIM_SYNC_MODE;
+            console.log(`Animation mode: ${mode} - Walk: ${WALK_ANIM_FRAME_DURATION}ms, Run: ${RUN_ANIM_FRAME_DURATION}ms, Selection: ${FRAME_SELECTION_MODE}, Sync: ${ANIM_SYNC_MODE}`);
         }
         
         function updateWalkFrameDuration() {
@@ -7403,9 +7418,51 @@ CORNERS:
         }
         
         function updateFrameSkip() {
-            FRAME_SKIP = parseInt(document.getElementById('frameSkipSelect').value);
+            FRAME_SELECTION_MODE = document.getElementById('frameSkipSelect').value;
             document.getElementById('animModeSelect').value = 'custom';
-            console.log(`Frame skip: ${FRAME_SKIP} (using every ${FRAME_SKIP === 1 ? 'frame' : FRAME_SKIP + 'nd frame'})`);
+            console.log(`Frame selection: ${FRAME_SELECTION_MODE}`);
+        }
+        
+        function updateAnimSync() {
+            ANIM_SYNC_MODE = document.getElementById('animSyncSelect').value;
+            document.getElementById('animModeSelect').value = 'custom';
+            console.log(`Animation sync: ${ANIM_SYNC_MODE}`);
+        }
+        
+        // Helper: Get frame index based on selection mode
+        function getAnimationFrameIndex(frames, logicalFrame) {
+            if (!frames || frames.length === 0) return 0;
+            
+            switch (FRAME_SELECTION_MODE) {
+                case 'all':
+                    return logicalFrame % frames.length;
+                case 'skip2':
+                    // Use frames 0, 2, 4, 6, 8 (5 frames from 10)
+                    const effectiveCount = Math.ceil(frames.length / 2);
+                    return Math.min((logicalFrame % effectiveCount) * 2, frames.length - 1);
+                case 'first5':
+                    // Use only first 5 frames (0, 1, 2, 3, 4)
+                    return logicalFrame % Math.min(5, frames.length);
+                case 'last5':
+                    // Use only last 5 frames (5, 6, 7, 8, 9)
+                    const start = Math.max(0, frames.length - 5);
+                    return start + (logicalFrame % Math.min(5, frames.length - start));
+                default:
+                    return logicalFrame % frames.length;
+            }
+        }
+        
+        // Helper: Get effective frame count based on selection mode
+        function getEffectiveFrameCount(frames) {
+            if (!frames || frames.length === 0) return 1;
+            
+            switch (FRAME_SELECTION_MODE) {
+                case 'all': return frames.length;
+                case 'skip2': return Math.ceil(frames.length / 2);
+                case 'first5': return Math.min(5, frames.length);
+                case 'last5': return Math.min(5, frames.length);
+                default: return frames.length;
+            }
         }
         
         // Get direction from screen pixel deltas (UO isometric style)
@@ -7677,9 +7734,66 @@ CORNERS:
             ctx.fillStyle = 'yellow';
             ctx.font = '14px monospace';
             ctx.fillText(`Pos: (${playerCharacter.x.toFixed(1)}, ${playerCharacter.y.toFixed(1)}, z=${playerCharacter.z || 0})`, 10, 20);
-            ctx.fillText(`Dir: ${playerCharacter.direction} | Running: ${isRunning}`, 10, 40);
-            ctx.fillText(`Target: (${targetTileX?.toFixed(1) || 'none'}, ${targetTileY?.toFixed(1) || 'none'})`, 10, 60);
-            ctx.fillText(`Target: (${targetTileX ?? 'none'}, ${targetTileY ?? 'none'}) | Moving: ${isMoving}`, 10, 50);
+            ctx.fillText(`Dir: ${playerCharacter.direction} | Running: ${isRunning} | Moving: ${isMoving}`, 10, 40);
+            
+            // Animation Debug Panel (bottom-right corner)
+            const debugX = viewWidth - 280;
+            const debugY = 20;
+            
+            // Draw debug panel background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(debugX - 10, debugY - 15, 280, 175);
+            ctx.strokeStyle = 'cyan';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(debugX - 10, debugY - 15, 280, 180);
+            
+            ctx.fillStyle = 'cyan';
+            ctx.font = 'bold 14px monospace';
+            ctx.fillText('ANIMATION DEBUG', debugX, debugY);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '12px monospace';
+            
+            // Get current animation data
+            const dirSprites = characterSprites[playerCharacter.direction];
+            const frames = isRunning ? (dirSprites?.run || dirSprites?.walk || []) : (dirSprites?.walk || []);
+            const effectiveFrameCount = getEffectiveFrameCount(frames);
+            const currentFrameDuration = isRunning ? RUN_ANIM_FRAME_DURATION : WALK_ANIM_FRAME_DURATION;
+            
+            let logicalFrame;
+            if (ANIM_SYNC_MODE === 'movement') {
+                logicalFrame = Math.floor(movementProgress * effectiveFrameCount);
+                logicalFrame = Math.min(logicalFrame, effectiveFrameCount - 1);
+            } else {
+                logicalFrame = Math.floor(animationTime / currentFrameDuration) % effectiveFrameCount;
+            }
+            const actualFrameIndex = getAnimationFrameIndex(frames, logicalFrame);
+            const fps = 1000 / currentFrameDuration;
+            const cycleTime = effectiveFrameCount * currentFrameDuration;
+            
+            ctx.fillText(`Mode: ${FRAME_SELECTION_MODE} | Sync: ${ANIM_SYNC_MODE}`, debugX, debugY + 20);
+            ctx.fillText(`Frame Duration: ${currentFrameDuration}ms`, debugX, debugY + 35);
+            ctx.fillText(`Total: ${frames.length} | Effective: ${effectiveFrameCount}`, debugX, debugY + 50);
+            ctx.fillText(`Logical: ${logicalFrame} → Actual: ${actualFrameIndex}`, debugX, debugY + 65);
+            ctx.fillText(`Anim Time: ${animationTime.toFixed(0)}ms`, debugX, debugY + 80);
+            ctx.fillText(`Movement: ${(movementProgress * 100).toFixed(0)}%`, debugX, debugY + 95);
+            ctx.fillText(`Cycle: ${cycleTime}ms | FPS: ${fps.toFixed(1)}`, debugX, debugY + 110);
+            ctx.fillText(`Running: ${isRunning} | Moving: ${isMoving}`, debugX, debugY + 125);
+            
+            // Visual frame indicator (boxes showing which frames are used)
+            const frameBoxY = debugY + 140;
+            const frameBoxSize = 15;
+            for (let i = 0; i < Math.min(frames.length, 15); i++) {
+                const isUsed = (i % FRAME_SKIP === 0);
+                const isCurrent = (i === actualFrameIndex);
+                
+                ctx.fillStyle = isCurrent ? 'lime' : (isUsed ? 'cyan' : 'gray');
+                ctx.fillRect(debugX + i * (frameBoxSize + 2), frameBoxY, frameBoxSize, frameBoxSize);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = '8px monospace';
+                ctx.fillText(i.toString(), debugX + i * (frameBoxSize + 2) + 3, frameBoxY + 11);
+            }
         }
         
         // UO-authentic discrete tile-to-tile movement update (called every frame)
@@ -7805,25 +7919,30 @@ CORNERS:
                 playerCharacter.x = movementStartX + (nextTileX - movementStartX) * movementProgress;
                 playerCharacter.y = movementStartY + (nextTileY - movementStartY) * movementProgress;
                 
-                // Update animation frame (TIME-BASED like ClassicUO)
-                // Animation synced to movement: frame duration adjusted for walk/run
-                // All 10 frames used, cycle time matches movement time per tile
+                // Update animation frame
+                // Supports two modes: time-based (independent) or movement-synced (UO style)
                 animationTime += deltaTime;
                 
                 const dirSprites = characterSprites[playerCharacter.direction];
                 const frames = isRunning ? (dirSprites?.run || dirSprites?.walk || []) : (dirSprites?.walk || []);
                 
                 if (frames.length > 0) {
-                    // Use different frame duration for walk vs run
-                    const frameDuration = isRunning ? RUN_ANIM_FRAME_DURATION : WALK_ANIM_FRAME_DURATION;
+                    const effectiveFrameCount = getEffectiveFrameCount(frames);
+                    let logicalFrame;
                     
-                    // Calculate logical frame (with frame skip to reduce 10 frames to 5)
-                    // FRAME_SKIP=2 means use frames 0, 2, 4, 6, 8 (5 total from 10)
-                    // FRAME_SKIP=1 means use all frames
-                    const effectiveFrameCount = Math.ceil(frames.length / FRAME_SKIP);
-                    const logicalFrame = Math.floor(animationTime / frameDuration) % effectiveFrameCount;
-                    const actualFrameIndex = Math.min(logicalFrame * FRAME_SKIP, frames.length - 1);
+                    if (ANIM_SYNC_MODE === 'movement') {
+                        // Movement-synced: Animation progress matches movement progress
+                        // This ensures animation completes exactly when reaching next tile
+                        logicalFrame = Math.floor(movementProgress * effectiveFrameCount);
+                        // Clamp to prevent overflow at progress=1.0
+                        logicalFrame = Math.min(logicalFrame, effectiveFrameCount - 1);
+                    } else {
+                        // Time-based: Animation runs independently
+                        const frameDuration = isRunning ? RUN_ANIM_FRAME_DURATION : WALK_ANIM_FRAME_DURATION;
+                        logicalFrame = Math.floor(animationTime / frameDuration) % effectiveFrameCount;
+                    }
                     
+                    const actualFrameIndex = getAnimationFrameIndex(frames, logicalFrame);
                     playerCharacter.sprite = frames[actualFrameIndex];
                 }
             }
