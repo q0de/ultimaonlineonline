@@ -7130,20 +7130,6 @@ CORNERS:
         async function loadAllCharacterSprites() {
             console.log('[Character] Loading character sprites with walk animations...');
             
-            // Sprite folder direction fix: The exported sprites are offset by one direction
-            // Each folder contains sprites facing one direction counter-clockwise from the folder name
-            // To get the correct sprite, we load from one direction clockwise
-            const spriteFolderFix = {
-                'n': 'ne',   // Want N sprites? Load from NE folder
-                'ne': 'e',
-                'e': 'se',
-                'se': 's',
-                's': 'sw',
-                'sw': 'w',
-                'w': 'nw',
-                'nw': 'n'
-            };
-            
             for (const dir of Object.keys(DIRECTIONS)) {
                 // Initialize sprite data structure
                 characterSprites[dir] = {
@@ -7152,8 +7138,8 @@ CORNERS:
                     run: []
                 };
                 
-                // Get the corrected folder name for this direction
-                const folderDir = spriteFolderFix[dir] || dir;
+                // Use the direction directly (no folder fix for now)
+                const folderDir = dir;
                 
                 // 1. Load idle sprite - try multiple paths
                 const idlePaths = [
