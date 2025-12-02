@@ -7344,6 +7344,8 @@ CORNERS:
         let movementProgress = 0; // 0-1 progress between current and next tile
         let movementStartX = 0;  // Starting position for current tile movement
         let movementStartY = 0;
+        let movementStartZ = 0;
+        let nextTileZ = 0;
         let animationFrame = 0;
         let animationTime = 0;   // Time-based animation tracking (ms)
         let lastFrameTime = performance.now();
@@ -7654,9 +7656,11 @@ CORNERS:
             const viewWidth = overlayCanvas.width;
             const viewHeight = overlayCanvas.height;
             const zOffset = (playerCharacter.z || 0) * 4 * zoom; // 4 pixels per Z level
-            
+
+            // Feet should sit on the same line as the tile base (center + 22px, scaled by zoom)
+            const feetY = (viewHeight / 2 + 22 * zoom) - zOffset;
             const screenX = (viewWidth / 2) - (spriteW * zoom / 2);
-            const screenY = (viewHeight / 2) - zOffset - (spriteH * zoom);
+            const screenY = feetY - (spriteH * zoom);
             
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(sprite, screenX, screenY, spriteW * zoom, spriteH * zoom);
@@ -7664,7 +7668,7 @@ CORNERS:
             // Debug: Draw red dot at character center
             ctx.fillStyle = 'red';
             ctx.beginPath();
-            ctx.arc(viewWidth / 2, viewHeight / 2 - zOffset, 5, 0, Math.PI * 2);
+            ctx.arc(viewWidth / 2, feetY, 5, 0, Math.PI * 2);
             ctx.fill();
             
             // Draw UO isometric compass in corner (helps understand direction mapping)
@@ -7723,8 +7727,8 @@ CORNERS:
             ctx.strokeStyle = 'lime';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(viewWidth / 2, viewHeight / 2 - zOffset);
-            ctx.lineTo(viewWidth / 2 + arrow[0], viewHeight / 2 - zOffset + arrow[1]);
+            ctx.moveTo(viewWidth / 2, feetY);
+            ctx.lineTo(viewWidth / 2 + arrow[0], feetY + arrow[1]);
             ctx.stroke();
             
             // Debug: Draw character position text
@@ -7876,6 +7880,9 @@ CORNERS:
                 // Start new tile movement
                 movementStartX = Math.round(playerCharacter.x);
                 movementStartY = Math.round(playerCharacter.y);
+                movementStartZ = currentMap[movementStartY]?.[movementStartX]?.z || playerCharacter.z || 0;
+                const upcomingTile = currentMap[nextTileY]?.[nextTileX];
+                nextTileZ = upcomingTile?.z ?? movementStartZ;
                 movementProgress = 0;
                 
                 // Set direction based on ACTUAL movement (tile delta)
@@ -7897,7 +7904,12 @@ CORNERS:
                 
                 // Update Z from new tile
                 const newTile = currentMap[nextTileY]?.[nextTileX];
-                if (newTile) playerCharacter.z = newTile.z || 0;
+                if (newTile) {
+                    playerCharacter.z = newTile.z || 0;
+                } else {
+                    playerCharacter.z = nextTileZ;
+                }
+                movementStartZ = playerCharacter.z;
                 
                 // Reset for next tile movement
                 nextTileX = null;
@@ -7922,6 +7934,7 @@ CORNERS:
                 // Interpolate position for smooth visual
                 playerCharacter.x = movementStartX + (nextTileX - movementStartX) * movementProgress;
                 playerCharacter.y = movementStartY + (nextTileY - movementStartY) * movementProgress;
+                playerCharacter.z = movementStartZ + (nextTileZ - movementStartZ) * movementProgress;
                 
                 // Update animation frame
                 // Supports two modes: time-based (independent) or movement-synced (UO style)
@@ -8310,24 +8323,22 @@ CORNERS:
                     // Right button released - stop following cursor (UO-authentic)
                     rightMouseDown = false;
                     rightMouseHeld = false;
-                    
-                    // Stop movement and return to idle (UO-style)
+
                     if (playerCharacter) {
-                        targetTileX = null;
-                        targetTileY = null;
-                        nextTileX = null;
-                        nextTileY = null;
-                        movementProgress = 0;
-                        isMoving = false;
-                        animationTime = 0;  // Reset animation
-                        // Snap to nearest tile
-                        playerCharacter.x = Math.round(playerCharacter.x);
-                        playerCharacter.y = Math.round(playerCharacter.y);
-                        const dirSprites = characterSprites[playerCharacter.direction];
-                        playerCharacter.sprite = dirSprites?.idle || dirSprites;
-                        renderScene();
+                        // Let the character finish the tile they're heading toward
+                        if (nextTileX !== null && nextTileY !== null) {
+                            targetTileX = nextTileX;
+                            targetTileY = nextTileY;
+                        } else {
+                            targetTileX = null;
+                            targetTileY = null;
+                            isMoving = false;
+                            animationTime = 0;
+                            const dirSprites = characterSprites[playerCharacter.direction];
+                            playerCharacter.sprite = dirSprites?.idle || dirSprites;
+                        }
                     }
-                    console.log('[Mouse] Right-click released - stopped');
+                    console.log('[Mouse] Right-click released - stopping after current step');
                     return;
                 }
                 
