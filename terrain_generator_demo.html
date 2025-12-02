@@ -673,6 +673,47 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- ANIMATION SETTINGS SECTION -->
+            <div class="section" onclick="toggleSection(this, event)">
+                <div class="section-header">
+                    <span class="section-icon">🎬</span>
+                    <span class="section-title">Animation</span>
+                    <span class="section-chevron">▼</span>
+                </div>
+                <div class="section-content" onclick="event.stopPropagation()">
+                    <div style="padding: 5px 0;">
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Animation Mode</label>
+                        <select id="animModeSelect" onchange="updateAnimationMode()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
+                            <option value="classic">ClassicUO (80ms, 5 frames)</option>
+                            <option value="smooth">Smooth (40ms, 10 frames)</option>
+                            <option value="fast">Fast Run (80ms walk, 40ms run)</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div style="padding: 5px 0;">
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Walk Frame Duration: <span id="walkFrameLabel">80</span>ms</label>
+                        <input type="range" id="walkFrameSlider" min="20" max="200" value="80" onchange="updateWalkFrameDuration()" style="width: 100%;">
+                    </div>
+                    <div style="padding: 5px 0;">
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Run Frame Duration: <span id="runFrameLabel">80</span>ms</label>
+                        <input type="range" id="runFrameSlider" min="10" max="100" value="80" onchange="updateRunFrameDuration()" style="width: 100%;">
+                    </div>
+                    <div style="padding: 5px 0;">
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Frame Skip (use every Nth frame)</label>
+                        <select id="frameSkipSelect" onchange="updateFrameSkip()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
+                            <option value="1">Use all frames (1, 2, 3...)</option>
+                            <option value="2" selected>Skip every other (1, 3, 5...)</option>
+                        </select>
+                    </div>
+                    <div style="padding: 5px 0; font-size: 10px; color: #666; border-top: 1px solid #333; margin-top: 8px; padding-top: 8px;">
+                        <strong style="color: #888;">Presets:</strong><br>
+                        • ClassicUO: 80ms/frame, 5 frames<br>
+                        • Your exports: 10 frames total<br>
+                        • Skip=2 uses frames 0,2,4,6,8
+                    </div>
+                </div>
+            </div>
             </div>
         
         <!-- LEARNING MODE PANEL -->
@@ -7304,12 +7345,68 @@ CORNERS:
         const WALK_MS_PER_TILE = 400;  // 400ms per tile walking (STEP_DELAY_WALK)
         const RUN_MS_PER_TILE = 200;   // 200ms per tile running (STEP_DELAY_RUN)
         const STOP_THRESHOLD = 0.05;   // Stop when within 5% of a tile
-        // Animation timing: Use all 10 frames, match cycle to movement speed
-        // Walk: 400ms/tile with 10 frames = 40ms per frame
-        // Run: 200ms/tile with 10 frames = 20ms per frame  
-        const WALK_ANIM_FRAME_DURATION = 40; // 10 frames * 40ms = 400ms cycle (matches WALK_MS_PER_TILE)
-        const RUN_ANIM_FRAME_DURATION = 20;  // 10 frames * 20ms = 200ms cycle (matches RUN_MS_PER_TILE)
+        
+        // Animation timing - CONFIGURABLE via sidebar controls
+        // ClassicUO uses 80ms per frame (CHARACTER_ANIMATION_DELAY = 80)
+        // and 5 frames per walk cycle (MAX_STEP_COUNT = 5)
+        // Your sprite exports have 10 frames, so we skip every other frame by default
+        let WALK_ANIM_FRAME_DURATION = 80; // ClassicUO: 80ms per frame
+        let RUN_ANIM_FRAME_DURATION = 80;  // ClassicUO: Same for run (just moves faster through tiles)
+        let FRAME_SKIP = 2;  // Use every 2nd frame (0, 2, 4, 6, 8) to get 5 frames from 10
+        
         const RUN_DISTANCE_THRESHOLD = 100; // Pixels from character to trigger run (UO-style)
+        
+        // Animation control functions
+        function updateAnimationMode() {
+            const mode = document.getElementById('animModeSelect').value;
+            switch(mode) {
+                case 'classic':
+                    WALK_ANIM_FRAME_DURATION = 80;
+                    RUN_ANIM_FRAME_DURATION = 80;
+                    FRAME_SKIP = 2;
+                    break;
+                case 'smooth':
+                    WALK_ANIM_FRAME_DURATION = 40;
+                    RUN_ANIM_FRAME_DURATION = 20;
+                    FRAME_SKIP = 1;
+                    break;
+                case 'fast':
+                    WALK_ANIM_FRAME_DURATION = 80;
+                    RUN_ANIM_FRAME_DURATION = 40;
+                    FRAME_SKIP = 2;
+                    break;
+                case 'custom':
+                    // Keep current slider values
+                    break;
+            }
+            // Update sliders to reflect new values
+            document.getElementById('walkFrameSlider').value = WALK_ANIM_FRAME_DURATION;
+            document.getElementById('walkFrameLabel').textContent = WALK_ANIM_FRAME_DURATION;
+            document.getElementById('runFrameSlider').value = RUN_ANIM_FRAME_DURATION;
+            document.getElementById('runFrameLabel').textContent = RUN_ANIM_FRAME_DURATION;
+            document.getElementById('frameSkipSelect').value = FRAME_SKIP;
+            console.log(`Animation mode: ${mode} - Walk: ${WALK_ANIM_FRAME_DURATION}ms, Run: ${RUN_ANIM_FRAME_DURATION}ms, Skip: ${FRAME_SKIP}`);
+        }
+        
+        function updateWalkFrameDuration() {
+            const slider = document.getElementById('walkFrameSlider');
+            WALK_ANIM_FRAME_DURATION = parseInt(slider.value);
+            document.getElementById('walkFrameLabel').textContent = WALK_ANIM_FRAME_DURATION;
+            document.getElementById('animModeSelect').value = 'custom';
+        }
+        
+        function updateRunFrameDuration() {
+            const slider = document.getElementById('runFrameSlider');
+            RUN_ANIM_FRAME_DURATION = parseInt(slider.value);
+            document.getElementById('runFrameLabel').textContent = RUN_ANIM_FRAME_DURATION;
+            document.getElementById('animModeSelect').value = 'custom';
+        }
+        
+        function updateFrameSkip() {
+            FRAME_SKIP = parseInt(document.getElementById('frameSkipSelect').value);
+            document.getElementById('animModeSelect').value = 'custom';
+            console.log(`Frame skip: ${FRAME_SKIP} (using every ${FRAME_SKIP === 1 ? 'frame' : FRAME_SKIP + 'nd frame'})`);
+        }
         
         // Get direction from screen pixel deltas (UO isometric style)
         // Character should face TOWARD the click position
@@ -7720,10 +7817,14 @@ CORNERS:
                     // Use different frame duration for walk vs run
                     const frameDuration = isRunning ? RUN_ANIM_FRAME_DURATION : WALK_ANIM_FRAME_DURATION;
                     
-                    // Calculate frame based on time, using ALL frames
-                    const frameIndex = Math.floor(animationTime / frameDuration) % frames.length;
+                    // Calculate logical frame (with frame skip to reduce 10 frames to 5)
+                    // FRAME_SKIP=2 means use frames 0, 2, 4, 6, 8 (5 total from 10)
+                    // FRAME_SKIP=1 means use all frames
+                    const effectiveFrameCount = Math.ceil(frames.length / FRAME_SKIP);
+                    const logicalFrame = Math.floor(animationTime / frameDuration) % effectiveFrameCount;
+                    const actualFrameIndex = Math.min(logicalFrame * FRAME_SKIP, frames.length - 1);
                     
-                    playerCharacter.sprite = frames[frameIndex];
+                    playerCharacter.sprite = frames[actualFrameIndex];
                 }
             }
         }
