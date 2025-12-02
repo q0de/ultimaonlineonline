@@ -497,9 +497,12 @@ export class WebGLTerrainRenderer {
                 h = placeholderSize;
             }
             
-            // Position: center horizontally, align bottom to tile
-            const screenX = isoX - w / 2;
-            const screenY = isoY - zOffset - h;
+            // Position using ClassicUO formula for static sprites:
+            // UO sprites are designed to align to 44x44 tile center (at pixel 22,44)
+            // screenX = posX - (spriteWidth/2 - 22) = posX - spriteWidth/2 + 22
+            // screenY = posY - (spriteHeight - 44) = posY - spriteHeight + 44
+            const screenX = isoX - w / 2 + 22;
+            const screenY = isoY - zOffset - h + 44;
             
             // Skip if outside canvas bounds
             const margin = Math.max(w, h);
@@ -925,9 +928,13 @@ export class WebGLTerrainRenderer {
                 h = 12 * zoom;
             }
             
-            // Position: center horizontally, align bottom to tile
-            const screenX = isoX - w / 2;
-            const screenY = isoY - zOffset - h;
+            // Position using ClassicUO formula for static sprites:
+            // UO sprites are designed to align to 44x44 tile center (at pixel 22,44)
+            // screenX = posX - (spriteWidth/2 - 22) = posX - spriteWidth/2 + 22
+            // screenY = posY - (spriteHeight - 44) = posY - spriteHeight + 44
+            // Note: offsets scaled by zoom for camera view
+            const screenX = isoX - w / 2 + 22 * zoom;
+            const screenY = isoY - zOffset - h + 44 * zoom;
             
             // Skip if completely outside viewport
             const margin = Math.max(w, h);
@@ -987,13 +994,21 @@ export class WebGLTerrainRenderer {
         
         // Get sprite dimensions (handle both canvas and Image)
         const sprite = character.sprite;
-        const spriteW = sprite.width || sprite.naturalWidth || 64;
-        const spriteH = sprite.height || sprite.naturalHeight || 64;
+        // Canvas elements have width/height, Images have naturalWidth/naturalHeight
+        let spriteW = sprite.width || sprite.naturalWidth;
+        let spriteH = sprite.height || sprite.naturalHeight;
+        
+        // Fallback for canvas elements that might not report dimensions correctly
+        if (!spriteW || !spriteH || spriteW === 0 || spriteH === 0) {
+            spriteW = 64;
+            spriteH = 64;
+            console.warn('[WebGLRenderer] Sprite dimensions not available, using defaults 64x64');
+        }
         
         // In camera follow mode, character is always centered on screen
-        // The viewport is set in renderWithCameraFollow
-        const viewWidth = this.viewportWidth || 800;
-        const viewHeight = this.viewportHeight || 600;
+        // Use actual canvas dimensions as fallback
+        const viewWidth = this.viewportWidth || this.canvas.width || 800;
+        const viewHeight = this.viewportHeight || this.canvas.height || 600;
         
         // Character goes in the center of the screen
         const w = spriteW * zoom;
