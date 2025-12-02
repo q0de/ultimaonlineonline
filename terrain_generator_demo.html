@@ -7278,6 +7278,7 @@ CORNERS:
         let movementStartX = 0;  // Starting position for current tile movement
         let movementStartY = 0;
         let animationFrame = 0;
+        let animationTime = 0;   // Time-based animation tracking (ms)
         let lastFrameTime = performance.now();
         let gameLoopRunning = false;
         
@@ -7627,6 +7628,7 @@ CORNERS:
                 nextTileY = null;
                 movementProgress = 0;
                 animationFrame = 0; // Reset animation for next step
+                animationTime = 0;  // Reset time-based animation
                 
                 // Check if we've reached the final target
                 if (targetTileX !== null && targetTileY !== null) {
@@ -7645,14 +7647,19 @@ CORNERS:
                 playerCharacter.x = movementStartX + (nextTileX - movementStartX) * movementProgress;
                 playerCharacter.y = movementStartY + (nextTileY - movementStartY) * movementProgress;
                 
-                // Update animation frame (tied to movement progress, not time)
-                // UO plays animation frames as you move through the tile
+                // Update animation frame (TIME-BASED - UO authentic 80ms per frame)
+                // ClassicUO: CHARACTER_ANIMATION_DELAY = 80, MAX_STEP_COUNT = 5
+                const UO_FRAME_DELAY = 80;  // ms per frame (authentic UO timing)
+                const UO_FRAMES_PER_CYCLE = 5;  // frames per walk/run cycle (MAX_STEP_COUNT)
+                
+                animationTime += deltaTime;
                 const dirSprites = characterSprites[playerCharacter.direction];
                 const frames = isRunning ? (dirSprites?.run || dirSprites?.walk || []) : (dirSprites?.walk || []);
                 
                 if (frames.length > 0) {
-                    // Map movement progress to animation frame
-                    const frameIndex = Math.floor(movementProgress * frames.length) % frames.length;
+                    // Time-based frame index at 80ms per frame, cycling through first 5 frames
+                    // This matches authentic UO animation timing
+                    const frameIndex = Math.floor(animationTime / UO_FRAME_DELAY) % Math.min(UO_FRAMES_PER_CYCLE, frames.length);
                     playerCharacter.sprite = frames[frameIndex];
                 }
             }
@@ -7742,10 +7749,6 @@ CORNERS:
             const pixelDy = mouseY - charScreenY;
             const pixelDistance = Math.sqrt(pixelDx * pixelDx + pixelDy * pixelDy);
             
-            // UO behavior: pixel distance determines walk vs run
-            // < 100 pixels = walk, >= 100 pixels = run
-            isRunning = pixelDistance >= RUN_DISTANCE_THRESHOLD;
-            
             // Calculate tile distance for movement threshold
             const dx = tile.x - playerCharacter.x;
             const dy = tile.y - playerCharacter.y;
@@ -7759,11 +7762,15 @@ CORNERS:
             
             // Movement threshold: Only move if click is far enough away
             // In UO, clicking very close just turns you, doesn't make you walk
-            // Pixel threshold of ~40px = about 1 tile at normal zoom
             const MOVE_PIXEL_THRESHOLD = 40;  // Pixels from character before moving
             const MOVE_TILE_THRESHOLD = 0.8;  // Tile distance before moving
+            const RUN_TILE_THRESHOLD = 2.5;   // Tiles away to trigger running (zoom-independent)
             
             if (pixelDistance > MOVE_PIXEL_THRESHOLD && tileDistance > MOVE_TILE_THRESHOLD) {
+                // Set walk/run based on TILE distance (consistent across zoom levels)
+                // Close = walk, far = run (UO-authentic behavior)
+                isRunning = tileDistance >= RUN_TILE_THRESHOLD;
+                
                 targetTileX = tile.x;
                 targetTileY = tile.y;
                 isMoving = true;
@@ -7771,8 +7778,10 @@ CORNERS:
             } else if (tileDistance <= MOVE_TILE_THRESHOLD) {
                 // Close click - just turn, don't move
                 isMoving = false;
+                isRunning = false;  // Not moving = not running
                 targetTileX = null;
                 targetTileY = null;
+                animationTime = 0;  // Reset animation
                 
                 // Update sprite to idle in the new direction
                 const dirSprites = characterSprites[playerCharacter.direction];
