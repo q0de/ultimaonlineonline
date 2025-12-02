@@ -7131,17 +7131,18 @@ CORNERS:
             console.log('[Character] Loading character sprites with walk animations...');
             
             // Sprite folder direction fix: The exported sprites are offset by one direction
-            // Each folder contains sprites facing one direction counter-clockwise from the folder name
-            // To get the correct sprite, we load from one direction clockwise
+            // Each folder contains sprites facing one direction CLOCKWISE from the folder name
+            // e.g., 's' folder actually has 'sw' sprites, 'se' folder has 's' sprites
+            // To get the correct sprite, we load from one direction COUNTER-CLOCKWISE
             const spriteFolderFix = {
-                'n': 'ne',   // Want N sprites? Load from NE folder
-                'ne': 'e',
-                'e': 'se',
-                'se': 's',
-                's': 'sw',
-                'sw': 'w',
-                'w': 'nw',
-                'nw': 'n'
+                'n': 'nw',   // Want N sprites? Load from NW folder (which has N sprites)
+                'ne': 'n',
+                'e': 'ne',
+                'se': 'e',
+                's': 'se',
+                'sw': 's',
+                'w': 'sw',
+                'nw': 'w'
             };
             
             for (const dir of Object.keys(DIRECTIONS)) {
