@@ -118,10 +118,13 @@ export class WebGLTerrainRenderer {
         this.cameraX = 0;  // Camera center in tile coordinates
         this.cameraY = 0;
         this.zoom = 1.0;
-        this.viewportWidth = 800;  // Fixed viewport size
-        this.viewportHeight = 600;
         
-        console.log('WebGL Terrain Renderer initialized (ClassicUO-style)');
+        // Get viewport size from canvas parent container
+        const container = canvas.parentElement;
+        this.viewportWidth = container ? container.clientWidth : 1200;
+        this.viewportHeight = container ? container.clientHeight : 800;
+        
+        console.log(`WebGL Terrain Renderer initialized (ClassicUO-style), viewport: ${this.viewportWidth}x${this.viewportHeight}`);
     }
     
     compileShader(type, source) {
@@ -206,10 +209,11 @@ export class WebGLTerrainRenderer {
                 const y = row - x;
                 if (y < 0 || y >= mapHeight) continue;
                 
-                const zTop = cornerHeights[y][x] || 0;
-                const zRight = cornerHeights[y][x + 1] || 0;
-                const zLeft = cornerHeights[y + 1][x] || 0;
-                const zBottom = cornerHeights[y + 1][x + 1] || 0;
+                // Safe corner height access with bounds checking
+                const zTop = (cornerHeights[y] && cornerHeights[y][x]) || 0;
+                const zRight = (cornerHeights[y] && cornerHeights[y][x + 1]) || 0;
+                const zLeft = (cornerHeights[y + 1] && cornerHeights[y + 1][x]) || 0;
+                const zBottom = (cornerHeights[y + 1] && cornerHeights[y + 1][x + 1]) || 0;
                 
                 const maxZ = Math.max(zTop, zRight, zLeft, zBottom);
                 const yOffsetMax = maxZ * this.pixelsPerZ;
@@ -288,10 +292,11 @@ export class WebGLTerrainRenderer {
                 //   TL = corner[y][x]      TR = corner[y][x+1]
                 //   BL = corner[y+1][x]    BR = corner[y+1][x+1]
                 // UO diamond: TOP=TL, RIGHT=TR, BOTTOM=BR, LEFT=BL
-                const zTop = cornerHeights[y][x] || 0;        // TL corner -> TOP vertex
-                const zRight = cornerHeights[y][x + 1] || 0;  // TR corner -> RIGHT vertex
-                const zLeft = cornerHeights[y + 1][x] || 0;   // BL corner -> LEFT vertex
-                const zBottom = cornerHeights[y + 1][x + 1] || 0; // BR corner -> BOTTOM vertex
+                // Safe bounds checking added for camera follow mode
+                const zTop = (cornerHeights[y] && cornerHeights[y][x]) || 0;        // TL corner -> TOP vertex
+                const zRight = (cornerHeights[y] && cornerHeights[y][x + 1]) || 0;  // TR corner -> RIGHT vertex
+                const zLeft = (cornerHeights[y + 1] && cornerHeights[y + 1][x]) || 0;   // BL corner -> LEFT vertex
+                const zBottom = (cornerHeights[y + 1] && cornerHeights[y + 1][x + 1]) || 0; // BR corner -> BOTTOM vertex
                 
                 // Calculate Y offsets (ClassicUO: Z << 2 = Z * 4)
                 const yOffsetTop = zTop * this.pixelsPerZ;
@@ -730,13 +735,28 @@ export class WebGLTerrainRenderer {
         
         const spacing = 22;
         
-        // Fixed viewport size (what the user sees)
+        // Update viewport to match container (in case it was resized)
+        const container = this.canvas.parentElement;
+        if (container) {
+            this.viewportWidth = container.clientWidth || 1200;
+            this.viewportHeight = container.clientHeight || 800;
+        }
+        
         const viewWidth = this.viewportWidth;
         const viewHeight = this.viewportHeight;
         
-        // Set canvas to viewport size
-        this.canvas.width = viewWidth;
-        this.canvas.height = viewHeight;
+        // Reset any CSS transforms (camera follow mode uses native canvas size)
+        this.canvas.style.transform = '';
+        this.canvas.style.transformOrigin = '';
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.left = '0';
+        this.canvas.style.top = '0';
+        
+        // Only resize canvas if size changed (resizing clears the canvas and causes flicker)
+        if (this.canvas.width !== viewWidth || this.canvas.height !== viewHeight) {
+            this.canvas.width = viewWidth;
+            this.canvas.height = viewHeight;
+        }
         gl.viewport(0, 0, viewWidth, viewHeight);
         
         // Calculate where the camera target would be in isometric space
@@ -778,10 +798,11 @@ export class WebGLTerrainRenderer {
                 const tile = map[y][x];
                 const tileId = tile.id;
                 
-                const zTop = cornerHeights[y][x] || 0;
-                const zRight = cornerHeights[y][x + 1] || 0;
-                const zLeft = cornerHeights[y + 1][x] || 0;
-                const zBottom = cornerHeights[y + 1][x + 1] || 0;
+                // Safe corner height access with bounds checking
+                const zTop = (cornerHeights[y] && cornerHeights[y][x]) || 0;
+                const zRight = (cornerHeights[y] && cornerHeights[y][x + 1]) || 0;
+                const zLeft = (cornerHeights[y + 1] && cornerHeights[y + 1][x]) || 0;
+                const zBottom = (cornerHeights[y + 1] && cornerHeights[y + 1][x + 1]) || 0;
                 
                 const yOffsetTop = zTop * this.pixelsPerZ;
                 const yOffsetRight = zRight * this.pixelsPerZ;
@@ -982,28 +1003,44 @@ export class WebGLTerrainRenderer {
      * Render character with camera offset and zoom
      */
     renderCharacterWithCamera(character, sprites) {
-        if (!character || !character.sprite) return;
+        console.log('[WebGLRenderer] renderCharacterWithCamera called', {
+            hasCharacter: !!character,
+            hasSprite: !!(character && character.sprite),
+            spriteType: character?.sprite?.constructor?.name
+        });
+        if (!character || !character.sprite) {
+            console.warn('[WebGLRenderer] No character or sprite to render');
+            return;
+        }
         
         const gl = this.gl;
         const zoom = this.currentZoom || 1.0;
-        const spacing = 22;
         
         const charX = character.x;
         const charY = character.y;
         const charZ = character.z || 0;
         
-        // Get sprite dimensions (handle both canvas and Image)
-        const sprite = character.sprite;
-        // Canvas elements have width/height, Images have naturalWidth/naturalHeight
-        let spriteW = sprite.width || sprite.naturalWidth;
-        let spriteH = sprite.height || sprite.naturalHeight;
+        // Get sprite - handle both direct canvas and sprite objects
+        let sprite = character.sprite;
         
-        // Fallback for canvas elements that might not report dimensions correctly
-        if (!spriteW || !spriteH || spriteW === 0 || spriteH === 0) {
-            spriteW = 64;
-            spriteH = 64;
-            console.warn('[WebGLRenderer] Sprite dimensions not available, using defaults 64x64');
+        // If sprite is an object with idle/walk/run, extract the canvas
+        if (sprite && typeof sprite === 'object' && !sprite.getContext && sprite.idle) {
+            sprite = sprite.idle;
         }
+        
+        if (!sprite || typeof sprite.getContext !== 'function') {
+            console.warn('[WebGLRenderer] Invalid sprite - not a canvas element');
+            return;
+        }
+        
+        // Get sprite dimensions from canvas - use defaults if not available
+        // Canvas elements store dimensions, Images use naturalWidth/naturalHeight
+        let spriteW = sprite.width || sprite.naturalWidth || 64;
+        let spriteH = sprite.height || sprite.naturalHeight || 64;
+        
+        // Final safety check for any NaN or zero values
+        if (!Number.isFinite(spriteW) || spriteW <= 0) spriteW = 64;
+        if (!Number.isFinite(spriteH) || spriteH <= 0) spriteH = 64;
         
         // In camera follow mode, character is always centered on screen
         // Use actual canvas dimensions as fallback

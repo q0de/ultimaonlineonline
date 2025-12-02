@@ -104,7 +104,7 @@
             width: 100%;
             height: 100%;
             border: none;
-            overflow: auto;
+            overflow: hidden;
             cursor: grab;
             background: #000;
         }
@@ -661,7 +661,7 @@
                             <span class="cb-label">Show Tile IDs</span>
                         </label>
                         <label class="checkbox-item" style="background: linear-gradient(135deg, #3a1a2e, #1a1a2e);">
-                            <input type="checkbox" id="enable3DHeight">
+                            <input type="checkbox" id="enable3DHeight" checked>
                             <span class="cb-icon">🏔️</span>
                             <span class="cb-label">3D Height</span>
                         </label>
@@ -1785,7 +1785,7 @@
         let terrainBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
         
         // Camera Follow state
-        let cameraZoom = 1.5;  // Start zoomed in (1.5x)
+        let cameraZoom = 0.7;  // Start zoomed out for wider view (classic UO style)
         const MIN_ZOOM = 0.5;
         const MAX_ZOOM = 3.0;
         const ZOOM_STEP = 0.1;
@@ -2027,6 +2027,14 @@
                 if (typeof initNeighborTester === 'function') {
                     initNeighborTester();
                 }
+                
+                // Auto-generate procedural map on page load
+                console.log('[AutoGen] Auto-generating procedural map...');
+                setTimeout(() => {
+                    if (typeof testProceduralStatics === 'function') {
+                        testProceduralStatics();
+                    }
+                }, 100);
             } catch (error) {
                 const errorMsg = `[ERROR] ${error.message}. Check browser console (F12) for details.`;
                 document.getElementById('status').textContent = errorMsg;
@@ -2050,6 +2058,14 @@
                     if (typeof initNeighborTester === 'function') {
                         initNeighborTester();
                     }
+                    
+                    // Auto-generate procedural map on page load (fallback path)
+                    console.log('[AutoGen] Auto-generating procedural map (fallback path)...');
+                    setTimeout(() => {
+                        if (typeof testProceduralStatics === 'function') {
+                            testProceduralStatics();
+                        }
+                    }, 100);
                 } catch (e) {
                     console.error('Alternative path also failed:', e);
                 }
@@ -2225,7 +2241,7 @@
                 webglCanvas = document.createElement('canvas');
                 webglCanvas.id = 'webgl-canvas';
                 webglCanvas.style.display = 'block';
-                webglCanvas.style.border = '2px solid #4CAF50';
+                webglCanvas.style.border = 'none';
                 webglCanvas.style.background = '#1a1a2e';
                 
                 // Hide original canvas, show WebGL canvas
@@ -7183,43 +7199,49 @@ CORNERS:
             const mapHeight = currentMap.length;
             const mapWidth = currentMap[0].length;
             
-            // Find a walkable spawn point (not water, with walkable neighbors)
+            // Find a walkable spawn point using the proper isTileWalkable function
             let spawnX = Math.floor(mapWidth / 2);
             let spawnY = Math.floor(mapHeight / 2);
             let spawnZ = 0;
+            let foundSpawn = false;
             
-            // Search for a good spawn point
-            for (let radius = 0; radius < Math.max(mapWidth, mapHeight) / 2; radius++) {
-                for (let dy = -radius; dy <= radius; dy++) {
-                    for (let dx = -radius; dx <= radius; dx++) {
-                        const tx = spawnX + dx;
-                        const ty = spawnY + dy;
-                        if (tx >= 0 && tx < mapWidth && ty >= 0 && ty < mapHeight) {
-                            const tile = currentMap[ty][tx];
-                            if (tile && !tile.isWater && tile.biome !== 'water' && tile.biome !== 'deep_water') {
-                                // Check neighbors
-                                let walkableNeighbors = 0;
-                                for (const {dx: ndx, dy: ndy} of Object.values(DIRECTIONS)) {
-                                    const nx = tx + ndx, ny = ty + ndy;
-                                    if (nx >= 0 && nx < mapWidth && ny >= 0 && ny < mapHeight) {
-                                        const nTile = currentMap[ny][nx];
-                                        if (nTile && !nTile.isWater && nTile.biome !== 'water') {
-                                            walkableNeighbors++;
-                                        }
-                                    }
+            // Search in expanding circles from center for a walkable spawn point
+            for (let radius = 0; radius < Math.max(mapWidth, mapHeight) / 2 && !foundSpawn; radius++) {
+                for (let dy = -radius; dy <= radius && !foundSpawn; dy++) {
+                    for (let dx = -radius; dx <= radius && !foundSpawn; dx++) {
+                        // Only check perimeter of the circle (optimization)
+                        if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+                        
+                        const tx = Math.floor(mapWidth / 2) + dx;
+                        const ty = Math.floor(mapHeight / 2) + dy;
+                        
+                        // Use the proper walkability check
+                        if (isTileWalkable(tx, ty)) {
+                            // Also check that we have walkable neighbors (not spawning on a single walkable tile)
+                            let walkableNeighbors = 0;
+                            for (const {dx: ndx, dy: ndy} of Object.values(DIRECTIONS)) {
+                                if (isTileWalkable(tx + ndx, ty + ndy)) {
+                                    walkableNeighbors++;
                                 }
-                                if (walkableNeighbors >= 3) {
-                                    spawnX = tx;
-                                    spawnY = ty;
-                                    spawnZ = tile.z || 0;
-                                    radius = Infinity; // Exit search
-                                    break;
-                                }
+                            }
+                            
+                            if (walkableNeighbors >= 3) {
+                                const tile = currentMap[ty]?.[tx];
+                                spawnX = tx;
+                                spawnY = ty;
+                                spawnZ = tile?.z || 0;
+                                foundSpawn = true;
+                                console.log(`[Spawn] Found walkable spawn at (${tx}, ${ty}) with ${walkableNeighbors} walkable neighbors`);
                             }
                         }
                     }
-                    if (radius === Infinity) break;
                 }
+            }
+            
+            if (!foundSpawn) {
+                console.warn('[Spawn] Could not find ideal spawn point, using map center');
+                const centerTile = currentMap[spawnY]?.[spawnX];
+                spawnZ = centerTile?.z || 0;
             }
             
             // Create character using the PvP Character class!
@@ -7230,6 +7252,8 @@ CORNERS:
             playerCharacter.sprite = characterSprites['s']?.idle || characterSprites['s'];
             
             console.log(`[Character] Spawned at (${spawnX}, ${spawnY}, z=${spawnZ})`);
+            console.log(`[Character] Sprite assigned:`, playerCharacter.sprite);
+            console.log(`[Character] characterSprites['s']:`, characterSprites['s']);
             document.getElementById('status').textContent = `🧙 Character spawned! WASD/Arrows to move, Shift=run, Mouse wheel=zoom, Right-click+drag=move`;
             
             // Start game loop for smooth movement
@@ -7267,36 +7291,51 @@ CORNERS:
         const RUN_FRAMES = 10;         // Number of run animation frames (from exports)
         const RUN_DISTANCE_THRESHOLD = 100; // Pixels from character to trigger run (UO-style)
         
-        // Get direction from angle (PvP style - uses atan2)
-        function getDirectionFromAngle(dx, dy) {
-            const angle = Math.atan2(dy, dx);
-            const normalizedAngle = (angle + Math.PI * 2) % (Math.PI * 2);
+        // Get direction from screen pixel deltas (UO isometric style)
+        // Character should face TOWARD the click position
+        // In UO isometric: North is UP-RIGHT, East is DOWN-RIGHT, South is DOWN-LEFT, West is UP-LEFT
+        function getDirectionFromScreenPixels(screenDx, screenDy) {
+            // Calculate angle toward the click (0° = right, 90° = down, 180° = left, 270° = up)
+            const angle = Math.atan2(screenDy, screenDx);
+            const degrees = ((angle * 180 / Math.PI) + 360) % 360;
             
-            // Map angle to 8 UO directions
-            if (normalizedAngle >= 0 && normalizedAngle < Math.PI / 8) return 'e';
-            if (normalizedAngle >= Math.PI / 8 && normalizedAngle < 3 * Math.PI / 8) return 'se';
-            if (normalizedAngle >= 3 * Math.PI / 8 && normalizedAngle < 5 * Math.PI / 8) return 's';
-            if (normalizedAngle >= 5 * Math.PI / 8 && normalizedAngle < 7 * Math.PI / 8) return 'sw';
-            if (normalizedAngle >= 7 * Math.PI / 8 && normalizedAngle < 9 * Math.PI / 8) return 'w';
-            if (normalizedAngle >= 9 * Math.PI / 8 && normalizedAngle < 11 * Math.PI / 8) return 'nw';
-            if (normalizedAngle >= 11 * Math.PI / 8 && normalizedAngle < 13 * Math.PI / 8) return 'n';
-            return 'ne';
+            // UO isometric direction mapping
+            // Screen direction → Game direction:
+            // - Right (0°) → character walks toward screen-right, which is EAST in UO
+            // - Down-right (45°) → Southeast
+            // - Down (90°) → South (down-left visually in UO iso)
+            // - Down-left (135°) → Southwest
+            // - Left (180°) → West
+            // - Up-left (225°) → Northwest  
+            // - Up (270°) → North (up-right visually in UO iso)
+            // - Up-right (315°) → Northeast
+            if (degrees >= 337.5 || degrees < 22.5) return 'e';    // Click right → East
+            if (degrees >= 22.5 && degrees < 67.5) return 'se';    // Click down-right → SE
+            if (degrees >= 67.5 && degrees < 112.5) return 's';    // Click down → South
+            if (degrees >= 112.5 && degrees < 157.5) return 'sw';  // Click down-left → SW
+            if (degrees >= 157.5 && degrees < 202.5) return 'w';   // Click left → West
+            if (degrees >= 202.5 && degrees < 247.5) return 'nw';  // Click up-left → NW
+            if (degrees >= 247.5 && degrees < 292.5) return 'n';   // Click up → North
+            if (degrees >= 292.5 && degrees < 337.5) return 'ne';  // Click up-right → NE
+            return 's'; // Default
         }
         
-        // Get direction from discrete dx/dy (for keyboard)
+        // Get direction from tile deltas (used for keyboard discrete movement)
+        function getDirectionFromTileDelta(tileDx, tileDy) {
+            // Convert tile delta to approximate screen direction for consistent behavior
+            // In UO: +X tile = SE screen, +Y tile = SW screen
+            const screenDx = tileDx - tileDy;  // Maps to screen X direction
+            const screenDy = tileDx + tileDy;  // Maps to screen Y direction
+            return getDirectionFromScreenPixels(screenDx, screenDy);
+        }
+        
+        // Get direction from discrete dx/dy (for keyboard) - uses tile delta conversion
         function getDirectionFromDelta(dx, dy) {
-            if (dx === 0 && dy < 0) return 'n';
-            if (dx > 0 && dy < 0) return 'ne';
-            if (dx > 0 && dy === 0) return 'e';
-            if (dx > 0 && dy > 0) return 'se';
-            if (dx === 0 && dy > 0) return 's';
-            if (dx < 0 && dy > 0) return 'sw';
-            if (dx < 0 && dy === 0) return 'w';
-            if (dx < 0 && dy < 0) return 'nw';
-            return 's';
+            return getDirectionFromTileDelta(dx, dy);
         }
         
         // Check if a tile is walkable
+        let walkDebugCount = 0;
         function isTileWalkable(x, y) {
             if (!currentMap) return false;
             if (x < 0 || x >= currentMap[0].length || y < 0 || y >= currentMap.length) return false;
@@ -7314,51 +7353,51 @@ CORNERS:
                     // Check Impassible flag (handle both number 1 and string "1")
                     const isImpassible = landData.Impassible === 1 || landData.Impassible === '1';
                     if (isImpassible) {
-                        return false; // Tile is marked impassable
+                        if (walkDebugCount++ < 3) console.log(`[Walk] Blocked: Impassible tile ${tileId} at (${tileX},${tileY})`);
+                        return false;
                     }
                     
                     // Check Wet flag for water tiles (UO uses both Impassible and Wet for water)
                     const isWet = landData.Wet === 1 || landData.Wet === '1';
                     if (isWet) {
-                        return false; // Water/liquid tile
+                        if (walkDebugCount++ < 3) console.log(`[Walk] Blocked: Wet tile ${tileId} at (${tileX},${tileY})`);
+                        return false;
                     }
                 }
             }
             
             // Also check biome-based water (for procedurally generated maps)
             if (tile.isWater || tile.biome === 'water' || tile.biome === 'deep_water') {
+                if (walkDebugCount++ < 3) console.log(`[Walk] Blocked: Water biome at (${tileX},${tileY})`);
                 return false;
             }
             
-            // Check static objects blocking movement
+            // TEMPORARILY DISABLE static blocking for testing movement
+            // TODO: Re-enable with proper impassable static detection
+            /*
             if (currentStatics && currentStatics.length > 0) {
                 const blockingStatics = currentStatics.filter(s => {
-                    // Statics have relX/relY (region-relative coordinates, same as map array indices)
-                    // or worldX/worldY (world coordinates that need conversion)
                     let staticX, staticY;
                     if (s.relX !== undefined && s.relY !== undefined) {
-                        // Region-relative coordinates (already match map array indices)
                         staticX = Math.floor(s.relX);
                         staticY = Math.floor(s.relY);
                     } else if (s.x !== undefined && s.y !== undefined) {
-                        // Direct x/y coordinates (assume region-relative)
                         staticX = Math.floor(s.x);
                         staticY = Math.floor(s.y);
                     } else {
-                        // Skip if we can't determine position
                         return false;
                     }
                     return staticX === tileX && staticY === tileY;
                 });
                 
-                // Check if any static blocks movement (trees, rocks, buildings)
-                // For now, assume all statics block movement (can be refined later)
                 if (blockingStatics.length > 0) {
+                    if (walkDebugCount++ < 3) console.log(`[Walk] Blocked: Static at (${tileX},${tileY})`);
                     return false;
                 }
             }
+            */
             
-            // Check Z-height difference (can't walk up/down cliffs)
+            // Check Z-height difference (can't walk up/down cliffs) - be more lenient
             if (playerCharacter) {
                 const currentTileX = Math.floor(playerCharacter.x);
                 const currentTileY = Math.floor(playerCharacter.y);
@@ -7367,8 +7406,9 @@ CORNERS:
                 const targetZ = tile.z || 0;
                 const zDiff = Math.abs(targetZ - currentZ);
                 
-                // Can't walk up/down more than 2 Z units
-                if (zDiff > 2) {
+                // Allow more Z movement (5 units instead of 2)
+                if (zDiff > 5) {
+                    if (walkDebugCount++ < 3) console.log(`[Walk] Blocked: Z diff ${zDiff} at (${tileX},${tileY})`);
                     return false;
                 }
             }
@@ -7378,8 +7418,7 @@ CORNERS:
         
         // Render the scene with Camera Follow (character always centered)
         function renderScene() {
-            const webglCanvasEl = document.getElementById('webgl-canvas');
-            if (!webglCanvasEl || !webglRenderer || !currentCornerHeights || !currentMap) return;
+            if (!webglRenderer || !currentCornerHeights || !currentMap) return;
             
             // If character exists, use Camera Follow mode (character centered)
             if (playerCharacter) {
@@ -7393,16 +7432,97 @@ CORNERS:
                     currentMap, 
                     currentCornerHeights, 
                     cameraTarget, 
+                    null,
                     cameraZoom,
                     currentStatics.length > 0 ? currentStatics : null
                 );
                 
-                // Render character (always at center of screen)
-                webglRenderer.renderCharacterWithCamera(playerCharacter, characterSprites);
+                // Render character on 2D canvas overlay (more reliable than WebGL for debugging)
+                renderCharacterOverlay();
             } else {
                 // No character - render normally
                 webglRenderer.render(currentMap, currentCornerHeights, null, currentStatics.length > 0 ? currentStatics : null);
             }
+        }
+        
+        // Render character on 2D canvas overlay (simpler and more reliable)
+        function renderCharacterOverlay() {
+            if (!playerCharacter || !playerCharacter.sprite) return;
+            
+            let overlayCanvas = document.getElementById('character-overlay-canvas');
+            const webglCanvasEl = document.getElementById('webgl-canvas');
+            if (!webglCanvasEl) return;
+            
+            // Create overlay canvas if it doesn't exist
+            if (!overlayCanvas) {
+                overlayCanvas = document.createElement('canvas');
+                overlayCanvas.id = 'character-overlay-canvas';
+                overlayCanvas.style.position = 'absolute';
+                overlayCanvas.style.top = '0';
+                overlayCanvas.style.left = '0';
+                overlayCanvas.style.pointerEvents = 'none';
+                overlayCanvas.style.zIndex = '10';
+                webglCanvasEl.parentElement.appendChild(overlayCanvas);
+            }
+            
+            // Match WebGL canvas size
+            overlayCanvas.width = webglCanvasEl.width;
+            overlayCanvas.height = webglCanvasEl.height;
+            
+            const ctx = overlayCanvas.getContext('2d');
+            ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            
+            const sprite = playerCharacter.sprite;
+            const zoom = cameraZoom;
+            
+            // Get sprite dimensions
+            let spriteW = sprite.width || 64;
+            let spriteH = sprite.height || 64;
+            
+            // Character is always centered in camera follow mode
+            const viewWidth = overlayCanvas.width;
+            const viewHeight = overlayCanvas.height;
+            const zOffset = (playerCharacter.z || 0) * 4 * zoom; // 4 pixels per Z level
+            
+            const screenX = (viewWidth / 2) - (spriteW * zoom / 2);
+            const screenY = (viewHeight / 2) - zOffset - (spriteH * zoom);
+            
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(sprite, screenX, screenY, spriteW * zoom, spriteH * zoom);
+            
+            // Debug: Draw red dot at character center
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(viewWidth / 2, viewHeight / 2 - zOffset, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Debug: Draw direction arrow from character (UO isometric directions)
+            // In UO isometric: N=up-right, E=down-right, S=down-left, W=up-left
+            const dirArrows = {
+                'n': [21, -21],   // North = up-right on screen
+                'ne': [30, 0],   // Northeast = right on screen
+                'e': [21, 21],   // East = down-right on screen
+                'se': [0, 30],   // Southeast = down on screen
+                's': [-21, 21],  // South = down-left on screen
+                'sw': [-30, 0],  // Southwest = left on screen
+                'w': [-21, -21], // West = up-left on screen
+                'nw': [0, -30]   // Northwest = up on screen
+            };
+            const arrow = dirArrows[playerCharacter.direction] || [0, 0];
+            ctx.strokeStyle = 'lime';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(viewWidth / 2, viewHeight / 2 - zOffset);
+            ctx.lineTo(viewWidth / 2 + arrow[0], viewHeight / 2 - zOffset + arrow[1]);
+            ctx.stroke();
+            
+            // Debug: Draw character position text
+            ctx.fillStyle = 'yellow';
+            ctx.font = '14px monospace';
+            ctx.fillText(`Pos: (${playerCharacter.x.toFixed(1)}, ${playerCharacter.y.toFixed(1)}, z=${playerCharacter.z || 0})`, 10, 20);
+            ctx.fillText(`Dir: ${playerCharacter.direction} | Running: ${isRunning}`, 10, 40);
+            ctx.fillText(`Target: (${targetTileX?.toFixed(1) || 'none'}, ${targetTileY?.toFixed(1) || 'none'})`, 10, 60);
+            ctx.fillText(`Target: (${targetTileX ?? 'none'}, ${targetTileY ?? 'none'}) | Moving: ${isMoving}`, 10, 50);
         }
         
         // UO-authentic discrete tile-to-tile movement update (called every frame)
@@ -7472,8 +7592,19 @@ CORNERS:
                 movementStartY = Math.round(playerCharacter.y);
                 movementProgress = 0;
                 
-                // Set direction (UO-style)
-                playerCharacter.direction = getDirectionFromDelta(nextTileX - movementStartX, nextTileY - movementStartY);
+                // Set direction based on input type
+                if (rightMouseHeld && lastMouseX !== undefined && lastMouseY !== undefined) {
+                    // Mouse movement: use screen pixel direction (UO-authentic PvP style)
+                    const webglCanvasEl = document.getElementById('webgl-canvas');
+                    const charScreenX = (webglCanvasEl?.width || 800) / 2;
+                    const charScreenY = (webglCanvasEl?.height || 600) / 2;
+                    const pixelDx = lastMouseX - charScreenX;
+                    const pixelDy = lastMouseY - charScreenY;
+                    playerCharacter.direction = getDirectionFromScreenPixels(pixelDx, pixelDy);
+                } else {
+                    // Keyboard/click movement: use tile delta direction
+                    playerCharacter.direction = getDirectionFromDelta(nextTileX - movementStartX, nextTileY - movementStartY);
+                }
                 isMoving = true;
             }
             
@@ -7541,8 +7672,11 @@ CORNERS:
             }
             
             // Update character movement
-            if (playerCharacter && (targetTileX !== null || isMoving)) {
-                updateCharacterMovement(deltaTime);
+            if (playerCharacter) {
+                if (targetTileX !== null || isMoving) {
+                    updateCharacterMovement(deltaTime);
+                }
+                // ALWAYS render when character exists (camera follow mode)
                 renderScene();
             }
             
@@ -7622,6 +7756,10 @@ CORNERS:
                 targetTileX = tile.x;
                 targetTileY = tile.y;
                 isMoving = true;
+                
+                // Set direction based on SCREEN pixel delta (UO-authentic visual direction)
+                playerCharacter.direction = getDirectionFromScreenPixels(pixelDx, pixelDy);
+                
                 startGameLoop();
             }
         }
@@ -7657,54 +7795,64 @@ CORNERS:
             // We need to calculate what tile the click position corresponds to
             
             // Get the center of the viewport (where the character is)
-            const viewWidth = webglRenderer.viewportWidth || 800;
-            const viewHeight = webglRenderer.viewportHeight || 600;
+            const webglCanvas = document.getElementById('webgl-canvas');
+            const viewWidth = webglCanvas?.width || 800;
+            const viewHeight = webglCanvas?.height || 600;
             const centerX = viewWidth / 2;
             const centerY = viewHeight / 2;
             
-            // Calculate offset from center (in pixels)
+            // Calculate offset from center (in pixels, accounting for zoom)
             const deltaX = (screenX - centerX) / zoom;
             const deltaY = (screenY - centerY) / zoom;
             
             // Convert pixel offset to tile offset using inverse isometric
-            // In isometric: 
-            //   pixelX = (tileX - tileY) * spacing
-            //   pixelY = (tileX + tileY) * spacing
-            // Inverse:
-            //   tileX = (pixelX/spacing + pixelY/spacing) / 2
-            //   tileY = (pixelY/spacing - pixelX/spacing) / 2
+            // The rendering formula is:
+            //   screenX = (tileX - tileY) * spacing * zoom + offset
+            //   screenY = (tileX + tileY) * spacing * zoom + offset
+            // Inverse (for delta from center):
+            //   tileOffsetX = (deltaX + deltaY) / (2 * spacing)
+            //   tileOffsetY = (deltaY - deltaX) / (2 * spacing)
             
-            const tileOffsetX = (deltaX / spacing + deltaY / spacing) / 2;
-            const tileOffsetY = (deltaY / spacing - deltaX / spacing) / 2;
+            const tileOffsetX = (deltaX + deltaY) / (2 * spacing);
+            const tileOffsetY = (deltaY - deltaX) / (2 * spacing);
             
             // Add to character position
             const tileX = Math.round(playerCharacter.x + tileOffsetX);
             const tileY = Math.round(playerCharacter.y + tileOffsetY);
             
+            // Debug logging (remove after fixing)
+            console.log(`[screenToTile] Click: (${screenX.toFixed(0)}, ${screenY.toFixed(0)}), Center: (${centerX.toFixed(0)}, ${centerY.toFixed(0)}), Delta: (${deltaX.toFixed(1)}, ${deltaY.toFixed(1)}), TileOffset: (${tileOffsetX.toFixed(2)}, ${tileOffsetY.toFixed(2)}), Result: (${tileX}, ${tileY})`);
+            
             return { x: tileX, y: tileY };
         }
         
         
-        // Keyboard controls - PvP style (WASD + Arrow Keys + Shift to run)
+        // Keyboard controls - UO-style SCREEN-BASED movement
+        // In UO isometric, arrow keys move in SCREEN directions:
+        // - Up arrow = move toward top of screen (Northwest in game)
+        // - Down arrow = move toward bottom of screen (Southeast in game)
+        // - Left arrow = move toward left of screen (Southwest in game)
+        // - Right arrow = move toward right of screen (Northeast in game)
         document.addEventListener('keydown', (e) => {
             if (!playerCharacter) return;
             
             let direction = null;
             
+            // Screen-based movement (classic UO style)
             const keyMap = {
-                'ArrowUp': 'n', 'KeyW': 'n',
-                'ArrowDown': 's', 'KeyS': 's',
-                'ArrowLeft': 'w', 'KeyA': 'w',
-                'ArrowRight': 'e', 'KeyD': 'e',
+                'ArrowUp': 'nw', 'KeyW': 'nw',      // Screen up = Northwest
+                'ArrowDown': 'se', 'KeyS': 'se',    // Screen down = Southeast
+                'ArrowLeft': 'sw', 'KeyA': 'sw',    // Screen left = Southwest
+                'ArrowRight': 'ne', 'KeyD': 'ne',   // Screen right = Northeast
             };
             
             direction = keyMap[e.code];
             
-            // Diagonal support with Q/E/Z/C
-            if (e.code === 'KeyQ') direction = 'nw';
-            if (e.code === 'KeyE' && !e.shiftKey) direction = 'ne';
-            if (e.code === 'KeyZ') direction = 'sw';
-            if (e.code === 'KeyC') direction = 'se';
+            // Game-direction diagonals with Q/E/Z/C (for 8-direction movement)
+            if (e.code === 'KeyQ') direction = 'w';   // Q = West (up-left on screen)
+            if (e.code === 'KeyE' && !e.shiftKey) direction = 'n';  // E = North (up-right)
+            if (e.code === 'KeyZ') direction = 's';   // Z = South (down-left on screen)
+            if (e.code === 'KeyC') direction = 'e';   // C = East (down-right on screen)
             
             // Shift = run (PvP style)
             isRunning = e.shiftKey;
@@ -8026,11 +8174,11 @@ CORNERS:
                 webglCanvasEl = document.createElement('canvas');
                 webglCanvasEl.id = 'webgl-canvas';
                 webglCanvasEl.style.display = 'block';
-                webglCanvasEl.style.border = '2px solid #4CAF50';
+                webglCanvasEl.style.border = 'none';
                 webglCanvasEl.style.background = '#1a1a2e';
                 
                 originalCanvas.style.display = 'none';
-                canvasContainer.style.overflow = 'auto';
+                canvasContainer.style.overflow = 'hidden';  // Prevent scrollbar jitter
                 canvasContainer.appendChild(webglCanvasEl);
                 canvasContainer.style.maxHeight = 'none';  // Don't limit height
                 
