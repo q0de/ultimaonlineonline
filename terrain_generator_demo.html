@@ -7130,6 +7130,20 @@ CORNERS:
         async function loadAllCharacterSprites() {
             console.log('[Character] Loading character sprites with walk animations...');
             
+            // Sprite folder direction fix: The exported sprites are offset by one direction
+            // Each folder contains sprites facing one direction counter-clockwise from the folder name
+            // To get the correct sprite, we load from one direction clockwise
+            const spriteFolderFix = {
+                'n': 'ne',   // Want N sprites? Load from NE folder
+                'ne': 'e',
+                'e': 'se',
+                'se': 's',
+                's': 'sw',
+                'sw': 'w',
+                'w': 'nw',
+                'nw': 'n'
+            };
+            
             for (const dir of Object.keys(DIRECTIONS)) {
                 // Initialize sprite data structure
                 characterSprites[dir] = {
@@ -7138,25 +7152,28 @@ CORNERS:
                     run: []
                 };
                 
+                // Get the corrected folder name for this direction
+                const folderDir = spriteFolderFix[dir] || dir;
+                
                 // 1. Load idle sprite - try multiple paths
                 const idlePaths = [
-                    `assets/sprites/animations/idle-static_${dir}/Mob 400-0.bmp`,
-                    `assets/sprites/animations/idle-static_${dir}/Mob 400.bmp`,
-                    `assets/sprites/animations/walk_${dir}/Mob 400-0.bmp`,
+                    `assets/sprites/animations/idle-static_${folderDir}/Mob 400-0.bmp`,
+                    `assets/sprites/animations/idle-static_${folderDir}/Mob 400.bmp`,
+                    `assets/sprites/animations/walk_${folderDir}/Mob 400-0.bmp`,
                 ];
                 
                 for (const path of idlePaths) {
                     const sprite = await tryLoadSprite(path);
                     if (sprite) {
                         characterSprites[dir].idle = sprite;
-                        console.log(`[Character] Loaded ${dir} idle from: ${path}`);
+                        console.log(`[Character] Loaded ${dir} idle from: ${path} (folder: ${folderDir})`);
                         break;
                     }
                 }
                 
                 // 2. Load walk animation frames (Mob 400-0.bmp through Mob 400-9.bmp)
                 for (let frame = 0; frame < 10; frame++) {
-                    const path = `assets/sprites/animations/walk_${dir}/Mob 400-${frame}.bmp`;
+                    const path = `assets/sprites/animations/walk_${folderDir}/Mob 400-${frame}.bmp`;
                     const sprite = await tryLoadSprite(path);
                     if (sprite) {
                         characterSprites[dir].walk.push(sprite);
@@ -7165,7 +7182,7 @@ CORNERS:
                 
                 // 3. Load run animation frames (if available)
                 for (let frame = 0; frame < 10; frame++) {
-                    const path = `assets/sprites/animations/run_${dir}/Mob 400-${frame}.bmp`;
+                    const path = `assets/sprites/animations/run_${folderDir}/Mob 400-${frame}.bmp`;
                     const sprite = await tryLoadSprite(path);
                     if (sprite) {
                         characterSprites[dir].run.push(sprite);
