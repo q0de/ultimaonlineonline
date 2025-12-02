@@ -7647,19 +7647,16 @@ CORNERS:
                 playerCharacter.x = movementStartX + (nextTileX - movementStartX) * movementProgress;
                 playerCharacter.y = movementStartY + (nextTileY - movementStartY) * movementProgress;
                 
-                // Update animation frame (TIME-BASED - UO authentic 80ms per frame)
-                // ClassicUO: CHARACTER_ANIMATION_DELAY = 80, MAX_STEP_COUNT = 5
-                const UO_FRAME_DELAY = 80;  // ms per frame (authentic UO timing)
-                const UO_FRAMES_PER_CYCLE = 5;  // frames per walk/run cycle (MAX_STEP_COUNT)
-                
-                animationTime += deltaTime;
+                // Update animation frame (MOVEMENT-PROGRESS-BASED - UO authentic)
+                // Animation frame corresponds to how far through the tile you've moved
+                // This makes animation sync perfectly with movement speed (walk vs run)
                 const dirSprites = characterSprites[playerCharacter.direction];
                 const frames = isRunning ? (dirSprites?.run || dirSprites?.walk || []) : (dirSprites?.walk || []);
                 
                 if (frames.length > 0) {
-                    // Time-based frame index at 80ms per frame, cycling through first 5 frames
-                    // This matches authentic UO animation timing
-                    const frameIndex = Math.floor(animationTime / UO_FRAME_DELAY) % Math.min(UO_FRAMES_PER_CYCLE, frames.length);
+                    // Frame index = movement progress * number of frames
+                    // Progress 0.0 = frame 0, progress 0.5 = frame 5, progress 1.0 = last frame
+                    const frameIndex = Math.min(Math.floor(movementProgress * frames.length), frames.length - 1);
                     playerCharacter.sprite = frames[frameIndex];
                 }
             }
