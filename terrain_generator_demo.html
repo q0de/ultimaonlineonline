@@ -7593,19 +7593,10 @@ CORNERS:
                 movementStartY = Math.round(playerCharacter.y);
                 movementProgress = 0;
                 
-                // Set direction based on input type
-                if (rightMouseHeld && lastMouseX !== undefined && lastMouseY !== undefined) {
-                    // Mouse movement: use screen pixel direction (UO-authentic PvP style)
-                    const webglCanvasEl = document.getElementById('webgl-canvas');
-                    const charScreenX = (webglCanvasEl?.width || 800) / 2;
-                    const charScreenY = (webglCanvasEl?.height || 600) / 2;
-                    const pixelDx = lastMouseX - charScreenX;
-                    const pixelDy = lastMouseY - charScreenY;
-                    playerCharacter.direction = getDirectionFromScreenPixels(pixelDx, pixelDy);
-                } else {
-                    // Keyboard/click movement: use tile delta direction
-                    playerCharacter.direction = getDirectionFromDelta(nextTileX - movementStartX, nextTileY - movementStartY);
-                }
+                // Set direction based on ACTUAL movement (tile delta)
+                // This ensures the character faces the direction they're actually moving
+                // regardless of whether input is mouse or keyboard
+                playerCharacter.direction = getDirectionFromDelta(nextTileX - movementStartX, nextTileY - movementStartY);
                 isMoving = true;
             }
             
