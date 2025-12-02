@@ -7751,16 +7751,37 @@ CORNERS:
             const dy = tile.y - playerCharacter.y;
             const tileDistance = Math.sqrt(dx * dx + dy * dy);
             
-            // Set target (character follows cursor)
-            if (tileDistance > 0.3) {
+            // UO-authentic: ALWAYS update direction when clicking (character turns to face)
+            // Only update direction if cursor is far enough to determine a clear direction
+            if (pixelDistance > 15) {
+                playerCharacter.direction = getDirectionFromScreenPixels(pixelDx, pixelDy);
+            }
+            
+            // Movement threshold: Only move if click is far enough away
+            // In UO, clicking very close just turns you, doesn't make you walk
+            // Pixel threshold of ~40px = about 1 tile at normal zoom
+            const MOVE_PIXEL_THRESHOLD = 40;  // Pixels from character before moving
+            const MOVE_TILE_THRESHOLD = 0.8;  // Tile distance before moving
+            
+            if (pixelDistance > MOVE_PIXEL_THRESHOLD && tileDistance > MOVE_TILE_THRESHOLD) {
                 targetTileX = tile.x;
                 targetTileY = tile.y;
                 isMoving = true;
-                
-                // Set direction based on SCREEN pixel delta (UO-authentic visual direction)
-                playerCharacter.direction = getDirectionFromScreenPixels(pixelDx, pixelDy);
-                
                 startGameLoop();
+            } else if (tileDistance <= MOVE_TILE_THRESHOLD) {
+                // Close click - just turn, don't move
+                isMoving = false;
+                targetTileX = null;
+                targetTileY = null;
+                
+                // Update sprite to idle in the new direction
+                const dirSprites = characterSprites[playerCharacter.direction];
+                if (dirSprites?.idle) {
+                    playerCharacter.sprite = dirSprites.idle;
+                }
+                
+                // Re-render to show the turn
+                renderScene();
             }
         }
         
