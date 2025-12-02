@@ -7275,12 +7275,18 @@ CORNERS:
         let nextTileX = null;    // Next immediate tile to move to (discrete step)
         let nextTileY = null;
         let movementProgress = 0; // 0-1 progress between current and next tile
-        let movementStartX = 0;  // Starting position for current tile movement
+        let movementStartX = 0;  // Starting position for current tile movement (integer)
         let movementStartY = 0;
         let animationFrame = 0;
         let animationTime = 0;   // Time-based animation tracking (ms)
         let lastFrameTime = performance.now();
         let gameLoopRunning = false;
+        
+        // UO-authentic visual offset system (ClassicUO architecture)
+        // The actual position (playerCharacter.x/y) only changes when a step COMPLETES
+        // Visual offset provides smooth rendering between tiles
+        let visualOffsetX = 0;  // Pixel offset for smooth rendering (-22 to +22)
+        let visualOffsetY = 0;  // Pixel offset for smooth rendering (-22 to +44)
         
         // UO movement constants (from ClassicUO source - authentic values)
         const TILE_SIZE = 1;  // We use tile coordinates, not pixels
@@ -7480,21 +7486,27 @@ CORNERS:
             let spriteW = sprite.width || 64;
             let spriteH = sprite.height || 64;
             
-            // Character is always centered in camera follow mode
+            // Character is centered in camera follow mode, plus visual offset for smooth movement
+            // UO-authentic: character stays at screen center, visual offset shifts during step
             const viewWidth = overlayCanvas.width;
             const viewHeight = overlayCanvas.height;
             const zOffset = (playerCharacter.z || 0) * 4 * zoom; // 4 pixels per Z level
             
-            const screenX = (viewWidth / 2) - (spriteW * zoom / 2);
-            const screenY = (viewHeight / 2) - zOffset - (spriteH * zoom);
+            // Apply visual offset (scales with zoom for smooth interpolation)
+            // The offset moves the character sprite during tile-to-tile movement
+            const offsetX = (visualOffsetX || 0) * zoom;
+            const offsetY = (visualOffsetY || 0) * zoom;
+            
+            const screenX = (viewWidth / 2) - (spriteW * zoom / 2) + offsetX;
+            const screenY = (viewHeight / 2) - zOffset - (spriteH * zoom) - offsetY; // Y inverted for screen coords
             
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(sprite, screenX, screenY, spriteW * zoom, spriteH * zoom);
             
-            // Debug: Draw red dot at character center
+            // Debug: Draw red dot at character center (with offset)
             ctx.fillStyle = 'red';
             ctx.beginPath();
-            ctx.arc(viewWidth / 2, viewHeight / 2 - zOffset, 5, 0, Math.PI * 2);
+            ctx.arc(viewWidth / 2 + offsetX, viewHeight / 2 - zOffset - offsetY, 5, 0, Math.PI * 2);
             ctx.fill();
             
             // Debug: Draw direction arrow from character (UO isometric directions)
@@ -7513,17 +7525,16 @@ CORNERS:
             ctx.strokeStyle = 'lime';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(viewWidth / 2, viewHeight / 2 - zOffset);
-            ctx.lineTo(viewWidth / 2 + arrow[0], viewHeight / 2 - zOffset + arrow[1]);
+            ctx.moveTo(viewWidth / 2 + offsetX, viewHeight / 2 - zOffset - offsetY);
+            ctx.lineTo(viewWidth / 2 + offsetX + arrow[0], viewHeight / 2 - zOffset - offsetY + arrow[1]);
             ctx.stroke();
             
             // Debug: Draw character position text
             ctx.fillStyle = 'yellow';
             ctx.font = '14px monospace';
-            ctx.fillText(`Pos: (${playerCharacter.x.toFixed(1)}, ${playerCharacter.y.toFixed(1)}, z=${playerCharacter.z || 0})`, 10, 20);
+            ctx.fillText(`Pos: (${playerCharacter.x}, ${playerCharacter.y}, z=${playerCharacter.z || 0})`, 10, 20);
             ctx.fillText(`Dir: ${playerCharacter.direction} | Running: ${isRunning}`, 10, 40);
-            ctx.fillText(`Target: (${targetTileX?.toFixed(1) || 'none'}, ${targetTileY?.toFixed(1) || 'none'})`, 10, 60);
-            ctx.fillText(`Target: (${targetTileX ?? 'none'}, ${targetTileY ?? 'none'}) | Moving: ${isMoving}`, 10, 50);
+            ctx.fillText(`Offset: (${(visualOffsetX || 0).toFixed(1)}, ${(visualOffsetY || 0).toFixed(1)}) | Moving: ${isMoving}`, 10, 60);
         }
         
         // UO-authentic discrete tile-to-tile movement update (called every frame)
@@ -7588,10 +7599,12 @@ CORNERS:
                     nextTileY = checkY;
                 }
                 
-                // Start new tile movement
-                movementStartX = Math.round(playerCharacter.x);
-                movementStartY = Math.round(playerCharacter.y);
+                // Start new tile movement (positions are always integers)
+                movementStartX = playerCharacter.x;
+                movementStartY = playerCharacter.y;
                 movementProgress = 0;
+                visualOffsetX = 0;  // Clear any previous offset
+                visualOffsetY = 0;
                 
                 // Set direction based on input type
                 if (rightMouseHeld && lastMouseX !== undefined && lastMouseY !== undefined) {
@@ -7623,12 +7636,14 @@ CORNERS:
                 const newTile = currentMap[nextTileY]?.[nextTileX];
                 if (newTile) playerCharacter.z = newTile.z || 0;
                 
-                // Reset for next tile movement
+                // Reset for next tile movement (UO-authentic: clear offset on step complete)
                 nextTileX = null;
                 nextTileY = null;
                 movementProgress = 0;
                 animationFrame = 0; // Reset animation for next step
                 animationTime = 0;  // Reset time-based animation
+                visualOffsetX = 0;  // Clear visual offset - snap to tile
+                visualOffsetY = 0;
                 
                 // Check if we've reached the final target
                 if (targetTileX !== null && targetTileY !== null) {
@@ -7643,9 +7658,56 @@ CORNERS:
                     }
                 }
             } else {
-                // Interpolate position for smooth visual
-                playerCharacter.x = movementStartX + (nextTileX - movementStartX) * movementProgress;
-                playerCharacter.y = movementStartY + (nextTileY - movementStartY) * movementProgress;
+                // UO-authentic: Keep actual position fixed, only update VISUAL OFFSET
+                // (ClassicUO uses Offset.X/Y for smooth rendering while position stays at tile)
+                // playerCharacter.x/y stay at movementStartX/Y until step completes
+                
+                // Calculate pixel offset based on direction and progress
+                // UO tile = 44x44 pixels, diagonal moves use full 44, cardinal moves use 22
+                const dir = playerCharacter.direction;
+                const progress = movementProgress;
+                
+                // Get pixel offset for current direction (matching ClassicUO GetPixelOffset)
+                const stepNESW = 22 * progress;  // Cardinal directions: 22 pixels
+                const stepDiag = 44 * progress;  // Diagonal directions: 44 pixels
+                
+                switch (dir) {
+                    case 'n':  // North (up-right on screen)
+                        visualOffsetX = stepNESW;
+                        visualOffsetY = stepNESW;
+                        break;
+                    case 'ne': // Northeast (right on screen)
+                        visualOffsetX = 0;
+                        visualOffsetY = stepDiag;
+                        break;
+                    case 'e':  // East (down-right on screen)
+                        visualOffsetX = -stepNESW;
+                        visualOffsetY = stepNESW;
+                        break;
+                    case 'se': // Southeast (down on screen)
+                        visualOffsetX = -stepDiag;
+                        visualOffsetY = 0;
+                        break;
+                    case 's':  // South (down-left on screen)
+                        visualOffsetX = -stepNESW;
+                        visualOffsetY = -stepNESW;
+                        break;
+                    case 'sw': // Southwest (left on screen)
+                        visualOffsetX = 0;
+                        visualOffsetY = -stepDiag;
+                        break;
+                    case 'w':  // West (up-left on screen)
+                        visualOffsetX = stepNESW;
+                        visualOffsetY = -stepNESW;
+                        break;
+                    case 'nw': // Northwest (up on screen)
+                        visualOffsetX = stepDiag;
+                        visualOffsetY = 0;
+                        break;
+                    default:
+                        visualOffsetX = 0;
+                        visualOffsetY = 0;
+                }
                 
                 // Update animation frame (TIME-BASED - UO authentic 80ms per frame)
                 // ClassicUO: CHARACTER_ANIMATION_DELAY = 80, MAX_STEP_COUNT = 5
@@ -7776,12 +7838,16 @@ CORNERS:
                 isMoving = true;
                 startGameLoop();
             } else if (tileDistance <= MOVE_TILE_THRESHOLD) {
-                // Close click - just turn, don't move
+                // Close click - just turn, don't move (UO-authentic instant turn)
                 isMoving = false;
                 isRunning = false;  // Not moving = not running
                 targetTileX = null;
                 targetTileY = null;
+                nextTileX = null;   // Clear any pending step
+                nextTileY = null;
                 animationTime = 0;  // Reset animation
+                visualOffsetX = 0;  // Clear visual offset (instant turn, no interpolation)
+                visualOffsetY = 0;
                 
                 // Update sprite to idle in the new direction
                 const dirSprites = characterSprites[playerCharacter.direction];
@@ -8023,9 +8089,9 @@ CORNERS:
                         nextTileY = null;
                         movementProgress = 0;
                         isMoving = false;
-                        // Snap to nearest tile
-                        playerCharacter.x = Math.round(playerCharacter.x);
-                        playerCharacter.y = Math.round(playerCharacter.y);
+                        // Clear visual offset (UO-authentic: snap to tile)
+                        visualOffsetX = 0;
+                        visualOffsetY = 0;
                         const dirSprites = characterSprites[playerCharacter.direction];
                         playerCharacter.sprite = dirSprites?.idle || dirSprites;
                         renderScene();
@@ -8094,9 +8160,9 @@ CORNERS:
                     nextTileY = null;
                     movementProgress = 0;
                     isMoving = false;
-                    // Snap to nearest tile
-                    playerCharacter.x = Math.round(playerCharacter.x);
-                    playerCharacter.y = Math.round(playerCharacter.y);
+                    // Clear visual offset (UO-authentic: snap to tile)
+                    visualOffsetX = 0;
+                    visualOffsetY = 0;
                     const dirSprites = characterSprites[playerCharacter.direction];
                     playerCharacter.sprite = dirSprites?.idle || dirSprites;
                 }
