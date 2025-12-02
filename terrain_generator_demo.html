@@ -7935,16 +7935,24 @@ CORNERS:
                     rightMouseHeld = true;  // Track continuous hold
                     isRunning = false; // Start with walk, distance determines run
                     
-                    // Start game loop for continuous movement updates
-                    startGameLoop();
-                    
-                    // Immediately start following cursor at current position
-                    if (webglCanvasEl && playerCharacter) {
-                        const rect = webglCanvasEl.getBoundingClientRect();
+                    // FIRST: Update mouse position BEFORE starting game loop
+                    // This prevents the race condition where gameLoop uses stale (0,0) coordinates
+                    // Note: We must get the canvas FRESH here (not use the const from setup time)
+                    const canvas = document.getElementById('webgl-canvas');
+                    if (canvas && playerCharacter) {
+                        const rect = canvas.getBoundingClientRect();
                         const canvasX = e.clientX - rect.left;
                         const canvasY = e.clientY - rect.top;
+                        lastMouseX = canvasX;  // Set coordinates first!
+                        lastMouseY = canvasY;
+                        console.log(`[Mouse] mousedown at canvas: (${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
                         handleMouseMove(canvasX, canvasY);
+                    } else {
+                        console.warn('[Mouse] Canvas not found or no character!', { canvas: !!canvas, playerCharacter: !!playerCharacter });
                     }
+                    
+                    // THEN start game loop for continuous movement updates
+                    startGameLoop();
                     
                     console.log('[Mouse] Right-click hold: Character follows cursor');
                 }
@@ -7952,16 +7960,20 @@ CORNERS:
             
             // Mouse move - move character (Camera Follow mode)
             container.addEventListener('mousemove', (e) => {
-                if (!webglCanvasEl) return;
+                // Get canvas fresh each time (not the stale const from setup)
+                const canvas = document.getElementById('webgl-canvas');
+                if (!canvas) return;
                 
                 // Right mouse held - PvP style: character follows cursor
                 if (rightMouseDown && playerCharacter) {
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    const rect = webglCanvasEl.getBoundingClientRect();
+                    const rect = canvas.getBoundingClientRect();
                     const canvasX = e.clientX - rect.left;
                     const canvasY = e.clientY - rect.top;
+                    lastMouseX = canvasX;  // Update stored position
+                    lastMouseY = canvasY;
                     handleMouseMove(canvasX, canvasY);
                 }
             });
