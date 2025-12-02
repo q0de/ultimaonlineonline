@@ -7305,9 +7305,11 @@ CORNERS:
         const RUN_MS_PER_TILE = 200;   // 200ms per tile running (STEP_DELAY_RUN)
         const STOP_THRESHOLD = 0.05;   // Stop when within 5% of a tile
         const ANIM_FRAME_DURATION = 80; // 80ms per animation frame (CHARACTER_ANIMATION_DELAY)
-        const WALK_FRAMES = 10;        // Number of walk animation frames (from exports)
-        const RUN_FRAMES = 10;         // Number of run animation frames (from exports)
+        const UO_FRAMES_PER_CYCLE = 5; // ClassicUO MAX_STEP_COUNT - frames per walk/run cycle
         const RUN_DISTANCE_THRESHOLD = 100; // Pixels from character to trigger run (UO-style)
+        
+        // Animation timing (TIME-BASED like ClassicUO, not movement-based)
+        let animationTime = 0;  // Accumulated time for animation
         
         // Get direction from screen pixel deltas (UO isometric style)
         // Character should face TOWARD the click position
@@ -7602,6 +7604,7 @@ CORNERS:
                     targetTileX = null;
                     targetTileY = null;
                     isMoving = false;
+                    animationTime = 0;  // Reset animation
                     const dirSprites = characterSprites[playerCharacter.direction];
                     playerCharacter.sprite = dirSprites?.idle || dirSprites;
                     return;
@@ -7695,6 +7698,7 @@ CORNERS:
                         targetTileX = null;
                         targetTileY = null;
                         isMoving = false;
+                        animationTime = 0;  // Reset animation
                         const dirSprites = characterSprites[playerCharacter.direction];
                         playerCharacter.sprite = dirSprites?.idle || dirSprites;
                     }
@@ -7704,17 +7708,25 @@ CORNERS:
                 playerCharacter.x = movementStartX + (nextTileX - movementStartX) * movementProgress;
                 playerCharacter.y = movementStartY + (nextTileY - movementStartY) * movementProgress;
                 
-                // Update animation frame (MOVEMENT-PROGRESS-BASED - UO authentic)
-                // Animation frame corresponds to how far through the tile you've moved
-                // This makes animation sync perfectly with movement speed (walk vs run)
+                // Update animation frame (TIME-BASED like ClassicUO)
+                // Animation runs at 80ms per frame, independent of movement speed
+                // Uses only 5 frames per cycle (UO's MAX_STEP_COUNT)
+                animationTime += deltaTime;
+                
                 const dirSprites = characterSprites[playerCharacter.direction];
                 const frames = isRunning ? (dirSprites?.run || dirSprites?.walk || []) : (dirSprites?.walk || []);
                 
                 if (frames.length > 0) {
-                    // Frame index = movement progress * number of frames
-                    // Progress 0.0 = frame 0, progress 0.5 = frame 5, progress 1.0 = last frame
-                    const frameIndex = Math.min(Math.floor(movementProgress * frames.length), frames.length - 1);
-                    playerCharacter.sprite = frames[frameIndex];
+                    // Calculate which frame to show based on time (80ms per frame)
+                    const frameIndexRaw = Math.floor(animationTime / ANIM_FRAME_DURATION);
+                    
+                    // Use only every Nth frame to get 5-frame cycle from 10-frame animation
+                    // This matches ClassicUO's MAX_STEP_COUNT = 5
+                    const frameSkip = Math.max(1, Math.floor(frames.length / UO_FRAMES_PER_CYCLE));
+                    const cycleFrame = frameIndexRaw % UO_FRAMES_PER_CYCLE;
+                    const actualFrameIndex = Math.min(cycleFrame * frameSkip, frames.length - 1);
+                    
+                    playerCharacter.sprite = frames[actualFrameIndex];
                 }
             }
         }
@@ -8079,6 +8091,7 @@ CORNERS:
                         nextTileY = null;
                         movementProgress = 0;
                         isMoving = false;
+                        animationTime = 0;  // Reset animation
                         // Snap to nearest tile
                         playerCharacter.x = Math.round(playerCharacter.x);
                         playerCharacter.y = Math.round(playerCharacter.y);
@@ -8150,6 +8163,7 @@ CORNERS:
                     nextTileY = null;
                     movementProgress = 0;
                     isMoving = false;
+                    animationTime = 0;  // Reset animation
                     // Snap to nearest tile
                     playerCharacter.x = Math.round(playerCharacter.x);
                     playerCharacter.y = Math.round(playerCharacter.y);
