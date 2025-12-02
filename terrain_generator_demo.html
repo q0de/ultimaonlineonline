@@ -601,7 +601,7 @@
             </div>
 
             <!-- ========== ADVANCED SECTION ========== -->
-            <div class="section" onclick="toggleSection(this, event)">
+            <div class="section open" onclick="toggleSection(this, event)">
                 <div class="section-header">
                     <span class="section-icon">⚡</span>
                     <span class="section-title">Advanced</span>
@@ -675,7 +675,7 @@
             </div>
             
             <!-- ANIMATION SETTINGS SECTION -->
-            <div class="section" onclick="toggleSection(this, event)">
+            <div class="section open" onclick="toggleSection(this, event)">
                 <div class="section-header">
                     <span class="section-icon">🎬</span>
                     <span class="section-title">Animation</span>
@@ -685,25 +685,25 @@
                     <div style="padding: 5px 0;">
                         <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Animation Mode</label>
                         <select id="animModeSelect" onchange="updateAnimationMode()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
-                            <option value="classic">ClassicUO (80ms, 5 frames)</option>
-                            <option value="smooth">Smooth (40ms, 10 frames)</option>
-                            <option value="fast">Fast Run (80ms walk, 40ms run)</option>
+                            <option value="classic">ClassicUO (5 frames, movement synced)</option>
+                            <option value="smooth" selected>Smooth (110ms/70ms, all frames)</option>
+                            <option value="fast">Fast Run (60ms walk, 40ms run)</option>
                             <option value="custom">Custom</option>
                         </select>
                     </div>
                     <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Walk Frame Duration: <span id="walkFrameLabel">80</span>ms</label>
-                        <input type="range" id="walkFrameSlider" min="20" max="200" value="80" onchange="updateWalkFrameDuration()" style="width: 100%;">
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Walk Frame Duration: <span id="walkFrameLabel">110</span>ms</label>
+                        <input type="range" id="walkFrameSlider" min="20" max="200" value="110" onchange="updateWalkFrameDuration()" style="width: 100%;">
                     </div>
                     <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Run Frame Duration: <span id="runFrameLabel">80</span>ms</label>
-                        <input type="range" id="runFrameSlider" min="10" max="100" value="80" onchange="updateRunFrameDuration()" style="width: 100%;">
+                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Run Frame Duration: <span id="runFrameLabel">70</span>ms</label>
+                        <input type="range" id="runFrameSlider" min="10" max="120" value="70" onchange="updateRunFrameDuration()" style="width: 100%;">
                     </div>
                     <div style="padding: 5px 0;">
                         <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Frame Selection</label>
                         <select id="frameSkipSelect" onchange="updateFrameSkip()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
-                            <option value="all">All frames (0,1,2,3...9)</option>
-                            <option value="skip2" selected>Skip every other (0,2,4,6,8)</option>
+                            <option value="all" selected>All frames (0,1,2,3...9)</option>
+                            <option value="skip2">Skip every other (0,2,4,6,8)</option>
                             <option value="first5">First 5 only (0,1,2,3,4)</option>
                             <option value="last5">Last 5 only (5,6,7,8,9)</option>
                         </select>
@@ -7356,14 +7356,11 @@ CORNERS:
         const STOP_THRESHOLD = 0.05;   // Stop when within 5% of a tile
         
         // Animation timing - CONFIGURABLE via sidebar controls
-        // ClassicUO uses 80ms per frame (CHARACTER_ANIMATION_DELAY = 80)
-        // and 5 frames per walk cycle (MAX_STEP_COUNT = 5)
-        // Your sprite exports have 10 frames, so we skip every other frame by default
-        let WALK_ANIM_FRAME_DURATION = 80; // ClassicUO: 80ms per frame
-        let RUN_ANIM_FRAME_DURATION = 80;  // ClassicUO: Same for run (just moves faster through tiles)
-        let FRAME_SKIP = 2;  // Use every 2nd frame (0, 2, 4, 6, 8) to get 5 frames from 10
-        let FRAME_SELECTION_MODE = 'skip2'; // 'all', 'skip2', 'first5', 'last5'
-        let ANIM_SYNC_MODE = 'time'; // 'time' or 'movement'
+        // Default to the smoother look: all frames, slower per-frame timing
+        let WALK_ANIM_FRAME_DURATION = 110; // ms per frame (time-based or movement scaling)
+        let RUN_ANIM_FRAME_DURATION = 70;   // ms per frame
+        let FRAME_SELECTION_MODE = 'all';   // Play every exported frame (0-9)
+        let ANIM_SYNC_MODE = 'time';        // Default to time-based for smoother pacing
         
         const RUN_DISTANCE_THRESHOLD = 100; // Pixels from character to trigger run (UO-style)
         
@@ -7378,15 +7375,15 @@ CORNERS:
                     ANIM_SYNC_MODE = 'movement';
                     break;
                 case 'smooth':
-                    WALK_ANIM_FRAME_DURATION = 40;
-                    RUN_ANIM_FRAME_DURATION = 20;
-                    FRAME_SELECTION_MODE = 'all';
-                    ANIM_SYNC_MODE = 'time';
+                    WALK_ANIM_FRAME_DURATION = 110;
+                    RUN_ANIM_FRAME_DURATION = 70;
+                    FRAME_SELECTION_MODE = 'all'; // Use every exported frame
+                    ANIM_SYNC_MODE = 'time'; // decoupled from tile travel for smoother legs
                     break;
                 case 'fast':
-                    WALK_ANIM_FRAME_DURATION = 80;
+                    WALK_ANIM_FRAME_DURATION = 60;
                     RUN_ANIM_FRAME_DURATION = 40;
-                    FRAME_SELECTION_MODE = 'skip2';
+                    FRAME_SELECTION_MODE = 'all';
                     ANIM_SYNC_MODE = 'time';
                     break;
                 case 'custom':
@@ -7784,7 +7781,15 @@ CORNERS:
             const frameBoxY = debugY + 140;
             const frameBoxSize = 15;
             for (let i = 0; i < Math.min(frames.length, 15); i++) {
-                const isUsed = (i % FRAME_SKIP === 0);
+                // Determine if this frame index is used based on current selection mode
+                let isUsed = false;
+                switch (FRAME_SELECTION_MODE) {
+                    case 'all': isUsed = true; break;
+                    case 'skip2': isUsed = (i % 2 === 0); break; // 0, 2, 4, 6, 8
+                    case 'first5': isUsed = (i < 5); break; // 0, 1, 2, 3, 4
+                    case 'last5': isUsed = (i >= frames.length - 5); break; // 5, 6, 7, 8, 9
+                    default: isUsed = true;
+                }
                 const isCurrent = (i === actualFrameIndex);
                 
                 ctx.fillStyle = isCurrent ? 'lime' : (isUsed ? 'cyan' : 'gray');
@@ -7898,8 +7903,7 @@ CORNERS:
                 nextTileX = null;
                 nextTileY = null;
                 movementProgress = 0;
-                animationFrame = 0; // Reset animation for next step
-                animationTime = 0;  // Reset time-based animation
+                animationFrame = 0; // Reset logical progress, but keep time running so frames continue
                 
                 // Check if we've reached the final target
                 if (targetTileX !== null && targetTileY !== null) {
@@ -7943,6 +7947,13 @@ CORNERS:
                     }
                     
                     const actualFrameIndex = getAnimationFrameIndex(frames, logicalFrame);
+                    
+                    // Debug: Log frame sequence every 200ms
+                    if (!window.lastFrameLog || Date.now() - window.lastFrameLog > 200) {
+                        console.log(`[Anim] Time: ${animationTime.toFixed(0)}ms, Logical: ${logicalFrame}, Actual: ${actualFrameIndex}, Mode: ${FRAME_SELECTION_MODE}, Frames: ${frames.length}`);
+                        window.lastFrameLog = Date.now();
+                    }
+                    
                     playerCharacter.sprite = frames[actualFrameIndex];
                 }
             }
