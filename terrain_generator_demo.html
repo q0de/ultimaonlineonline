@@ -2730,9 +2730,9 @@
                 if (staticsLoaded) {
                     try {
                         updateProgress(55, '🔄 Loading static objects for region...');
-                        statics = staticLoader.getStaticsForRegion(regionX, regionY, regionWidth, regionHeight, 50);
+                        statics = staticLoader.getStaticsForRegion(regionX, regionY, regionWidth, regionHeight);
                         staticsCount = statics.length;
-                        console.log(`[loadRealUOMap] Found ${statics.length} static objects in region (limited to 50 for testing)`);
+                        console.log(`[loadRealUOMap] Found ${statics.length} static objects in region`);
                         if (statics.length > 0) {
                             const uniqueGraphics = new Set(statics.map(s => s.hexId));
                             updateProgress(60, `✅ Found ${statics.length} static objects (${uniqueGraphics.size} types)`);
@@ -3114,33 +3114,66 @@
                     updateProgress(96, '🔄 Loading static object graphics...');
                     try {
                         // Initialize art loader if not already done
+                        let artFromUOPAvailable = false;
                         if (!artLoader) {
                             artLoader = new UOArtLoader();
                             const artLoaded = await artLoader.loadFromUOP('./assets/mul/artLegacyMUL.uop');
                             if (artLoaded) {
+                                artFromUOPAvailable = true;
                                 console.log('[loadRealUOMap] ✅ Art UOP loaded');
                             } else {
                                 console.warn('[loadRealUOMap] ⚠️ Could not load artLegacyMUL.uop');
                                 console.warn('[loadRealUOMap] Run copy_art.bat to copy the file');
                             }
+                        } else if (artLoader.isUOP) {
+                            artFromUOPAvailable = true;
+                        }
+
+                        if (!itemLoader) {
+                            itemLoader = new UOItemLoader();
                         }
                         
-                        // Get unique graphic IDs and try to load them
-                        if (artLoader && artLoader.isUOP) {
-                            const uniqueGraphics = [...new Set(statics.map(s => s.graphic))];
-                            console.log(`[loadRealUOMap] Loading ${uniqueGraphics.length} unique static graphics...`);
-                            console.log(`[loadRealUOMap] First 5 graphic IDs:`, uniqueGraphics.slice(0, 5));
+                        const uniqueGraphics = [...new Set(statics.map(s => s.graphic))];
+                        console.log(`[loadRealUOMap] Loading ${uniqueGraphics.length} unique static graphics...`);
+                        console.log(`[loadRealUOMap] First 5 graphic IDs:`, uniqueGraphics.slice(0, 5));
+                        
+                        let loadedArt = 0;
+                        let triedFallback = false;
+                        for (let i = 0; i < uniqueGraphics.length; i++) {
+                            const graphic = uniqueGraphics[i];
+                            if (i % 25 === 0 || i === uniqueGraphics.length - 1) {
+                                const artProgress = 96 + Math.min(2, Math.round(((i + 1) / uniqueGraphics.length) * 2));
+                                updateProgress(artProgress, `🔄 Static art ${i + 1}/${uniqueGraphics.length}`);
+                            }
+
+                            let texture = null;
                             
-                            let loadedArt = 0;
-                            for (const graphic of uniqueGraphics.slice(0, 20)) { // Limit for testing
-                                const texture = await artLoader.getStaticTexture(graphic);
-                                if (texture) {
-                                    artTextures[graphic] = texture;
-                                    loadedArt++;
+                            if (artFromUOPAvailable) {
+                                try {
+                                    texture = await artLoader.getStaticTexture(graphic);
+                                } catch (err) {
+                                    console.warn(`[loadRealUOMap] UOP art load failed for 0x${graphic.toString(16).toUpperCase()}: ${err.message}`);
                                 }
                             }
-                            console.log(`[loadRealUOMap] Loaded ${loadedArt}/${uniqueGraphics.length} static art textures`);
+
+                            if (!texture && itemLoader) {
+                                if (!triedFallback && i === 0) {
+                                    console.log('[loadRealUOMap] Using exported BMP items as fallback for static art');
+                                    triedFallback = true;
+                                }
+                                try {
+                                    texture = await itemLoader.getTexture(graphic);
+                                } catch (err) {
+                                    // BMP fallback may not have every asset; ignore per-id failures
+                                }
+                            }
+
+                            if (texture) {
+                                artTextures[graphic] = texture;
+                                loadedArt++;
+                            }
                         }
+                        console.log(`[loadRealUOMap] Loaded ${loadedArt}/${uniqueGraphics.length} static art textures (UOP + BMP fallback)`);
                     } catch (e) {
                         console.warn('[loadRealUOMap] Art loading failed:', e.message);
                     }
@@ -8056,6 +8089,14 @@ CORNERS:
             const pixelDy = mouseY - charScreenY;
             const pixelDistance = Math.sqrt(pixelDx * pixelDx + pixelDy * pixelDy);
             
+            const zoom = cameraZoom || 1;
+            const spacing = 22;
+            const normDx = pixelDx / zoom;
+            const normDy = pixelDy / zoom;
+            const tileOffsetX = (normDx + normDy) / (2 * spacing);
+            const tileOffsetY = (normDy - normDx) / (2 * spacing);
+            const tileDistancePrecise = Math.sqrt(tileOffsetX * tileOffsetX + tileOffsetY * tileOffsetY);
+            
             // Calculate tile distance for movement threshold
             const dx = tile.x - playerCharacter.x;
             const dy = tile.y - playerCharacter.y;
@@ -8071,20 +8112,21 @@ CORNERS:
             
             // Movement threshold: Only move if click is far enough away
             // In UO, clicking very close just turns you, doesn't make you walk
-            const MOVE_PIXEL_THRESHOLD = 40;  // Pixels from character before moving
-            const MOVE_TILE_THRESHOLD = 0.8;  // Tile distance before moving
-            const RUN_TILE_THRESHOLD = 2.5;   // Tiles away to trigger running (zoom-independent)
+        const MOVE_PIXEL_THRESHOLD = 60;  // Pixels from character before moving (at 1x zoom)
+        const TURN_TILE_THRESHOLD = 0.95; // Fractional tile distance before walking
+        const RUN_TILE_THRESHOLD = 2.5;   // Tiles away to trigger running (zoom-independent)
             
-            if (pixelDistance > MOVE_PIXEL_THRESHOLD && tileDistance > MOVE_TILE_THRESHOLD) {
+            const movePixelThreshold = MOVE_PIXEL_THRESHOLD * zoom;
+            if (pixelDistance > movePixelThreshold && tileDistancePrecise > TURN_TILE_THRESHOLD) {
                 // Set walk/run based on TILE distance (consistent across zoom levels)
                 // Close = walk, far = run (UO-authentic behavior)
-                isRunning = tileDistance >= RUN_TILE_THRESHOLD;
+                isRunning = tileDistancePrecise >= RUN_TILE_THRESHOLD;
                 
                 targetTileX = tile.x;
                 targetTileY = tile.y;
                 isMoving = true;
                 startGameLoop();
-            } else if (tileDistance <= MOVE_TILE_THRESHOLD) {
+            } else if (tileDistancePrecise <= TURN_TILE_THRESHOLD) {
                 // Close click - just turn, don't move
                 isMoving = false;
                 isRunning = false;  // Not moving = not running
