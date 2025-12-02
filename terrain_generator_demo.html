@@ -7607,9 +7607,18 @@ CORNERS:
                     return;
                 }
                 
-                // Determine next tile (one step toward target - UO-style discrete movement)
-                const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
-                const stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+                // Use the FACING DIRECTION to determine movement step
+                // This ensures movement matches the visual direction indicator
+                // DIRECTIONS maps direction name to tile delta (dx, dy)
+                const dirDelta = DIRECTIONS[playerCharacter.direction];
+                let stepX = dirDelta ? dirDelta.dx : 0;
+                let stepY = dirDelta ? dirDelta.dy : 0;
+                
+                // Fallback to raw delta if no direction set
+                if (stepX === 0 && stepY === 0) {
+                    stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+                    stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+                }
                 
                 const checkX = Math.round(playerCharacter.x) + stepX;
                 const checkY = Math.round(playerCharacter.y) + stepY;
