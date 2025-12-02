@@ -7514,6 +7514,46 @@ CORNERS:
             ctx.arc(viewWidth / 2, viewHeight / 2 - zOffset, 5, 0, Math.PI * 2);
             ctx.fill();
             
+            // Draw UO isometric compass in corner (helps understand direction mapping)
+            const compassX = 80;
+            const compassY = viewHeight - 100;
+            const compassR = 50;
+            
+            // Draw compass circle
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(compassX, compassY, compassR, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw compass directions (UO isometric - rotated 45° from screen)
+            const compassDirs = {
+                'N': [compassR * 0.7, -compassR * 0.7],   // Up-right
+                'NE': [compassR, 0],                       // Right
+                'E': [compassR * 0.7, compassR * 0.7],    // Down-right
+                'SE': [0, compassR],                       // Down
+                'S': [-compassR * 0.7, compassR * 0.7],   // Down-left
+                'SW': [-compassR, 0],                      // Left
+                'W': [-compassR * 0.7, -compassR * 0.7],  // Up-left
+                'NW': [0, -compassR]                       // Up
+            };
+            
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            for (const [dir, [dx, dy]] of Object.entries(compassDirs)) {
+                const isActive = playerCharacter.direction.toUpperCase() === dir.toLowerCase() || 
+                                 playerCharacter.direction.toLowerCase() === dir.toLowerCase();
+                ctx.fillStyle = isActive ? 'lime' : 'rgba(255,255,255,0.7)';
+                ctx.fillText(dir, compassX + dx, compassY + dy);
+            }
+            
+            // Compass center label
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.fillText('UO', compassX, compassY);
+            
             // Debug: Draw direction arrow from character (UO isometric directions)
             // In UO isometric: N=up-right, E=down-right, S=down-left, W=up-left
             const dirArrows = {
