@@ -7300,25 +7300,25 @@ CORNERS:
             const angle = Math.atan2(screenDy, screenDx);
             const degrees = ((angle * 180 / Math.PI) + 360) % 360;
             
-            // UO isometric direction mapping
-            // Screen direction → Game direction:
-            // - Right (0°) → character walks toward screen-right, which is EAST in UO
-            // - Down-right (45°) → Southeast
-            // - Down (90°) → South (down-left visually in UO iso)
-            // - Down-left (135°) → Southwest
-            // - Left (180°) → West
-            // - Up-left (225°) → Northwest  
-            // - Up (270°) → North (up-right visually in UO iso)
-            // - Up-right (315°) → Northeast
-            if (degrees >= 337.5 || degrees < 22.5) return 'e';    // Click right → East
-            if (degrees >= 22.5 && degrees < 67.5) return 'se';    // Click down-right → SE
-            if (degrees >= 67.5 && degrees < 112.5) return 's';    // Click down → South
-            if (degrees >= 112.5 && degrees < 157.5) return 'sw';  // Click down-left → SW
-            if (degrees >= 157.5 && degrees < 202.5) return 'w';   // Click left → West
-            if (degrees >= 202.5 && degrees < 247.5) return 'nw';  // Click up-left → NW
-            if (degrees >= 247.5 && degrees < 292.5) return 'n';   // Click up → North
-            if (degrees >= 292.5 && degrees < 337.5) return 'ne';  // Click up-right → NE
-            return 's'; // Default
+            // UO ISOMETRIC direction mapping (rotated 45° from screen)
+            // The UO world is rotated 45° relative to screen coordinates:
+            // - Screen RIGHT (0°) → NE in game (tile X-, Y-)
+            // - Screen DOWN-RIGHT (45°) → E in game
+            // - Screen DOWN (90°) → SE in game (tile X-, Y+)
+            // - Screen DOWN-LEFT (135°) → S in game
+            // - Screen LEFT (180°) → SW in game (tile X+, Y+)
+            // - Screen UP-LEFT (225°) → W in game
+            // - Screen UP (270°) → NW in game (tile X+, Y-)
+            // - Screen UP-RIGHT (315°) → N in game
+            if (degrees >= 337.5 || degrees < 22.5) return 'ne';   // Click right → NE
+            if (degrees >= 22.5 && degrees < 67.5) return 'e';     // Click down-right → E
+            if (degrees >= 67.5 && degrees < 112.5) return 'se';   // Click down → SE
+            if (degrees >= 112.5 && degrees < 157.5) return 's';   // Click down-left → S
+            if (degrees >= 157.5 && degrees < 202.5) return 'sw';  // Click left → SW
+            if (degrees >= 202.5 && degrees < 247.5) return 'w';   // Click up-left → W
+            if (degrees >= 247.5 && degrees < 292.5) return 'nw';  // Click up → NW
+            if (degrees >= 292.5 && degrees < 337.5) return 'n';   // Click up-right → N
+            return 'se'; // Default
         }
         
         // Get direction from tile deltas (used for keyboard discrete movement)
