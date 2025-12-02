@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UO Curve Builder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #00d4ff;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        .main-container {
+            display: flex;
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .builder-section {
+            flex: 1;
+            background: #252540;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .palette-section {
+            width: 400px;
+            background: #252540;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        h2 {
+            color: #ff9800;
+            margin-top: 0;
+        }
+        h3 {
+            color: #4fc3f7;
+            margin: 15px 0 10px 0;
+        }
+        .grid-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .build-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 80px);
+            grid-template-rows: repeat(3, 80px);
+            gap: 5px;
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .grid-cell {
+            width: 80px;
+            height: 80px;
+            background: #333;
+            border: 2px dashed #555;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .grid-cell:hover {
+            border-color: #00d4ff;
+            background: #3a3a5a;
+        }
+        .grid-cell.filled {
+            border-style: solid;
+            border-color: #4CAF50;
+        }
+        .grid-cell img {
+            width: 44px;
+            height: 44px;
+            image-rendering: pixelated;
+        }
+        .grid-cell .tile-id {
+            font-size: 10px;
+            color: #ff0;
+            margin-top: 2px;
+        }
+        .grid-cell .cell-label {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 9px;
+            color: #666;
+        }
+        .palette-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 50px);
+            gap: 5px;
+        }
+        .palette-tile {
+            width: 50px;
+            height: 50px;
+            background: #333;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: all 0.2s;
+        }
+        .palette-tile:hover {
+            border-color: #00d4ff;
+            transform: scale(1.1);
+        }
+        .palette-tile.selected {
+            border-color: #ff9800;
+            box-shadow: 0 0 10px #ff9800;
+        }
+        .palette-tile img {
+            width: 44px;
+            height: 44px;
+            image-rendering: pixelated;
+        }
+        .palette-tile .tile-id {
+            font-size: 8px;
+            color: #aaa;
+        }
+        .preview-section {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #previewCanvas {
+            background: #3a5a1a;
+            border-radius: 8px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-clear {
+            background: #f44336;
+            color: white;
+        }
+        .btn-export {
+            background: #9c27b0;
+            color: white;
+        }
+        .btn-load {
+            background: #2196F3;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+        .saved-curves {
+            margin-top: 20px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .saved-curve-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #252540;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .saved-curve-item canvas {
+            border-radius: 4px;
+        }
+        .saved-curve-item .info {
+            flex: 1;
+        }
+        .saved-curve-item .name {
+            color: #4fc3f7;
+            font-weight: bold;
+        }
+        .saved-curve-item .tiles {
+            font-size: 11px;
+            color: #888;
+        }
+        .saved-curve-item button {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .instructions {
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+            color: #aaa;
+        }
+        .corner-select {
+            margin-bottom: 15px;
+        }
+        .corner-select select {
+            padding: 8px;
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        #curveNameInput {
+            padding: 8px;
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 4px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 UO Curve Builder</h1>
+    <p class="subtitle">Build your own curve sequences by placing tiles in the grid</p>
+    
+    <div class="main-container">
+        <div class="builder-section">
+            <h2>Build Grid</h2>
+            
+            <div class="instructions">
+                <ol>
+                    <li>Click a tile in the <strong>Palette</strong> (right side) to select it</li>
+                    <li>Click a cell in the <strong>Grid</strong> below to place the tile</li>
+                    <li>Build your corner transition (grass → sand)</li>
+                    <li>Click <strong>Save Curve</strong> when it looks correct</li>
+                </ol>
+            </div>
+            
+            <div class="corner-select">
+                <label>Corner Type: </label>
+                <select id="cornerType">
+                    <option value="topLeft">Top-Left (Grass top-left, Sand bottom-right)</option>
+                    <option value="topRight">Top-Right (Grass top-right, Sand bottom-left)</option>
+                    <option value="bottomLeft">Bottom-Left (Grass bottom-left, Sand top-right)</option>
+                    <option value="bottomRight">Bottom-Right (Grass bottom-right, Sand top-left)</option>
+                </select>
+            </div>
+            
+            <div class="grid-container">
+                <div class="build-grid" id="buildGrid">
+                    <!-- 3x3 grid cells will be created here -->
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <h3>Isometric Preview</h3>
+                <canvas id="previewCanvas" width="200" height="150"></canvas>
+            </div>
+            
+            <div class="controls">
+                <input type="text" id="curveNameInput" placeholder="Curve name (e.g., Smooth A)">
+                <button class="btn-save" onclick="saveCurve()">💾 Save Curve</button>
+                <button class="btn-clear" onclick="clearGrid()">🗑️ Clear Grid</button>
+            </div>
+            
+            <div class="saved-curves">
+                <h3>Saved Curves</h3>
+                <div id="savedCurvesList"></div>
+                <button class="btn-export" onclick="exportAllCurves()">📤 Export All Curves</button>
+            </div>
+        </div>
+        
+        <div class="palette-section">
+            <h2>Tile Palette</h2>
+            <p style="color: #888; font-size: 12px;">Click a tile to select it, then click a grid cell to place it</p>
+            
+            <h3>🌱 Grass Tiles</h3>
+            <div class="palette-grid" id="grassPalette"></div>
+            
+            <h3>🏖️ Sand Tiles</h3>
+            <div class="palette-grid" id="sandPalette"></div>
+            
+            <h3>🌊 Transition Tiles (Smooth Curves)</h3>
+            <div class="palette-grid" id="transitionPalette"></div>
+            
+            <h3>📐 Edge/Corner Tiles</h3>
+            <div class="palette-grid" id="edgePalette"></div>
+        </div>
+    </div>
+    
+    <script>
+        const TILE_WIDTH = 44;
+        const TILE_HEIGHT = 44;
+        
+        // Tile categories
+        const TILE_CATEGORIES = {
+            grass: ['0x0003', '0x0004', '0x0005', '0x0006'],
+            sand: ['0x0016', '0x0017', '0x0018', '0x0019'],
+            transition: [
+                '0x037E', '0x037C', '0x037D', '0x037F',
+                '0x03C0', '0x03C1', '0x03C2', '0x03C3', '0x03C4', '0x03C5', '0x03C6', '0x03C7', '0x03C8', '0x03C9', '0x03CA',
+                '0x03B7', '0x03B8', '0x03B9', '0x03BA', '0x03BB', '0x03BC', '0x03BD', '0x03BE', '0x03BF',
+                '0x01AB', '0x01A5', '0x01A8',
+                '0x035C', '0x0375'
+            ],
+            edge: [
+                '0x0033', '0x0034', '0x0035', '0x0036',
+                '0x0037', '0x0038', '0x0039', '0x003A',
+                '0x003B', '0x003C', '0x003D', '0x003E'
+            ]
+        };
+        
+        let tiles = {};
+        let selectedTile = null;
+        let gridState = Array(9).fill(null); // 3x3 = 9 cells
+        let savedCurves = [];
+        
+        // Cell labels for reference
+        const CELL_LABELS = ['TL', 'T', 'TR', 'L', 'C', 'R', 'BL', 'B', 'BR'];
+        
+        // Load tile image
+        async function loadTileImage(tileId) {
+            if (tiles[tileId]) return tiles[tileId];
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    tiles[tileId] = img;
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    resolve(null);
+                };
+                img.src = `assets/tiles/${tileId}.bmp?t=${Date.now()}`;
+            });
+        }
+        
+        // Create palette
+        async function createPalette(containerId, tileIds) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            for (const tileId of tileIds) {
+                const img = await loadTileImage(tileId);
+                
+                const tile = document.createElement('div');
+                tile.className = 'palette-tile';
+                tile.dataset.tileId = tileId;
+                tile.onclick = () => selectTile(tileId, tile);
+                
+                if (img) {
+                    const imgEl = document.createElement('img');
+                    imgEl.src = img.src;
+                    tile.appendChild(imgEl);
+                }
+                
+                const idLabel = document.createElement('div');
+                idLabel.className = 'tile-id';
+                idLabel.textContent = tileId;
+                tile.appendChild(idLabel);
+                
+                container.appendChild(tile);
+            }
+        }
+        
+        // Select tile from palette
+        function selectTile(tileId, element) {
+            // Remove previous selection
+            document.querySelectorAll('.palette-tile.selected').forEach(el => el.classList.remove('selected'));
+            
+            selectedTile = tileId;
+            element.classList.add('selected');
+        }
+        
+        // Create build grid
+        function createBuildGrid() {
+            const grid = document.getElementById('buildGrid');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                cell.dataset.index = i;
+                cell.onclick = () => placeInCell(i);
+                
+                const label = document.createElement('div');
+                label.className = 'cell-label';
+                label.textContent = CELL_LABELS[i];
+                cell.appendChild(label);
+                
+                grid.appendChild(cell);
+            }
+        }
+        
+        // Place tile in cell
+        async function placeInCell(index) {
+            if (!selectedTile) {
+                alert('Please select a tile from the palette first!');
+                return;
+            }
+            
+            gridState[index] = selectedTile;
+            
+            const cell = document.querySelector(`.grid-cell[data-index="${index}"]`);
+            cell.innerHTML = '';
+            cell.classList.add('filled');
+            
+            // Add label back
+            const label = document.createElement('div');
+            label.className = 'cell-label';
+            label.textContent = CELL_LABELS[index];
+            cell.appendChild(label);
+            
+            // Add tile image
+            const img = await loadTileImage(selectedTile);
+            if (img) {
+                const imgEl = document.createElement('img');
+                imgEl.src = img.src;
+                cell.appendChild(imgEl);
+            }
+            
+            // Add tile ID
+            const idLabel = document.createElement('div');
+            idLabel.className = 'tile-id';
+            idLabel.textContent = selectedTile;
+            cell.appendChild(idLabel);
+            
+            // Update preview
+            updatePreview();
+        }
+        
+        // Update isometric preview
+        async function updatePreview() {
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#3a5a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const halfWidth = 22;
+            const halfHeight = 22;
+            const offsetX = canvas.width / 2;
+            const offsetY = 20;
+            
+            for (let y = 0; y < 3; y++) {
+                for (let x = 0; x < 3; x++) {
+                    const index = y * 3 + x;
+                    const tileId = gridState[index];
+                    
+                    if (tileId) {
+                        const img = await loadTileImage(tileId);
+                        const isoX = (x - y) * halfWidth + offsetX - halfWidth;
+                        const isoY = (x + y) * halfHeight + offsetY;
+                        
+                        if (img) {
+                            ctx.drawImage(img, isoX, isoY, TILE_WIDTH, TILE_HEIGHT);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Clear grid
+        function clearGrid() {
+            gridState = Array(9).fill(null);
+            createBuildGrid();
+            updatePreview();
+        }
+        
+        // Save curve
+        function saveCurve() {
+            const name = document.getElementById('curveNameInput').value.trim();
+            if (!name) {
+                alert('Please enter a name for this curve!');
+                return;
+            }
+            
+            // Check if grid has tiles
+            if (gridState.every(t => t === null)) {
+                alert('Please place some tiles in the grid first!');
+                return;
+            }
+            
+            const cornerType = document.getElementById('cornerType').value;
+            
+            // Convert to 2D array
+            const tiles2D = [
+                [gridState[0], gridState[1], gridState[2]],
+                [gridState[3], gridState[4], gridState[5]],
+                [gridState[6], gridState[7], gridState[8]]
+            ];
+            
+            const curve = {
+                id: `curve_${Date.now()}`,
+                name: name,
+                cornerType: cornerType,
+                tiles: tiles2D,
+                timestamp: new Date().toISOString()
+            };
+            
+            savedCurves.push(curve);
+            saveCurvesToStorage();
+            renderSavedCurves();
+            
+            document.getElementById('curveNameInput').value = '';
+            alert(`Curve "${name}" saved!`);
+        }
+        
+        // Save to localStorage
+        function saveCurvesToStorage() {
+            localStorage.setItem('savedCurves', JSON.stringify(savedCurves));
+        }
+        
+        // Load from localStorage
+        function loadCurvesFromStorage() {
+            const saved = localStorage.getItem('savedCurves');
+            if (saved) {
+                savedCurves = JSON.parse(saved);
+            }
+        }
+        
+        // Render saved curves list
+        async function renderSavedCurves() {
+            const container = document.getElementById('savedCurvesList');
+            container.innerHTML = '';
+            
+            for (const curve of savedCurves) {
+                const item = document.createElement('div');
+                item.className = 'saved-curve-item';
+                
+                // Mini preview canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = 100;
+                canvas.height = 80;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#3a5a1a';
+                ctx.fillRect(0, 0, 100, 80);
+                
+                // Draw mini preview
+                const halfWidth = 11;
+                const halfHeight = 11;
+                for (let y = 0; y < 3; y++) {
+                    for (let x = 0; x < 3; x++) {
+                        const tileId = curve.tiles[y][x];
+                        if (tileId) {
+                            const img = await loadTileImage(tileId);
+                            const isoX = (x - y) * halfWidth + 50 - halfWidth;
+                            const isoY = (x + y) * halfHeight + 5;
+                            if (img) {
+                                ctx.drawImage(img, isoX, isoY, 22, 22);
+                            }
+                        }
+                    }
+                }
+                
+                item.appendChild(canvas);
+                
+                // Info
+                const info = document.createElement('div');
+                info.className = 'info';
+                info.innerHTML = `
+                    <div class="name">${curve.name}</div>
+                    <div class="tiles">${curve.cornerType} - ${curve.tiles.flat().filter(t => t).join(', ')}</div>
+                `;
+                item.appendChild(info);
+                
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-clear';
+                deleteBtn.textContent = '🗑️';
+                deleteBtn.onclick = () => deleteCurve(curve.id);
+                item.appendChild(deleteBtn);
+                
+                // Load button
+                const loadBtn = document.createElement('button');
+                loadBtn.className = 'btn-load';
+                loadBtn.textContent = '📂';
+                loadBtn.onclick = () => loadCurve(curve);
+                item.appendChild(loadBtn);
+                
+                container.appendChild(item);
+            }
+        }
+        
+        // Delete curve
+        function deleteCurve(id) {
+            savedCurves = savedCurves.filter(c => c.id !== id);
+            saveCurvesToStorage();
+            renderSavedCurves();
+        }
+        
+        // Load curve into grid
+        function loadCurve(curve) {
+            document.getElementById('cornerType').value = curve.cornerType;
+            gridState = curve.tiles.flat();
+            
+            // Rebuild grid with tiles
+            const grid = document.getElementById('buildGrid');
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                cell.dataset.index = i;
+                cell.onclick = () => placeInCell(i);
+                
+                const label = document.createElement('div');
+                label.className = 'cell-label';
+                label.textContent = CELL_LABELS[i];
+                cell.appendChild(label);
+                
+                if (gridState[i]) {
+                    cell.classList.add('filled');
+                    loadTileImage(gridState[i]).then(img => {
+                        if (img) {
+                            const imgEl = document.createElement('img');
+                            imgEl.src = img.src;
+                            cell.appendChild(imgEl);
+                        }
+                        const idLabel = document.createElement('div');
+                        idLabel.className = 'tile-id';
+                        idLabel.textContent = gridState[i];
+                        cell.appendChild(idLabel);
+                    });
+                }
+                
+                grid.appendChild(cell);
+            }
+            
+            updatePreview();
+        }
+        
+        // Export all curves
+        function exportAllCurves() {
+            const exportData = {
+                exportType: 'CURVE_SEQUENCES',
+                timestamp: new Date().toISOString(),
+                curves: savedCurves
+            };
+            
+            const json = JSON.stringify(exportData, null, 2);
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(json).then(() => {
+                alert('Curves exported to clipboard!\n\nPaste this in the chat so I can use these sequences for terrain generation.');
+            });
+            
+            console.log('Exported curves:', json);
+        }
+        
+        // Initialize
+        async function init() {
+            loadCurvesFromStorage();
+            
+            createBuildGrid();
+            await createPalette('grassPalette', TILE_CATEGORIES.grass);
+            await createPalette('sandPalette', TILE_CATEGORIES.sand);
+            await createPalette('transitionPalette', TILE_CATEGORIES.transition);
+            await createPalette('edgePalette', TILE_CATEGORIES.edge);
+            
+            renderSavedCurves();
+            updatePreview();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UO Curve Sequence Tester</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #00d4ff;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+        }
+        .corner-section {
+            background: #252540;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #3a3a5a;
+        }
+        .corner-title {
+            font-size: 20px;
+            color: #ff9800;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .curve-option {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 15px;
+            border: 2px solid #3a3a5a;
+            transition: all 0.3s;
+        }
+        .curve-option.approved {
+            border-color: #4CAF50;
+            background: #1a2a1a;
+        }
+        .curve-option.rejected {
+            border-color: #f44336;
+            background: #2a1a1a;
+            opacity: 0.6;
+        }
+        .option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .option-name {
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        .option-tiles {
+            font-family: monospace;
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        .canvas-container {
+            background: #000;
+            border-radius: 4px;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn-approve {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-approve:hover {
+            background: #45a049;
+        }
+        .btn-reject {
+            background: #f44336;
+            color: white;
+        }
+        .btn-reject:hover {
+            background: #d32f2f;
+        }
+        .btn-reset {
+            background: #607D8B;
+            color: white;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-approved {
+            background: #4CAF50;
+            color: white;
+        }
+        .status-rejected {
+            background: #f44336;
+            color: white;
+        }
+        .status-pending {
+            background: #ff9800;
+            color: black;
+        }
+        .export-section {
+            background: #252540;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .export-btn {
+            background: #9c27b0;
+            color: white;
+            padding: 15px 30px;
+            font-size: 16px;
+        }
+        .export-btn:hover {
+            background: #7b1fa2;
+        }
+        #exportOutput {
+            margin-top: 15px;
+            padding: 15px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            text-align: left;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #252540;
+            border-radius: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .legend-grass { background: #4a7c23; }
+        .legend-sand { background: #c2a060; }
+        .legend-water { background: #1e5799; }
+    </style>
+</head>
+<body>
+    <h1>🎨 UO Curve Sequence Tester</h1>
+    <p class="subtitle">Approve or reject curve sequences to teach the terrain generator which ones look correct</p>
+    
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color legend-grass"></div>
+            <span>Grass</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color legend-sand"></div>
+            <span>Sand</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color legend-water"></div>
+            <span>Water</span>
+        </div>
+        <div class="legend-item" style="margin-left: 20px;">
+            <label style="cursor: pointer;">
+                <input type="checkbox" id="showTileIds" checked onchange="reRenderAll()">
+                <span>Show Tile IDs</span>
+            </label>
+        </div>
+        <div class="legend-item" style="margin-left: 30px; font-weight: bold;" id="statusDisplay">
+            <!-- Auto-updated by autoSaveResults() -->
+        </div>
+    </div>
+    
+    <div id="cornerSections"></div>
+    
+    <div class="export-section">
+        <button class="export-btn" onclick="exportApprovedSequences()">📤 Export Approved Sequences</button>
+        <button style="background: #ff9800; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;" onclick="regenerateOptions()">🔄 Generate NEW Options</button>
+        <button class="btn-reset" onclick="resetAll()">🗑️ Reset All</button>
+        <div id="exportOutput"></div>
+    </div>
+
+    <script>
+        // Tile loading
+        let tiles = {};
+        const TILE_WIDTH = 44;
+        const TILE_HEIGHT = 44;
+        
+        // Pool of curve/transition tiles to try
+        const CURVE_TILE_POOL = [
+            // Smooth curves (0x03B7-0x03C8 range)
+            '0x03B7', '0x03B8', '0x03B9', '0x03BA', '0x03BB', '0x03BC', '0x03BD', '0x03BE', '0x03BF',
+            '0x03C0', '0x03C1', '0x03C2', '0x03C3', '0x03C4', '0x03C5', '0x03C6', '0x03C7', '0x03C8',
+            // Grass transitions
+            '0x037E', '0x037C', '0x037D', '0x0375', '0x0376', '0x0377', '0x0378', '0x0379', '0x037A', '0x037B',
+            // More grass variants
+            '0x01A5', '0x01A6', '0x01A7', '0x01A8', '0x01A9', '0x01AA', '0x01AB',
+            // Feathered grass
+            '0x0684', '0x012A', '0x012C',
+            // Additional curves
+            '0x035C', '0x035D', '0x035E', '0x035F',
+            '0x0360', '0x0361', '0x0362', '0x0363', '0x0364', '0x0365', '0x0366', '0x0367',
+            '0x0368', '0x0369', '0x036A', '0x036B', '0x036C', '0x036D', '0x036E', '0x036F',
+            '0x0370', '0x0371', '0x0372', '0x0373', '0x0374'
+        ];
+        
+        // Track which tiles have been tried for each corner
+        let triedTiles = JSON.parse(localStorage.getItem('triedTiles') || '{}');
+        let generationCounter = parseInt(localStorage.getItem('generationCounter') || '0');
+        
+        // Generate a new curve option dynamically
+        function generateNewOption(corner, index) {
+            const cornerKey = `${corner}_${index}`;
+            if (!triedTiles[cornerKey]) triedTiles[cornerKey] = [];
+            
+            // Find untried tiles
+            const untried = CURVE_TILE_POOL.filter(t => !triedTiles[cornerKey].includes(t));
+            if (untried.length === 0) {
+                // Reset if all tried
+                triedTiles[cornerKey] = [];
+                return generateNewOption(corner, index);
+            }
+            
+            // Pick random untried tile
+            const newTile = untried[Math.floor(Math.random() * untried.length)];
+            triedTiles[cornerKey].push(newTile);
+            localStorage.setItem('triedTiles', JSON.stringify(triedTiles));
+            
+            generationCounter++;
+            localStorage.setItem('generationCounter', generationCounter.toString());
+            
+            return newTile;
+        }
+        
+        // Create initial sequences with some variety - DYNAMICALLY generates new tiles each time
+        function createInitialSequences() {
+            const gen = generationCounter;
+            
+            // Pick random curve tiles for each position
+            const tlCurve1 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const tlCurve2 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const tlCurve3 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const trCurve1 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const trCurve2 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const trCurve3 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const blCurve1 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const blCurve2 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const blCurve3 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const brCurve1 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const brCurve2 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const brCurve3 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            
+            return {
+            topLeft: {
+                name: "Top-Left Corner (Grass → Sand)",
+                description: "Where grass meets sand at the top-left",
+                options: [
+                    {
+                        id: "tl_sharp",
+                        name: "Sharp Corner",
+                        description: "Basic corner tile",
+                        // 3x3 grid: [row0], [row1], [row2]
+                        // Each row: [left, center, right]
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x0003", "0x003D", "0x003A"],
+                            ["0x0003", "0x0038", "0x0016"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["grass", "sand", "sand"],
+                            ["grass", "sand", "sand"]
+                        ]
+                    },
+                    {
+                        id: `tl_smooth1_${gen}`,
+                        name: `Curve Option A (${tlCurve1.slice(-4)})`,
+                        description: `Using ${tlCurve1} curve tile`,
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x0003", "0x037E", "0x0003"],
+                            ["0x0003", tlCurve1, "0x003A"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["grass", "grass", "grass"],
+                            ["grass", "sand", "sand"]
+                        ]
+                    },
+                    {
+                        id: `tl_smooth2_${gen}`,
+                        name: `Curve Option B (${tlCurve2.slice(-4)})`,
+                        description: `Using ${tlCurve2} curve tile`,
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x0003", tlCurve2, "0x0003"],
+                            ["0x0003", "0x0038", "0x0016"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["grass", "grass", "grass"],
+                            ["grass", "sand", "sand"]
+                        ]
+                    },
+                    {
+                        id: `tl_smooth3_${gen}`,
+                        name: `Curve Option C (${tlCurve3.slice(-4)})`,
+                        description: `Using ${tlCurve3} curve tile`,
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x0003", "0x003D", tlCurve3],
+                            ["0x0003", "0x0038", "0x0016"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["grass", "sand", "sand"],
+                            ["grass", "sand", "sand"]
+                        ]
+                    }
+                ]
+            },
+            topRight: {
+                name: "Top-Right Corner (Sand ← Grass)",
+                description: "Where sand meets grass at the top-right",
+                options: [
+                    {
+                        id: "tr_sharp",
+                        name: "Sharp Corner",
+                        description: "Basic corner tile",
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x003A", "0x003C", "0x0003"],
+                            ["0x0016", "0x0037", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"]
+                        ]
+                    },
+                    {
+                        id: "tr_smooth1",
+                        name: "Smooth Curve A",
+                        description: "Using 0x03C2 curve tile",
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x003A", "0x03C2", "0x0003"],
+                            ["0x0016", "0x0037", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"]
+                        ]
+                    },
+                    {
+                        id: "tr_smooth2",
+                        name: "Smooth Curve B",
+                        description: "Using 0x03C0 curve tile",
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x003A", "0x03C0", "0x0003"],
+                            ["0x0016", "0x0037", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"]
+                        ]
+                    },
+                    {
+                        id: "tr_smooth3",
+                        name: "Smooth Curve C",
+                        description: "Using 0x037C grass transition",
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x003A", "0x003C", "0x037C"],
+                            ["0x0016", "0x0037", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "grass", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"]
+                        ]
+                    }
+                ]
+            },
+            bottomLeft: {
+                name: "Bottom-Left Corner (Grass → Sand)",
+                description: "Where grass meets sand at the bottom-left",
+                options: [
+                    {
+                        id: "bl_sharp",
+                        name: "Sharp Corner",
+                        description: "Basic corner tile",
+                        tiles: [
+                            ["0x0003", "0x0038", "0x0016"],
+                            ["0x0003", "0x003E", "0x0039"],
+                            ["0x0003", "0x0003", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "sand", "sand"],
+                            ["grass", "sand", "sand"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    },
+                    {
+                        id: "bl_smooth1",
+                        name: "Smooth Curve A",
+                        description: "Using 0x03C5 curve tile",
+                        tiles: [
+                            ["0x0003", "0x0038", "0x0016"],
+                            ["0x0003", "0x03C5", "0x0039"],
+                            ["0x0003", "0x03C1", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "sand", "sand"],
+                            ["grass", "sand", "sand"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    },
+                    {
+                        id: "bl_smooth2",
+                        name: "Smooth Curve B",
+                        description: "Using 0x035C curve tile",
+                        tiles: [
+                            ["0x0003", "0x0038", "0x0016"],
+                            ["0x0003", "0x035C", "0x0039"],
+                            ["0x0003", "0x03BF", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "sand", "sand"],
+                            ["grass", "sand", "sand"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    },
+                    {
+                        id: "bl_smooth3",
+                        name: "Smooth Curve C",
+                        description: "Using 0x03BA curve tile",
+                        tiles: [
+                            ["0x0003", "0x03C1", "0x0016"],
+                            ["0x0003", "0x03BA", "0x0039"],
+                            ["0x0003", "0x03BF", "0x0003"]
+                        ],
+                        biomes: [
+                            ["grass", "sand", "sand"],
+                            ["grass", "sand", "sand"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    }
+                ]
+            },
+            bottomRight: {
+                name: "Bottom-Right Corner (Sand ← Grass)",
+                description: "Where sand meets grass at the bottom-right",
+                options: [
+                    {
+                        id: "br_sharp",
+                        name: "Sharp Corner",
+                        description: "Basic corner tile",
+                        tiles: [
+                            ["0x0016", "0x0037", "0x0003"],
+                            ["0x0039", "0x003B", "0x0003"],
+                            ["0x0003", "0x0003", "0x0003"]
+                        ],
+                        biomes: [
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    },
+                    {
+                        id: "br_smooth1",
+                        name: "Smooth Curve A",
+                        description: "Using 0x03BD curve tile",
+                        tiles: [
+                            ["0x0016", "0x0037", "0x0003"],
+                            ["0x0039", "0x03BD", "0x0003"],
+                            ["0x0003", "0x03C4", "0x0003"]
+                        ],
+                        biomes: [
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    },
+                    {
+                        id: "br_smooth2",
+                        name: "Smooth Curve B",
+                        description: "Using 0x03C8 curve tile",
+                        tiles: [
+                            ["0x0016", "0x03B9", "0x0003"],
+                            ["0x0039", "0x03C8", "0x0003"],
+                            ["0x0003", "0x03C3", "0x0003"]
+                        ],
+                        biomes: [
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    },
+                    {
+                        id: "br_smooth3",
+                        name: "Smooth Curve C",
+                        description: "Using 0x03BF curve tile",
+                        tiles: [
+                            ["0x0016", "0x0037", "0x0003"],
+                            ["0x0039", "0x03BF", "0x0003"],
+                            ["0x0003", "0x0003", "0x0003"]
+                        ],
+                        biomes: [
+                            ["sand", "sand", "grass"],
+                            ["sand", "sand", "grass"],
+                            ["grass", "grass", "grass"]
+                        ]
+                    }
+                ]
+            }
+            };  // End of return object
+        }  // End of createInitialSequences function
+        
+        // Initialize CURVE_SEQUENCES
+        let CURVE_SEQUENCES = createInitialSequences();
+        
+        // Track approval status
+        let approvalStatus = {};
+        
+        // Load from localStorage
+        function loadApprovalStatus() {
+            const saved = localStorage.getItem('curveApprovalStatus');
+            if (saved) {
+                approvalStatus = JSON.parse(saved);
+            }
+        }
+        
+        // Save to localStorage
+        function saveApprovalStatus() {
+            localStorage.setItem('curveApprovalStatus', JSON.stringify(approvalStatus));
+        }
+        
+        // Process tile image to make black corners transparent
+        // UO tiles have black (0,0,0) in the corners outside the diamond
+        function processBlackToTransparent(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width || 44;
+            canvas.height = img.height || 44;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.drawImage(img, 0, 0);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // Make pure black pixels transparent
+            // UO tiles use exact black (0,0,0) for transparent corners
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                
+                // Pure black or very near black = transparent
+                if (r <= 5 && g <= 5 && b <= 5) {
+                    data[i + 3] = 0; // Set alpha to 0
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            return canvas;
+        }
+        
+        // Load tile image with cache busting and black-to-transparent processing
+        async function loadTileImage(tileId) {
+            if (tiles[tileId]) return tiles[tileId];
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    // Process to make black pixels transparent (like terrain_generator_demo)
+                    const processed = processBlackToTransparent(img);
+                    tiles[tileId] = processed;
+                    resolve(processed);
+                };
+                img.onerror = () => {
+                    console.warn(`Failed to load tile ${tileId}`);
+                    // Try uppercase version
+                    const img2 = new Image();
+                    img2.crossOrigin = 'anonymous';
+                    img2.onload = () => {
+                        const processed = processBlackToTransparent(img2);
+                        tiles[tileId] = processed;
+                        resolve(processed);
+                    };
+                    img2.onerror = () => {
+                        console.error(`FAILED: ${tileId}`);
+                        resolve(null);
+                    };
+                    img2.src = `assets/tiles/${tileId.toUpperCase()}.bmp?t=${Date.now()}`;
+                };
+                img.src = `assets/tiles/${tileId}.bmp?t=${Date.now()}`;
+            });
+        }
+        
+        // Track if we should show tile IDs
+        let showTileIdsEnabled = true;
+        
+        // Re-render all canvases when toggle changes
+        async function reRenderAll() {
+            showTileIdsEnabled = document.getElementById('showTileIds').checked;
+            // Re-render all options
+            for (const [cornerKey, cornerData] of Object.entries(CURVE_SEQUENCES)) {
+                for (const option of cornerData.options) {
+                    const canvas = document.getElementById(`canvas-${option.id}`);
+                    if (canvas) {
+                        await renderCurveOption(canvas, option);
+                    }
+                }
+            }
+        }
+        
+        // Render a curve option to canvas - EXACT same method as terrain_generator_demo.html
+        async function renderCurveOption(canvas, option) {
+            const ctx = canvas.getContext('2d');
+            const gridSize = 3;
+            const tileWidth = 44;
+            const tileHeight = 44;
+            const halfWidth = tileWidth / 2;  // 22
+            const halfHeight = tileHeight / 2; // 22
+            
+            // Canvas size - make it bigger to avoid edge clipping
+            const canvasWidth = (gridSize + gridSize) * halfWidth + tileWidth + 20;
+            const canvasHeight = (gridSize + gridSize) * halfHeight + tileHeight + 20;
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            // Pixel-perfect rendering
+            ctx.imageSmoothingEnabled = false;
+            
+            // Use grass green background instead of black - eliminates black gaps
+            ctx.fillStyle = '#3a5c1a';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            const offsetX = 10;
+            const offsetY = 10;
+            
+            // Draw tiles in CORRECT ORDER (back to front) - same as terrain_generator_demo.html
+            for (let row = 0; row < gridSize + gridSize; row++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const y = row - x;
+                    if (y < 0 || y >= gridSize) continue;
+                    
+                    const tileId = option.tiles[y][x];
+                    const img = await loadTileImage(tileId);
+                    
+                    // Standard isometric coordinates
+                    const screenX = (x - y) * halfWidth + (canvasWidth / 2) - halfWidth + offsetX - 10;
+                    const screenY = (x + y) * halfHeight + offsetY;
+                    
+                    if (img) {
+                        ctx.drawImage(img, screenX, screenY, tileWidth, tileHeight);
+                    } else {
+                        // Fallback diamond shape
+                        const biome = option.biomes[y][x];
+                        if (biome === 'grass') ctx.fillStyle = '#4a7c23';
+                        else if (biome === 'sand') ctx.fillStyle = '#c2a060';
+                        else if (biome === 'water') ctx.fillStyle = '#1e5799';
+                        else ctx.fillStyle = '#333';
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(screenX + halfWidth, screenY);
+                        ctx.lineTo(screenX + tileWidth, screenY + halfHeight);
+                        ctx.lineTo(screenX + halfWidth, screenY + tileHeight);
+                        ctx.lineTo(screenX, screenY + halfHeight);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+            }
+            
+            // Only draw tile IDs if enabled
+            if (showTileIdsEnabled) {
+                for (let row = 0; row < gridSize + gridSize; row++) {
+                    for (let x = 0; x < gridSize; x++) {
+                        const y = row - x;
+                        if (y < 0 || y >= gridSize) continue;
+                        
+                        const tileId = option.tiles[y][x];
+                        const screenX = (x - y) * halfWidth + (canvasWidth / 2) - halfWidth + offsetX - 10;
+                        const screenY = (x + y) * halfHeight + offsetY;
+                        
+                        // Draw tile ID with background for readability
+                        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                        ctx.fillRect(screenX + tileWidth/2 - 20, screenY + tileHeight/2 - 6, 40, 12);
+                        ctx.fillStyle = '#ff0';
+                        ctx.font = '9px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(tileId, screenX + tileWidth / 2, screenY + tileHeight / 2 + 3);
+                    }
+                }
+            }
+        }
+        
+        // Create UI for a corner section
+        function createCornerSection(cornerKey, cornerData) {
+            const section = document.createElement('div');
+            section.className = 'corner-section';
+            section.innerHTML = `
+                <div class="corner-title">
+                    <span>📐 ${cornerData.name}</span>
+                </div>
+                <p style="color: #888; margin-bottom: 15px;">${cornerData.description}</p>
+                <div class="options-grid" id="options-${cornerKey}"></div>
+            `;
+            
+            const optionsGrid = section.querySelector(`#options-${cornerKey}`);
+            
+            cornerData.options.forEach(option => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'curve-option';
+                optionDiv.id = `option-${option.id}`;
+                
+                const status = approvalStatus[option.id] || 'pending';
+                if (status === 'approved') optionDiv.classList.add('approved');
+                if (status === 'rejected') optionDiv.classList.add('rejected');
+                
+                const tileList = option.tiles.flat().filter((t, i, arr) => arr.indexOf(t) === i).join(', ');
+                
+                optionDiv.innerHTML = `
+                    <div class="option-header">
+                        <span class="option-name">${option.name}</span>
+                        <span class="status-badge status-${status}" id="status-${option.id}">${status.toUpperCase()}</span>
+                    </div>
+                    <div class="option-tiles">Tiles: ${tileList}</div>
+                    <p style="color: #666; font-size: 12px; margin: 5px 0;">${option.description}</p>
+                    <div class="canvas-container">
+                        <canvas id="canvas-${option.id}"></canvas>
+                    </div>
+                    <div class="buttons">
+                        <button class="btn-approve" onclick="approveOption('${option.id}')">✓ Approve</button>
+                        <button class="btn-reject" onclick="rejectOption('${option.id}')">✗ Reject</button>
+                        <button class="btn-reset" onclick="resetOption('${option.id}')">↺</button>
+                    </div>
+                `;
+                
+                optionsGrid.appendChild(optionDiv);
+                
+                // Render the canvas
+                const canvas = optionDiv.querySelector(`#canvas-${option.id}`);
+                renderCurveOption(canvas, option);
+            });
+            
+            return section;
+        }
+        
+        // Approval functions - card disappears and new one appears
+        function approveOption(optionId) {
+            approvalStatus[optionId] = 'approved';
+            saveApprovalStatus();
+            autoSaveResults();
+            console.log(`✓ APPROVED: ${optionId}`);
+            
+            // Remove card and generate new one
+            replaceWithNewOption(optionId);
+        }
+        
+        function rejectOption(optionId) {
+            approvalStatus[optionId] = 'rejected';
+            saveApprovalStatus();
+            autoSaveResults();
+            console.log(`✗ REJECTED: ${optionId}`);
+            
+            // Remove card and generate new one
+            replaceWithNewOption(optionId);
+        }
+        
+        function resetOption(optionId) {
+            delete approvalStatus[optionId];
+            saveApprovalStatus();
+            autoSaveResults();
+            console.log(`↺ RESET: ${optionId}`);
+        }
+        
+        // Replace a card with a new randomly generated option
+        async function replaceWithNewOption(oldOptionId) {
+            const optionDiv = document.getElementById(`option-${oldOptionId}`);
+            if (!optionDiv) return;
+            
+            // Figure out which corner this belongs to
+            const cornerKey = oldOptionId.startsWith('tl') ? 'topLeft' :
+                              oldOptionId.startsWith('tr') ? 'topRight' :
+                              oldOptionId.startsWith('bl') ? 'bottomLeft' : 'bottomRight';
+            
+            // Generate new random option
+            generationCounter++;
+            localStorage.setItem('generationCounter', generationCounter.toString());
+            
+            const newOption = generateRandomOption(cornerKey, generationCounter);
+            
+            // Update the CURVE_SEQUENCES data
+            const cornerData = CURVE_SEQUENCES[cornerKey];
+            const optionIndex = cornerData.options.findIndex(o => o.id === oldOptionId);
+            if (optionIndex >= 0) {
+                cornerData.options[optionIndex] = newOption;
+            }
+            
+            // Animate out old card
+            optionDiv.style.transition = 'opacity 0.3s, transform 0.3s';
+            optionDiv.style.opacity = '0';
+            optionDiv.style.transform = 'scale(0.8)';
+            
+            // After animation, replace with new card
+            setTimeout(async () => {
+                // Create new card HTML
+                const tileList = newOption.tiles.flat().filter((t, i, arr) => arr.indexOf(t) === i).join(', ');
+                
+                optionDiv.id = `option-${newOption.id}`;
+                optionDiv.className = 'curve-option';
+                optionDiv.innerHTML = `
+                    <div class="option-header">
+                        <span class="option-name">${newOption.name}</span>
+                        <span class="status-badge status-pending" id="status-${newOption.id}">PENDING</span>
+                    </div>
+                    <div class="tile-list">Tiles: ${tileList}</div>
+                    <p class="option-desc">${newOption.description}</p>
+                    <canvas id="canvas-${newOption.id}" class="curve-canvas"></canvas>
+                    <div class="option-buttons">
+                        <button class="btn-approve" onclick="approveOption('${newOption.id}')">✓ Approve</button>
+                        <button class="btn-reject" onclick="rejectOption('${newOption.id}')">✗ Reject</button>
+                        <button class="btn-reset-single" onclick="resetOption('${newOption.id}')">↺</button>
+                    </div>
+                `;
+                
+                // Render the new canvas
+                const canvas = document.getElementById(`canvas-${newOption.id}`);
+                await renderCurveOption(canvas, newOption);
+                
+                // Animate in
+                optionDiv.style.opacity = '1';
+                optionDiv.style.transform = 'scale(1)';
+                
+                // Update status display
+                autoSaveResults();
+            }, 300);
+        }
+        
+        // Generate a random option for a corner
+        function generateRandomOption(cornerKey, gen) {
+            const curveTile = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            const curveTile2 = CURVE_TILE_POOL[Math.floor(Math.random() * CURVE_TILE_POOL.length)];
+            
+            // Different patterns based on corner
+            if (cornerKey === 'topLeft') {
+                const patterns = [
+                    // Pattern 1: curve in center-bottom
+                    {
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x0003", curveTile, "0x0003"],
+                            ["0x0003", curveTile2, "0x003A"]
+                        ],
+                        biomes: [["grass","grass","grass"],["grass","grass","grass"],["grass","sand","sand"]]
+                    },
+                    // Pattern 2: curve replacing corner
+                    {
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x0003", curveTile, "0x003A"],
+                            ["0x0003", "0x0038", "0x0016"]
+                        ],
+                        biomes: [["grass","grass","grass"],["grass","sand","sand"],["grass","sand","sand"]]
+                    },
+                    // Pattern 3: curve on edge
+                    {
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x0003", "0x003D", curveTile],
+                            ["0x0003", "0x0038", "0x0016"]
+                        ],
+                        biomes: [["grass","grass","grass"],["grass","sand","sand"],["grass","sand","sand"]]
+                    }
+                ];
+                const p = patterns[Math.floor(Math.random() * patterns.length)];
+                return {
+                    id: `tl_gen_${gen}`,
+                    name: `Generated (${curveTile.slice(-4)})`,
+                    description: `Testing ${curveTile}`,
+                    tiles: p.tiles,
+                    biomes: p.biomes
+                };
+            } else if (cornerKey === 'topRight') {
+                const patterns = [
+                    {
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x003A", curveTile, "0x0003"],
+                            ["0x0016", "0x0037", "0x0003"]
+                        ],
+                        biomes: [["grass","grass","grass"],["sand","sand","grass"],["sand","sand","grass"]]
+                    },
+                    {
+                        tiles: [
+                            ["0x0003", "0x0003", "0x0003"],
+                            ["0x003A", "0x003C", curveTile],
+                            ["0x0016", "0x0037", "0x0003"]
+                        ],
+                        biomes: [["grass","grass","grass"],["sand","sand","grass"],["sand","sand","grass"]]
+                    }
+                ];
+                const p = patterns[Math.floor(Math.random() * patterns.length)];
+                return {
+                    id: `tr_gen_${gen}`,
+                    name: `Generated (${curveTile.slice(-4)})`,
+                    description: `Testing ${curveTile}`,
+                    tiles: p.tiles,
+                    biomes: p.biomes
+                };
+            } else if (cornerKey === 'bottomLeft') {
+                const patterns = [
+                    {
+                        tiles: [
+                            ["0x0003", "0x0038", "0x0016"],
+                            ["0x0003", curveTile, "0x0039"],
+                            ["0x0003", "0x0003", "0x0003"]
+                        ],
+                        biomes: [["grass","sand","sand"],["grass","sand","sand"],["grass","grass","grass"]]
+                    },
+                    {
+                        tiles: [
+                            ["0x0003", curveTile, "0x0016"],
+                            ["0x0003", "0x003E", "0x0039"],
+                            ["0x0003", "0x0003", "0x0003"]
+                        ],
+                        biomes: [["grass","sand","sand"],["grass","sand","sand"],["grass","grass","grass"]]
+                    }
+                ];
+                const p = patterns[Math.floor(Math.random() * patterns.length)];
+                return {
+                    id: `bl_gen_${gen}`,
+                    name: `Generated (${curveTile.slice(-4)})`,
+                    description: `Testing ${curveTile}`,
+                    tiles: p.tiles,
+                    biomes: p.biomes
+                };
+            } else { // bottomRight
+                const patterns = [
+                    {
+                        tiles: [
+                            ["0x0016", "0x0037", "0x0003"],
+                            ["0x0039", curveTile, "0x0003"],
+                            ["0x0003", "0x0003", "0x0003"]
+                        ],
+                        biomes: [["sand","sand","grass"],["sand","sand","grass"],["grass","grass","grass"]]
+                    },
+                    {
+                        tiles: [
+                            ["0x0016", curveTile, "0x0003"],
+                            ["0x0039", "0x003B", "0x0003"],
+                            ["0x0003", "0x0003", "0x0003"]
+                        ],
+                        biomes: [["sand","sand","grass"],["sand","sand","grass"],["grass","grass","grass"]]
+                    }
+                ];
+                const p = patterns[Math.floor(Math.random() * patterns.length)];
+                return {
+                    id: `br_gen_${gen}`,
+                    name: `Generated (${curveTile.slice(-4)})`,
+                    description: `Testing ${curveTile}`,
+                    tiles: p.tiles,
+                    biomes: p.biomes
+                };
+            }
+        }
+        
+        function resetAll() {
+            approvalStatus = {};
+            saveApprovalStatus();
+            localStorage.removeItem('triedTiles');
+            localStorage.removeItem('generationCounter');
+            location.reload();
+        }
+        
+        // Regenerate new random options (keeps approved ones, replaces pending/rejected)
+        function regenerateOptions() {
+            generationCounter++;
+            localStorage.setItem('generationCounter', generationCounter.toString());
+            
+            // Regenerate the sequences
+            CURVE_SEQUENCES = createInitialSequences();
+            
+            // Clear non-approved statuses
+            const newStatus = {};
+            for (const key of Object.keys(approvalStatus)) {
+                if (approvalStatus[key] === 'approved') {
+                    newStatus[key] = 'approved';
+                }
+            }
+            approvalStatus = newStatus;
+            saveApprovalStatus();
+            
+            // Rebuild UI
+            const container = document.getElementById('cornerSections');
+            container.innerHTML = '';
+            for (const [cornerKey, cornerData] of Object.entries(CURVE_SEQUENCES)) {
+                const section = createCornerSection(cornerKey, cornerData);
+                container.appendChild(section);
+            }
+            
+            autoSaveResults();
+            alert(`Generated new options! (Generation ${generationCounter})`);
+        }
+        
+        function updateOptionUI(optionId) {
+            const optionDiv = document.getElementById(`option-${optionId}`);
+            const statusBadge = document.getElementById(`status-${optionId}`);
+            const status = approvalStatus[optionId] || 'pending';
+            
+            optionDiv.classList.remove('approved', 'rejected');
+            if (status === 'approved') optionDiv.classList.add('approved');
+            if (status === 'rejected') optionDiv.classList.add('rejected');
+            
+            statusBadge.className = `status-badge status-${status}`;
+            statusBadge.textContent = status.toUpperCase();
+        }
+        
+        // Auto-save on every approval/rejection - writes to localStorage AND generates JS file content
+        function autoSaveResults() {
+            const results = {
+                approved: [],
+                rejected: [],
+                timestamp: new Date().toISOString(),
+                stats: { approved: 0, rejected: 0, pending: 0 }
+            };
+            
+            for (const [cornerKey, cornerData] of Object.entries(CURVE_SEQUENCES)) {
+                cornerData.options.forEach(option => {
+                    const status = approvalStatus[option.id];
+                    const entry = {
+                        corner: cornerKey,
+                        id: option.id,
+                        name: option.name,
+                        tiles: option.tiles,
+                        biomes: option.biomes,
+                        keyTiles: option.tiles.flat().filter(t => !['0x0003', '0x0016', '0x00A8'].includes(t))
+                    };
+                    
+                    if (status === 'approved') {
+                        results.approved.push(entry);
+                        results.stats.approved++;
+                    } else if (status === 'rejected') {
+                        results.rejected.push({ corner: cornerKey, id: option.id, name: option.name });
+                        results.stats.rejected++;
+                    } else {
+                        results.stats.pending++;
+                    }
+                });
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('curveResults', JSON.stringify(results));
+            
+            // Update status display
+            updateStatusDisplay(results.stats);
+            
+            return results;
+        }
+        
+        // Update status display
+        function updateStatusDisplay(stats) {
+            const statusEl = document.getElementById('statusDisplay');
+            if (statusEl) {
+                statusEl.innerHTML = `
+                    <span style="color:#4CAF50">✓ ${stats.approved}</span> | 
+                    <span style="color:#f44336">✗ ${stats.rejected}</span> | 
+                    <span style="color:#ff9800">⏳ ${stats.pending}</span>
+                `;
+            }
+        }
+        
+        // Export approved sequences
+        function exportApprovedSequences() {
+            const results = autoSaveResults();
+            
+            // Generate JavaScript module content
+            const jsContent = generateJSModule(results);
+            
+            const output = document.getElementById('exportOutput');
+            output.style.display = 'block';
+            output.textContent = jsContent;
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(jsContent)
+                .then(() => {
+                    alert(`Exported! ${results.stats.approved} approved, ${results.stats.rejected} rejected.\nJS module copied to clipboard - paste into js/data/approvedCurveSequences.js`);
+                });
+        }
+        
+        // Generate a proper JS module from results
+        function generateJSModule(results) {
+            const byCorner = { topLeft: [], topRight: [], bottomLeft: [], bottomRight: [] };
+            
+            results.approved.forEach(entry => {
+                byCorner[entry.corner].push(entry);
+            });
+            
+            return `// Auto-generated from Curve Tester - ${results.timestamp}
+// Approved: ${results.stats.approved}, Rejected: ${results.stats.rejected}
+
+export const APPROVED_CURVES = ${JSON.stringify(byCorner, null, 2)};
+
+export function getRandomCurve(corner) {
+    const curves = APPROVED_CURVES[corner];
+    if (!curves || curves.length === 0) return null;
+    return curves[Math.floor(Math.random() * curves.length)];
+}
+
+export default APPROVED_CURVES;
+`;
+        }
+        
+        // Get all unique tile IDs from sequences
+        function getAllTileIds() {
+            const ids = new Set();
+            for (const cornerData of Object.values(CURVE_SEQUENCES)) {
+                for (const option of cornerData.options) {
+                    for (const row of option.tiles) {
+                        for (const tileId of row) {
+                            ids.add(tileId);
+                        }
+                    }
+                }
+            }
+            return [...ids];
+        }
+        
+        // Preload all tiles
+        async function preloadTiles() {
+            const allIds = getAllTileIds();
+            console.log('Preloading tiles:', allIds);
+            
+            const results = await Promise.all(allIds.map(id => loadTileImage(id)));
+            const loaded = results.filter(r => r !== null).length;
+            const failed = allIds.filter((id, i) => results[i] === null);
+            
+            console.log(`Loaded ${loaded}/${allIds.length} tiles`);
+            if (failed.length > 0) {
+                console.error('Failed to load:', failed);
+            }
+            
+            return { loaded, total: allIds.length, failed };
+        }
+        
+        // Initialize
+        async function init() {
+            loadApprovalStatus();
+            
+            // Show loading status
+            const container = document.getElementById('cornerSections');
+            container.innerHTML = '<p style="text-align:center; color: #ff9800;">Loading tiles...</p>';
+            
+            // Preload all tiles first
+            const { loaded, total, failed } = await preloadTiles();
+            
+            if (failed.length > 0) {
+                container.innerHTML = `<p style="color: #f44336;">Warning: ${failed.length} tiles failed to load: ${failed.join(', ')}</p>`;
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            
+            container.innerHTML = '';
+            
+            for (const [cornerKey, cornerData] of Object.entries(CURVE_SEQUENCES)) {
+                const section = createCornerSection(cornerKey, cornerData);
+                container.appendChild(section);
+            }
+            
+            // Show initial status
+            autoSaveResults();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
+

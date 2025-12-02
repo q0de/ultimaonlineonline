@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UO Tile Browser & Pattern Builder</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+        h1 { color: #4CAF50; text-align: center; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 20px; }
+        
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* Left panel - Tile Browser */
+        .tile-browser {
+            flex: 1;
+            background: #252540;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .browser-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .browser-header input {
+            padding: 8px 12px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+            width: 150px;
+        }
+        .browser-header select {
+            padding: 8px 12px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #333;
+            color: #fff;
+        }
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            gap: 4px;
+        }
+        .tile-item {
+            width: 50px;
+            height: 50px;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #1a1a2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .tile-item:hover {
+            border-color: #4CAF50;
+        }
+        .tile-item.selected {
+            border-color: #ff9800;
+            box-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
+        }
+        .tile-item img {
+            max-width: 44px;
+            max-height: 44px;
+            image-rendering: pixelated;
+        }
+        .tile-item .tile-id {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            font-size: 8px;
+            background: rgba(0,0,0,0.8);
+            color: #ff0;
+            text-align: center;
+            padding: 1px;
+        }
+        
+        /* Right panel - Pattern Builder */
+        .pattern-builder {
+            width: 400px;
+            background: #252540;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .builder-section {
+            margin-bottom: 20px;
+        }
+        .builder-section h3 {
+            color: #4CAF50;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        
+        /* 3x3 Grid for pattern */
+        .pattern-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 80px);
+            gap: 4px;
+            margin-bottom: 15px;
+        }
+        .pattern-cell {
+            width: 80px;
+            height: 80px;
+            border: 2px dashed #444;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .pattern-cell:hover {
+            border-color: #4CAF50;
+        }
+        .pattern-cell.active {
+            border-color: #ff9800;
+            border-style: solid;
+        }
+        .pattern-cell img {
+            max-width: 44px;
+            max-height: 44px;
+            image-rendering: pixelated;
+        }
+        .pattern-cell .cell-label {
+            font-size: 9px;
+            color: #888;
+            margin-top: 2px;
+        }
+        .pattern-cell .cell-id {
+            font-size: 8px;
+            color: #ff0;
+        }
+        
+        /* Preview canvas */
+        .preview-container {
+            background: #000;
+            border-radius: 4px;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+        }
+        #previewCanvas {
+            image-rendering: pixelated;
+        }
+        
+        /* Buttons */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-save { background: #4CAF50; color: white; }
+        .btn-clear { background: #f44336; color: white; }
+        .btn-export { background: #2196F3; color: white; }
+        button:hover { opacity: 0.9; }
+        
+        /* Saved patterns */
+        .saved-patterns {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .saved-pattern {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        .saved-pattern canvas {
+            image-rendering: pixelated;
+        }
+        .saved-pattern .pattern-info {
+            flex: 1;
+            font-size: 12px;
+        }
+        .saved-pattern button {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+        
+        /* Range selector */
+        .range-info {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 UO Tile Browser & Pattern Builder</h1>
+    <p class="subtitle">Browse tiles, click to select, build 3x3 patterns for terrain transitions</p>
+    
+    <div class="main-container">
+        <!-- Left: Tile Browser -->
+        <div class="tile-browser">
+            <div class="browser-header">
+                <input type="text" id="searchTile" placeholder="Search ID (e.g. 03C6)">
+                <select id="rangeSelect">
+                    <option value="0x0000-0x00FF">0x0000-0x00FF (Basic)</option>
+                    <option value="0x0100-0x01FF">0x0100-0x01FF (Grass Trans)</option>
+                    <option value="0x0200-0x02FF">0x0200-0x02FF</option>
+                    <option value="0x0300-0x03FF" selected>0x0300-0x03FF (Curves)</option>
+                    <option value="0x0400-0x04FF">0x0400-0x04FF</option>
+                    <option value="0x0500-0x05FF">0x0500-0x05FF</option>
+                    <option value="0x0600-0x06FF">0x0600-0x06FF</option>
+                </select>
+                <span class="range-info" id="rangeInfo">Loading...</span>
+            </div>
+            <div class="tile-grid" id="tileGrid"></div>
+        </div>
+        
+        <!-- Right: Pattern Builder -->
+        <div class="pattern-builder">
+            <div class="builder-section">
+                <h3>📐 Build 3x3 Pattern</h3>
+                <p style="font-size: 12px; color: #888; margin: 0 0 10px 0;">
+                    Click a cell, then click a tile from the browser to place it
+                </p>
+                <div class="pattern-grid" id="patternGrid"></div>
+            </div>
+            
+            <div class="builder-section">
+                <h3>👁️ Isometric Preview</h3>
+                <div class="preview-container">
+                    <canvas id="previewCanvas" width="180" height="150"></canvas>
+                </div>
+            </div>
+            
+            <div class="builder-section">
+                <div class="btn-row">
+                    <button class="btn-save" onclick="savePattern()">💾 Save Pattern</button>
+                    <button class="btn-clear" onclick="clearPattern()">🗑️ Clear</button>
+                    <button class="btn-export" onclick="exportPatterns()">📤 Export All</button>
+                </div>
+            </div>
+            
+            <div class="builder-section">
+                <h3>📁 Saved Patterns (<span id="patternCount">0</span>)</h3>
+                <div class="saved-patterns" id="savedPatterns"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // State
+        let tiles = {};
+        let pattern = [
+            ['0x0003', '0x0003', '0x0003'],
+            ['0x0003', '0x0003', '0x0003'],
+            ['0x0003', '0x0003', '0x0003']
+        ];
+        let activeCell = null;
+        let savedPatterns = JSON.parse(localStorage.getItem('savedPatterns') || '[]');
+        
+        // Process black to transparent
+        function processBlackToTransparent(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width || 44;
+            canvas.height = img.height || 44;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i] <= 5 && data[i+1] <= 5 && data[i+2] <= 5) {
+                    data[i + 3] = 0;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            return canvas;
+        }
+        
+        // Load tile image
+        async function loadTile(tileId) {
+            if (tiles[tileId]) return tiles[tileId];
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    const processed = processBlackToTransparent(img);
+                    tiles[tileId] = processed;
+                    resolve(processed);
+                };
+                img.onerror = () => resolve(null);
+                img.src = `assets/tiles/${tileId}.bmp`;
+            });
+        }
+        
+        // Load tile range
+        async function loadTileRange(start, end) {
+            const grid = document.getElementById('tileGrid');
+            grid.innerHTML = '<p style="color: #888;">Loading tiles...</p>';
+            
+            let loaded = 0;
+            let html = '';
+            
+            for (let i = start; i <= end; i++) {
+                const tileId = `0x${i.toString(16).toUpperCase().padStart(4, '0')}`;
+                const tile = await loadTile(tileId);
+                
+                if (tile) {
+                    loaded++;
+                    html += `
+                        <div class="tile-item" data-id="${tileId}" onclick="selectTile('${tileId}')">
+                            <img src="${tile.toDataURL()}" alt="${tileId}">
+                            <span class="tile-id">${tileId.slice(-4)}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            grid.innerHTML = html;
+            document.getElementById('rangeInfo').textContent = `${loaded} tiles loaded`;
+        }
+        
+        // Select tile from browser
+        function selectTile(tileId) {
+            // Remove previous selection
+            document.querySelectorAll('.tile-item.selected').forEach(el => el.classList.remove('selected'));
+            
+            // Add selection to clicked tile
+            const tileEl = document.querySelector(`.tile-item[data-id="${tileId}"]`);
+            if (tileEl) tileEl.classList.add('selected');
+            
+            // If a cell is active, place the tile
+            if (activeCell !== null) {
+                const [row, col] = activeCell;
+                pattern[row][col] = tileId;
+                updatePatternGrid();
+                updatePreview();
+            }
+        }
+        
+        // Create pattern grid
+        function createPatternGrid() {
+            const grid = document.getElementById('patternGrid');
+            grid.innerHTML = '';
+            
+            const labels = [
+                ['TL', 'T', 'TR'],
+                ['L', 'C', 'R'],
+                ['BL', 'B', 'BR']
+            ];
+            
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'pattern-cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    cell.innerHTML = `
+                        <div class="cell-label">${labels[row][col]}</div>
+                        <div class="cell-id">${pattern[row][col].slice(-4)}</div>
+                    `;
+                    cell.onclick = () => setActiveCell(row, col);
+                    grid.appendChild(cell);
+                }
+            }
+        }
+        
+        // Set active cell
+        function setActiveCell(row, col) {
+            document.querySelectorAll('.pattern-cell.active').forEach(el => el.classList.remove('active'));
+            activeCell = [row, col];
+            const cells = document.querySelectorAll('.pattern-cell');
+            cells[row * 3 + col].classList.add('active');
+        }
+        
+        // Update pattern grid display
+        async function updatePatternGrid() {
+            const cells = document.querySelectorAll('.pattern-cell');
+            
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const cell = cells[row * 3 + col];
+                    const tileId = pattern[row][col];
+                    const tile = await loadTile(tileId);
+                    
+                    if (tile) {
+                        cell.innerHTML = `
+                            <img src="${tile.toDataURL()}" alt="${tileId}">
+                            <div class="cell-id">${tileId.slice(-4)}</div>
+                        `;
+                    }
+                    
+                    if (activeCell && activeCell[0] === row && activeCell[1] === col) {
+                        cell.classList.add('active');
+                    }
+                }
+            }
+        }
+        
+        // Update isometric preview
+        async function updatePreview() {
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const tileWidth = 44;
+            const tileHeight = 44;
+            const halfWidth = 22;
+            const halfHeight = 22;
+            
+            ctx.fillStyle = '#3a5c1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw back to front
+            for (let row = 0; row < 6; row++) {
+                for (let x = 0; x < 3; x++) {
+                    const y = row - x;
+                    if (y < 0 || y >= 3) continue;
+                    
+                    const tileId = pattern[y][x];
+                    const tile = await loadTile(tileId);
+                    
+                    const screenX = (x - y) * halfWidth + 90 - halfWidth;
+                    const screenY = (x + y) * halfHeight + 10;
+                    
+                    if (tile) {
+                        ctx.drawImage(tile, screenX, screenY, tileWidth, tileHeight);
+                    }
+                }
+            }
+        }
+        
+        // Clear pattern
+        function clearPattern() {
+            pattern = [
+                ['0x0003', '0x0003', '0x0003'],
+                ['0x0003', '0x0003', '0x0003'],
+                ['0x0003', '0x0003', '0x0003']
+            ];
+            activeCell = null;
+            updatePatternGrid();
+            updatePreview();
+        }
+        
+        // Save pattern
+        function savePattern() {
+            const patternCopy = pattern.map(row => [...row]);
+            savedPatterns.push({
+                id: `pattern_${Date.now()}`,
+                tiles: patternCopy,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('savedPatterns', JSON.stringify(savedPatterns));
+            renderSavedPatterns();
+            alert('Pattern saved!');
+        }
+        
+        // Delete pattern
+        function deletePattern(index) {
+            savedPatterns.splice(index, 1);
+            localStorage.setItem('savedPatterns', JSON.stringify(savedPatterns));
+            renderSavedPatterns();
+        }
+        
+        // Render saved patterns
+        async function renderSavedPatterns() {
+            const container = document.getElementById('savedPatterns');
+            document.getElementById('patternCount').textContent = savedPatterns.length;
+            
+            if (savedPatterns.length === 0) {
+                container.innerHTML = '<p style="color: #888; font-size: 12px;">No saved patterns yet</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            for (let i = 0; i < savedPatterns.length; i++) {
+                const p = savedPatterns[i];
+                const div = document.createElement('div');
+                div.className = 'saved-pattern';
+                
+                // Create mini preview
+                const miniCanvas = document.createElement('canvas');
+                miniCanvas.width = 80;
+                miniCanvas.height = 70;
+                const ctx = miniCanvas.getContext('2d');
+                ctx.fillStyle = '#3a5c1a';
+                ctx.fillRect(0, 0, 80, 70);
+                
+                const scale = 0.5;
+                for (let row = 0; row < 6; row++) {
+                    for (let x = 0; x < 3; x++) {
+                        const y = row - x;
+                        if (y < 0 || y >= 3) continue;
+                        const tile = await loadTile(p.tiles[y][x]);
+                        if (tile) {
+                            const screenX = (x - y) * 11 + 40 - 11;
+                            const screenY = (x + y) * 11 + 5;
+                            ctx.drawImage(tile, screenX, screenY, 22, 22);
+                        }
+                    }
+                }
+                
+                div.innerHTML = `
+                    <div class="pattern-info">
+                        <strong>Pattern ${i + 1}</strong><br>
+                        ${p.tiles.flat().filter((t,i,a) => a.indexOf(t) === i && t !== '0x0003').join(', ') || 'All grass'}
+                    </div>
+                    <button class="btn-clear" onclick="deletePattern(${i})">🗑️</button>
+                `;
+                div.insertBefore(miniCanvas, div.firstChild);
+                container.appendChild(div);
+            }
+        }
+        
+        // Export all patterns
+        function exportPatterns() {
+            const output = JSON.stringify(savedPatterns, null, 2);
+            navigator.clipboard.writeText(output).then(() => {
+                alert(`Exported ${savedPatterns.length} patterns to clipboard!`);
+            });
+        }
+        
+        // Handle range change
+        document.getElementById('rangeSelect').addEventListener('change', (e) => {
+            const [start, end] = e.target.value.split('-').map(v => parseInt(v, 16));
+            loadTileRange(start, end);
+        });
+        
+        // Handle search
+        document.getElementById('searchTile').addEventListener('input', (e) => {
+            const search = e.target.value.toUpperCase();
+            document.querySelectorAll('.tile-item').forEach(el => {
+                const id = el.dataset.id;
+                el.style.display = id.includes(search) ? '' : 'none';
+            });
+        });
+        
+        // Initialize
+        async function init() {
+            createPatternGrid();
+            await loadTileRange(0x0300, 0x03FF);
+            await updatePatternGrid();
+            await updatePreview();
+            await renderSavedPatterns();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
+
+
+
+

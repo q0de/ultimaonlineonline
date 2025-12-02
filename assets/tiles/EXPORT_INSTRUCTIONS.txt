@@ -1,0 +1,36 @@
+HOW TO EXPORT TILES FROM UOFIDDLER
+============================================================
+
+METHOD 1: Export All Selected Tiles
+------------------------------------------------------------
+1. Open UOFiddler
+2. Go to 'LandTiles' tab
+3. Press Ctrl+A to select all tiles
+4. Right-click → Export → Export to BMP
+5. Choose destination: assets/tiles/
+6. UOFiddler will export each tile as '0xXXXX.bmp'
+
+METHOD 2: Export Specific Range
+------------------------------------------------------------
+1. Open UOFiddler → LandTiles tab
+2. Use the ID ranges from 'tile_id_ranges.txt'
+3. Select tiles in that range
+4. Right-click → Export → Export Selected
+5. Save to assets/tiles/
+
+METHOD 3: Export by Type
+------------------------------------------------------------
+1. Use 'tile_ids_to_export.txt' to find tiles by name
+2. Search for tiles (e.g., 'grass', 'sand')
+3. Select all tiles of that type
+4. Export to assets/tiles/
+
+EXPECTED OUTPUT:
+------------------------------------------------------------
+After export, you should have files like:
+  assets/tiles/0x0003.bmp (grass)
+  assets/tiles/0x0004.bmp (grass)
+  assets/tiles/0x0016.bmp (sand)
+  ... etc
+
+Total tiles to export: 4106

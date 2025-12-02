@@ -1,0 +1,115 @@
+═══════════════════════════════════════════════════════════════
+  ANIMATION ASSET EXPORT GUIDE
+═══════════════════════════════════════════════════════════════
+
+📦 HOW TO EXPORT ANIMATION FRAMES
+
+METHOD 1: SINGLE FRAME (F2)
+1. Press F1 to enter DEBUG MODE
+2. Position your character:
+   - Use numpad 1-9 to lock direction (1=SW, 2=S, 3=SE, 4=W, 5=S, 6=E, 7=NW, 8=N, 9=NE)
+   - Press F to enter FRAME MATCH MODE (for walk/run animations)
+   - Use +/- to cycle through frames
+3. Position the weapon using arrow keys
+4. Press F2 to EXPORT the current frame as BMP
+   - Auto-names as: running-halberd-north-frame0.bmp
+   - Files save to your Downloads folder
+
+METHOD 2: BATCH EXPORT ALL FRAMES (F3) - RECOMMENDED!
+1. Press F1 to enter DEBUG MODE
+2. Lock direction with numpad (e.g., 8 for NORTH)
+3. Position weapon for frame 0
+4. Press F3 to export ALL frames for this direction at once!
+   - Exports running-halberd-north-frame0.bmp, frame1.bmp, frame2.bmp, frame3.bmp
+   - All files go to Downloads
+   - Weapon name is automatically included!
+
+5. Then organize files into folders using organize_exports.bat
+
+═══════════════════════════════════════════════════════════════
+
+🔧 ORGANIZING FILES INTO FOLDERS (AUTOMATIC!)
+
+After exporting frames, run the organizer script:
+1. Double-click: organize_exports.bat
+2. Script will:
+   - Find all exported frames in Downloads
+   - Create folder structure: exports/animation/weapon/direction/
+   - Move files and rename to frame0.png, frame1.png, etc.
+   - Show you the results!
+
+═══════════════════════════════════════════════════════════════
+
+📁 RECOMMENDED FOLDER STRUCTURE
+
+After exporting, organize your files like this:
+
+exports/
+  ├── running/
+  │   └── halberd/
+  │       ├── north/
+  │       │   ├── frame0.bmp
+  │       │   ├── frame1.bmp
+  │       │   ├── frame2.bmp
+  │       │   └── frame3.bmp
+  │       ├── northeast/
+  │       │   └── ...
+  │       ├── east/
+  │       ├── southeast/
+  │       ├── south/
+  │       ├── southwest/
+  │       ├── west/
+  │       └── northwest/
+  │
+  ├── walk/
+  │   └── halberd/
+  │       ├── north/
+  │       │   └── ...
+  │       └── ...
+  │
+  └── idle/
+      └── halberd/
+          ├── north/
+          │   └── frame0.png
+          └── ...
+
+═══════════════════════════════════════════════════════════════
+
+💡 WORKFLOW TIPS
+
+• Use F3 batch export for speed - exports all frames at once!
+• Work on one direction at a time (export all frames per direction)
+• Files download with weapon name: running-halberd-north-frame0.bmp
+• Run organize_exports.bat when done to auto-create folder structure
+• Use Shift+S to save weapon positions for each frame/direction
+• Your saved positions are stored in localStorage (persistent)
+• Press L in debug mode to list all saved configurations
+• Switch weapons with Q key to export other weapon types!
+
+FASTEST WORKFLOW (for halberd running animation):
+1. F1 (debug) → Numpad 8 (north) → Position weapon → F3 (export all)
+2. Numpad 9 (northeast) → Position weapon → F3 (export all)
+3. Numpad 6 (east) → Position weapon → F3 (export all)
+4. ... repeat for all 8 directions
+5. Run organize_exports.bat to organize into folders!
+6. Switch weapon (Q) and repeat for other weapons!
+
+═══════════════════════════════════════════════════════════════
+
+🎯 QUICK REFERENCE
+
+F1  = Toggle debug mode
+F2  = Export current frame (single)
+F3  = Batch export all frames (FAST!)
+F   = Frame match mode (for animations)
++/- = Cycle frames
+1-9 = Lock direction (numpad)
+0   = Auto direction
+Shift+S = Save weapon position
+Arrows  = Adjust weapon position
+
+AFTER EXPORTING:
+Double-click organize_exports.bat to auto-organize into folders!
+
+═══════════════════════════════════════════════════════════════
+

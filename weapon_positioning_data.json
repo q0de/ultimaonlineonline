@@ -1,0 +1,116 @@
+{
+  "character_animations": {
+    "idle_east": {
+      "bounds": {
+        "left": 0,
+        "right": 16,
+        "top": 0,
+        "bottom": 60
+      },
+      "size": {
+        "width": 17,
+        "height": 61
+      },
+      "center": {
+        "x": 8,
+        "y": 30
+      },
+      "sprite_info": {
+        "full_width": 17,
+        "full_height": 61,
+        "frame_width": 17,
+        "frame_count": 1,
+        "frame_index": 0
+      },
+      "estimated_hand": {
+        "x": 8,
+        "y": 19,
+        "percent_from_top": 0.32
+      }
+    },
+    "walk_east_frame0": {
+      "bounds": {
+        "left": 0,
+        "right": 39,
+        "top": 1,
+        "bottom": 58
+      },
+      "size": {
+        "width": 40,
+        "height": 58
+      },
+      "center": {
+        "x": 19,
+        "y": 29
+      },
+      "sprite_info": {
+        "full_width": 400,
+        "full_height": 60,
+        "frame_width": 40,
+        "frame_count": 10,
+        "frame_index": 0
+      },
+      "estimated_hand": {
+        "x": 20,
+        "y": 19,
+        "percent_from_top": 0.32
+      }
+    }
+  },
+  "weapon_animations": {
+    "halberd_idle_east": {
+      "bounds": {
+        "left": 0,
+        "right": 11,
+        "top": 0,
+        "bottom": 62
+      },
+      "size": {
+        "width": 12,
+        "height": 63
+      },
+      "center": {
+        "x": 5,
+        "y": 31
+      },
+      "sprite_info": {
+        "full_width": 12,
+        "full_height": 63,
+        "frame_width": 12,
+        "frame_count": 1,
+        "frame_index": 0
+      }
+    },
+    "halberd_weapon_east_frame0": {
+      "bounds": {
+        "left": 6,
+        "right": 48,
+        "top": 12,
+        "bottom": 30
+      },
+      "size": {
+        "width": 43,
+        "height": 19
+      },
+      "center": {
+        "x": 27,
+        "y": 21
+      },
+      "sprite_info": {
+        "full_width": 550,
+        "full_height": 43,
+        "frame_width": 55,
+        "frame_count": 10,
+        "frame_index": 0
+      }
+    }
+  },
+  "recommendations": {
+    "idle": {
+      "offsetX": 0,
+      "offsetY": -21,
+      "handPercent": 0.32,
+      "weaponGripPercent": 0.65
+    }
+  }
+}

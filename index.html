@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultima Online Pre-AOS PvP Simulator</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <h1>Ultima Online PvP Simulator</h1>
+            <p>Pre-Age of Shadows Combat</p>
+            <div class="loading-bar-container">
+                <div id="loading-bar" class="loading-bar"></div>
+            </div>
+            <p id="loading-text" class="loading-text">Loading assets... 0%</p>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <div id="game-container" class="game-container hidden">
+        <!-- Top UI Bar -->
+        <div class="top-bar">
+            <h1>Ultima Online Pre-AOS PvP Simulator</h1>
+            <div class="controls-hint">
+                Player 1: Q=Toggle Weapon, A=Swing, 1-3=Spells | Player 2: E=Toggle Weapon, D=Swing, 4-6=Spells
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div class="game-area">
+            <!-- Player 1 UI (Left) -->
+            <div class="player-ui player1-ui">
+                <!-- <div class="player-name">Player 1</div> -->
+                
+                <!-- Status Bars -->
+                <div class="status-bars">
+                    <div class="stat-bar health-bar-container">
+                        <div class="bar-label">Health</div>
+                        <div class="bar-bg">
+                            <div id="p1-health-bar" class="bar-fill health-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p1-health-text" class="bar-text">100/100</div>
+                    </div>
+                    
+                    <div class="stat-bar mana-bar-container">
+                        <div class="bar-label">Mana</div>
+                        <div class="bar-bg">
+                            <div id="p1-mana-bar" class="bar-fill mana-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p1-mana-text" class="bar-text">100/100</div>
+                    </div>
+                    
+                    <div class="stat-bar stamina-bar-container">
+                        <div class="bar-label">Stamina</div>
+                        <div class="bar-bg">
+                            <div id="p1-stamina-bar" class="bar-fill stamina-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p1-stamina-text" class="bar-text">100/100</div>
+                    </div>
+                </div>
+
+                <!-- Cast/Swing Timers -->
+                <div class="timers">
+                    <div class="timer-bar">
+                        <div class="bar-label">Cast Progress</div>
+                        <div class="bar-bg">
+                            <div id="p1-cast-bar" class="bar-fill cast-bar" style="width: 0%"></div>
+                        </div>
+                        <div id="p1-cast-text" class="bar-text">Ready</div>
+                    </div>
+                    
+                    <div class="timer-bar">
+                        <div class="bar-label">Swing Timer</div>
+                        <div class="bar-bg">
+                            <div id="p1-swing-bar" class="bar-fill swing-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p1-swing-text" class="bar-text">Ready</div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="p1-weapon-toggle" class="btn weapon-btn" title="Toggle Weapon (Q)" tabindex="-1">
+                        <span>Halberd</span>
+                        <small>Toggle (Q)</small>
+                    </button>
+                    <button id="p1-swing" class="btn action-btn" title="Swing Weapon (A)" tabindex="-1">
+                        <span>Swing</span>
+                        <small>(A)</small>
+                    </button>
+                </div>
+
+                <!-- Spell Hotbar -->
+                <div class="spell-hotbar">
+                    <div class="hotbar-label">Spells</div>
+                    <button id="p1-spell-lightning" class="btn spell-btn" data-spell="lightning" title="Lightning (1)" tabindex="-1">
+                        <span class="spell-name">Lightning</span>
+                        <small class="spell-info">Mana: 40 | (1)</small>
+                    </button>
+                    <button id="p1-spell-ebolt" class="btn spell-btn" data-spell="energyBolt" title="Energy Bolt (2)" tabindex="-1">
+                        <span class="spell-name">E-Bolt</span>
+                        <small class="spell-info">Mana: 40 | (2)</small>
+                    </button>
+                    <button id="p1-spell-explosion" class="btn spell-btn" data-spell="explosion" title="Explosion (3)" tabindex="-1">
+                        <span class="spell-name">Explosion</span>
+                        <small class="spell-info">Mana: 40 | (3)</small>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Arena Canvas -->
+            <div class="arena-container">
+                <canvas id="game-canvas" width="800" height="600" tabindex="0" style="outline: none;"></canvas>
+                <div id="game-over-screen" class="game-over-screen hidden">
+                    <h2 id="game-over-text">Player 1 Wins!</h2>
+                    <button id="restart-btn" class="btn restart-btn" tabindex="-1">Restart Match</button>
+                </div>
+            </div>
+
+            <!-- Player 2 UI (Right) -->
+            <div class="player-ui player2-ui">
+                <!-- <div class="player-name">Player 2</div> -->
+                
+                <!-- Status Bars -->
+                <div class="status-bars">
+                    <div class="stat-bar health-bar-container">
+                        <div class="bar-label">Health</div>
+                        <div class="bar-bg">
+                            <div id="p2-health-bar" class="bar-fill health-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p2-health-text" class="bar-text">100/100</div>
+                    </div>
+                    
+                    <div class="stat-bar mana-bar-container">
+                        <div class="bar-label">Mana</div>
+                        <div class="bar-bg">
+                            <div id="p2-mana-bar" class="bar-fill mana-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p2-mana-text" class="bar-text">100/100</div>
+                    </div>
+                    
+                    <div class="stat-bar stamina-bar-container">
+                        <div class="bar-label">Stamina</div>
+                        <div class="bar-bg">
+                            <div id="p2-stamina-bar" class="bar-fill stamina-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p2-stamina-text" class="bar-text">100/100</div>
+                    </div>
+                </div>
+
+                <!-- Cast/Swing Timers -->
+                <div class="timers">
+                    <div class="timer-bar">
+                        <div class="bar-label">Cast Progress</div>
+                        <div class="bar-bg">
+                            <div id="p2-cast-bar" class="bar-fill cast-bar" style="width: 0%"></div>
+                        </div>
+                        <div id="p2-cast-text" class="bar-text">Ready</div>
+                    </div>
+                    
+                    <div class="timer-bar">
+                        <div class="bar-label">Swing Timer</div>
+                        <div class="bar-bg">
+                            <div id="p2-swing-bar" class="bar-fill swing-bar" style="width: 100%"></div>
+                        </div>
+                        <div id="p2-swing-text" class="bar-text">Ready</div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="p2-weapon-toggle" class="btn weapon-btn" title="Toggle Weapon (E)" tabindex="-1">
+                        <span>Halberd</span>
+                        <small>Toggle (E)</small>
+                    </button>
+                    <button id="p2-swing" class="btn action-btn" title="Swing Weapon (D)" tabindex="-1">
+                        <span>Swing</span>
+                        <small>(D)</small>
+                    </button>
+                </div>
+
+                <!-- Spell Hotbar -->
+                <div class="spell-hotbar">
+                    <div class="hotbar-label">Spells</div>
+                    <button id="p2-spell-lightning" class="btn spell-btn" data-spell="lightning" title="Lightning (4)" tabindex="-1">
+                        <span class="spell-name">Lightning</span>
+                        <small class="spell-info">Mana: 40 | (4)</small>
+                    </button>
+                    <button id="p2-spell-ebolt" class="btn spell-btn" data-spell="energyBolt" title="Energy Bolt (5)" tabindex="-1">
+                        <span class="spell-name">E-Bolt</span>
+                        <small class="spell-info">Mana: 40 | (5)</small>
+                    </button>
+                    <button id="p2-spell-explosion" class="btn spell-btn" data-spell="explosion" title="Explosion (6)" tabindex="-1">
+                        <span class="spell-name">Explosion</span>
+                        <small class="spell-info">Mana: 40 | (6)</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Combat Log -->
+        <div class="combat-log-container">
+            <div class="combat-log-header">Combat Log</div>
+            <div id="combat-log" class="combat-log"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/game.js?v=20251123014"></script>
+</body>
+</html>
+

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tessellation Test</title>
+    <style>
+        body { background: #222; color: white; font-family: monospace; padding: 20px; }
+        canvas { border: 1px solid #666; display: block; margin: 20px auto; }
+        .info { text-align: center; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Tile Tessellation Test</h1>
+    <p class="info">Testing if tiles overlap correctly with spacing = tileSize/2</p>
+    
+    <canvas id="canvas" width="400" height="300"></canvas>
+    
+    <div class="info">
+        <button onclick="testPureGrass()">Test Pure Grass (4 tiles)</button>
+        <button onclick="testDiagonal()">Test Diagonal (4 tiles)</button>
+        <button onclick="testAllCases()">Test All 16 Cases</button>
+    </div>
+    
+    <div id="status" class="info"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const tileSize = 44;
+        const spacing = tileSize / 2; // 22
+        
+        const tileCache = {};
+        
+        // Process black corners to transparent
+        function processBlackToTransparent(img) {
+            const c = document.createElement('canvas');
+            const w = img.width || 44;
+            const h = img.height || 44;
+            c.width = w;
+            c.height = h;
+            const ctx = c.getContext('2d');
+            
+            ctx.drawImage(img, 0, 0);
+            
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            
+            const halfW = w / 2;
+            const halfH = h / 2;
+            
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const i = (y * w + x) * 4;
+                    
+                    // Diamond formula
+                    const dx = Math.abs(x - halfW) / halfW;
+                    const dy = Math.abs(y - halfH) / halfH;
+                    const outsideDiamond = (dx + dy) > 1;
+                    
+                    if (outsideDiamond) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        
+                        if (r < 20 && g < 20 && b < 20) {
+                            data[i + 3] = 0;
+                        }
+                    }
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            return c;
+        }
+        
+        async function loadTile(hexId) {
+            hexId = '0x' + hexId.substring(2).toUpperCase().padStart(4, '0');
+            
+            if (tileCache[hexId]) return tileCache[hexId];
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const processed = processBlackToTransparent(img);
+                    tileCache[hexId] = processed;
+                    console.log(`Loaded ${hexId}: ${processed.constructor.name}`);
+                    resolve(processed);
+                };
+                img.onerror = () => {
+                    console.error(`Failed to load ${hexId}`);
+                    resolve(null);
+                };
+                img.src = `./assets/tiles/${hexId}.bmp`;
+            });
+        }
+        
+        function drawTile(tile, x, y) {
+            if (!tile) return;
+            
+            // Isometric screen position with 50% overlap
+            const screenX = (x - y) * spacing + canvas.width / 2 - spacing;
+            const screenY = (x + y) * spacing + 50;
+            
+            ctx.drawImage(tile, screenX, screenY, tileSize, tileSize);
+            
+            // Debug: draw tile boundary
+            ctx.strokeStyle = 'rgba(255,0,0,0.3)';
+            ctx.strokeRect(screenX, screenY, tileSize, tileSize);
+        }
+        
+        async function testPureGrass() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const grass = await loadTile('0x0003');
+            
+            // Draw 2x2 grid of pure grass
+            for (let y = 0; y < 2; y++) {
+                for (let x = 0; x < 2; x++) {
+                    drawTile(grass, x, y);
+                }
+            }
+            
+            document.getElementById('status').textContent = 'Pure grass 2x2 - should tessellate seamlessly';
+        }
+        
+        async function testDiagonal() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Tile mapping
+            const TILES = {
+                0:  '0x0003',  // Pure Grass
+                4:  '0x0034',  // Outer SW (TR sand)
+                14: '0x003e',  // Inner NW (only BL grass)
+                15: '0x0016'   // Pure Sand
+            };
+            
+            // 2x2 diagonal pattern:
+            // corners: [0][0]=grass, [0][1]=sand, [0][2]=sand
+            //          [1][0]=grass, [1][1]=grass, [1][2]=sand
+            //          [2][0]=grass, [2][1]=grass, [2][2]=grass
+            
+            // Tile (0,0): TL=grass, TR=sand, BL=grass, BR=grass -> Case 4 (only TR sand)
+            // Tile (1,0): TL=sand, TR=sand, BL=grass, BR=sand -> Case 14 (only BL grass)
+            // Tile (0,1): TL=grass, TR=grass, BL=grass, BR=grass -> Case 0 (pure grass)
+            // Tile (1,1): TL=grass, TR=sand, BL=grass, BR=grass -> Case 4 (only TR sand)
+            
+            const tiles = [
+                [await loadTile(TILES[4]), await loadTile(TILES[14])],
+                [await loadTile(TILES[0]), await loadTile(TILES[4])]
+            ];
+            
+            // Draw back to front
+            for (let row = 0; row < 4; row++) {
+                for (let x = 0; x < 2; x++) {
+                    const y = row - x;
+                    if (y < 0 || y >= 2) continue;
+                    drawTile(tiles[y][x], x, y);
+                }
+            }
+            
+            document.getElementById('status').textContent = 'Diagonal 2x2 - Case 4 and Case 14 tiles';
+        }
+        
+        async function testAllCases() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const TILES = {
+                0:  '0x0003', 1:  '0x0036', 2:  '0x0033', 3:  '0x0038',
+                4:  '0x0034', 5:  '0x0037', 6:  '0x003a', 7:  '0x003b',
+                8:  '0x0035', 9:  '0x0039', 10: '0x0004', 11: '0x003c',
+                12: '0x0005', 13: '0x003d', 14: '0x003e', 15: '0x0016'
+            };
+            
+            // Load all tiles
+            const loaded = {};
+            for (let i = 0; i < 16; i++) {
+                loaded[i] = await loadTile(TILES[i]);
+            }
+            
+            // Draw 4x4 grid showing all cases
+            canvas.width = 600;
+            canvas.height = 500;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < 16; i++) {
+                const gridX = i % 4;
+                const gridY = Math.floor(i / 4);
+                
+                const screenX = gridX * 120 + 60;
+                const screenY = gridY * 100 + 50;
+                
+                if (loaded[i]) {
+                    ctx.drawImage(loaded[i], screenX, screenY, tileSize, tileSize);
+                }
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px monospace';
+                ctx.fillText(`Case ${i}: ${TILES[i]}`, screenX, screenY + 60);
+            }
+            
+            document.getElementById('status').textContent = 'All 16 cases displayed';
+        }
+        
+        // Initial test
+        testPureGrass();
+    </script>
+</body>
+</html>
+
+
+

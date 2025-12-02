@@ -1,0 +1,49 @@
+# Asset files (user must provide their own from UO client)
+items/
+*.mul
+*.bmp
+*.uop
+Ultima Online Classic/
+assets/sprites/**/*.png
+assets/sprites/**/*.jpg
+assets/ui/**/*.png
+assets/ui/**/*.jpg
+assets/tiles/**/*.png
+assets/tiles/**/*.jpg
+assets/sounds/**/*.mp3
+assets/sounds/**/*.ogg
+assets/sounds/**/*.wav
+
+# Keep directory structure
+!assets/sprites/characters/male/.gitkeep
+!assets/sprites/characters/female/.gitkeep
+!assets/sprites/weapons/.gitkeep
+!assets/sprites/effects/.gitkeep
+!assets/ui/.gitkeep
+!assets/tiles/.gitkeep
+!assets/sounds/weapons/.gitkeep
+!assets/sounds/spells/.gitkeep
+!assets/sounds/character/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies (if any added later)
+node_modules/
+
+# Build files (if build process added)
+dist/
+build/
+

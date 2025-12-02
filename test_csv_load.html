@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSV Load Test</title>
+</head>
+<body>
+    <h1>CSV Load Test</h1>
+    <button onclick="testLoad()">Test Load CSV</button>
+    <pre id="output"></pre>
+
+    <script type="module">
+        async function testLoad() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing...\n';
+
+            const urls = [
+                './assets/tiles/LandData.csv',
+                'assets/tiles/LandData.csv',
+                '/assets/tiles/LandData.csv'
+            ];
+
+            for (const url of urls) {
+                try {
+                    output.textContent += `\nTrying: ${url}\n`;
+                    const response = await fetch(url);
+                    output.textContent += `Status: ${response.status} ${response.statusText}\n`;
+                    
+                    if (response.ok) {
+                        const text = await response.text();
+                        output.textContent += `Success! Loaded ${text.length} characters\n`;
+                        output.textContent += `First 200 chars: ${text.substring(0, 200)}\n`;
+                        break;
+                    } else {
+                        output.textContent += `Failed: ${response.statusText}\n`;
+                    }
+                } catch (error) {
+                    output.textContent += `Error: ${error.message}\n`;
+                }
+            }
+        }
+
+        window.testLoad = testLoad;
+    </script>
+</body>
+</html>
+
+
+

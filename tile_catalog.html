@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UO Tile Catalog - All Tiles</title>
+    <style>
+        @media print {
+            body { 
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print { display: none !important; }
+            .tile-grid { 
+                page-break-inside: avoid;
+            }
+            .tile-item {
+                break-inside: avoid;
+            }
+        }
+        
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+        
+        h1 { 
+            color: #4CAF50; 
+            text-align: center; 
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            background: #252540;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .controls label {
+            margin-right: 15px;
+        }
+        .controls input, .controls select, .controls button {
+            padding: 8px 15px;
+            font-size: 14px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .controls button {
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        .controls button:hover {
+            background: #45a049;
+        }
+        
+        .stats {
+            text-align: center;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        
+        .section {
+            background: #252540;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            color: #ff9800;
+            margin: 0 0 15px 0;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+        }
+        
+        .tile-item {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 5px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .tile-item:hover {
+            border-color: #4CAF50;
+            transform: scale(1.05);
+        }
+        .tile-item canvas {
+            display: block;
+            margin: 0 auto 5px;
+            image-rendering: pixelated;
+            background: #000;
+        }
+        .tile-item .tile-id {
+            font-family: 'Consolas', monospace;
+            font-size: 10px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .tile-item .tile-dec {
+            font-size: 8px;
+            color: #666;
+        }
+        
+        .tile-item.missing {
+            opacity: 0.3;
+        }
+        .tile-item.missing canvas {
+            background: #300;
+        }
+        
+        .progress {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s;
+        }
+        
+        /* Category colors */
+        .cat-grass .tile-id { color: #4CAF50; }
+        .cat-sand .tile-id { color: #FFC107; }
+        .cat-water .tile-id { color: #2196F3; }
+        .cat-rock .tile-id { color: #9E9E9E; }
+        .cat-dirt .tile-id { color: #795548; }
+        .cat-snow .tile-id { color: #E0E0E0; }
+        .cat-swamp .tile-id { color: #689F38; }
+        .cat-lava .tile-id { color: #FF5722; }
+        .cat-void .tile-id { color: #9C27B0; }
+        .cat-cave .tile-id { color: #5D4037; }
+        .cat-jungle .tile-id { color: #2E7D32; }
+        .cat-forest .tile-id { color: #1B5E20; }
+        .cat-transition .tile-id { color: #FF9800; }
+        .cat-unknown .tile-id { color: #888; }
+    </style>
+</head>
+<body>
+    <h1>📦 UO Tile Catalog</h1>
+    <p class="subtitle">All Land Tiles with IDs - Print to PDF (Ctrl+P)</p>
+    
+    <div class="controls no-print">
+        <label>Range: 
+            <input type="text" id="rangeStart" value="0x0000" placeholder="Start (e.g. 0x0000)" style="width: 100px;">
+            to
+            <input type="text" id="rangeEnd" value="0x00FF" placeholder="End (e.g. 0x00FF)" style="width: 100px;">
+        </label>
+        <button onclick="loadRange()">Load Range</button>
+        <button onclick="loadAll()">Load ALL (Slow!)</button>
+        <br><br>
+        <label>Quick Ranges:</label>
+        <button onclick="loadQuickRange(0x0000, 0x00FF)">0x0000-0x00FF</button>
+        <button onclick="loadQuickRange(0x0100, 0x01FF)">0x0100-0x01FF</button>
+        <button onclick="loadQuickRange(0x0200, 0x02FF)">0x0200-0x02FF</button>
+        <button onclick="loadQuickRange(0x0300, 0x03FF)">0x0300-0x03FF</button>
+        <button onclick="loadQuickRange(0x0030, 0x003F)">Transitions (0x30-3F)</button>
+        <button onclick="loadQuickRange(0x03B0, 0x03CF)">Curves (0x3B0-3CF)</button>
+    </div>
+    
+    <div class="stats" id="stats">Select a range to load tiles</div>
+    
+    <div class="progress no-print" id="progressContainer" style="display: none;">
+        <div>Loading tiles... <span id="progressText">0%</span></div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+    </div>
+    
+    <div id="tileContainer"></div>
+
+    <script>
+        const tileCache = {};
+        
+        // Category detection based on tile ID ranges
+        function getCategory(id) {
+            const num = typeof id === 'string' ? parseInt(id, 16) : id;
+            
+            // Known ranges
+            if (num >= 0x0000 && num <= 0x0003) return 'grass';
+            if (num >= 0x0004 && num <= 0x0015) return 'grass';
+            if (num >= 0x0016 && num <= 0x001A) return 'sand';
+            if (num >= 0x001B && num <= 0x0032) return 'transition';
+            if (num >= 0x0033 && num <= 0x003E) return 'transition'; // Sand-grass transitions
+            if (num >= 0x003F && num <= 0x0043) return 'transition';
+            if (num >= 0x0044 && num <= 0x004B) return 'rock';
+            if (num >= 0x004C && num <= 0x0053) return 'transition'; // Rock transitions
+            if (num >= 0x0054 && num <= 0x005B) return 'dirt';
+            if (num >= 0x006E && num <= 0x007D) return 'grass';
+            if (num >= 0x00A8 && num <= 0x00AB) return 'water';
+            if (num >= 0x0136 && num <= 0x0137) return 'lava';
+            if (num >= 0x01A4 && num <= 0x01AB) return 'grass'; // Grass transitions
+            if (num >= 0x0220 && num <= 0x023F) return 'snow';
+            if (num >= 0x0244 && num <= 0x025B) return 'cave';
+            if (num >= 0x03B7 && num <= 0x03C8) return 'transition'; // Smooth curves
+            if (num >= 0x0375 && num <= 0x037E) return 'transition'; // Feathered grass
+            
+            return 'unknown';
+        }
+        
+        // Process black to transparent
+        function processBlackToTransparent(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width || 44;
+            canvas.height = img.height || 44;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            try {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    if (data[i] <= 5 && data[i+1] <= 5 && data[i+2] <= 5) {
+                        data[i + 3] = 0;
+                    }
+                }
+                ctx.putImageData(imageData, 0, 0);
+            } catch (e) {
+                // CORS issue, just use original
+            }
+            return canvas;
+        }
+        
+        // Load single tile
+        async function loadTile(tileId) {
+            if (tileCache[tileId]) return tileCache[tileId];
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    tileCache[tileId] = processBlackToTransparent(img);
+                    resolve(tileCache[tileId]);
+                };
+                img.onerror = () => resolve(null);
+                img.src = `assets/tiles/${tileId}.bmp`;
+            });
+        }
+        
+        // Format ID
+        function formatId(num) {
+            return '0x' + num.toString(16).toUpperCase().padStart(4, '0');
+        }
+        
+        // Load range of tiles
+        async function loadTileRange(start, end) {
+            const container = document.getElementById('tileContainer');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const stats = document.getElementById('stats');
+            
+            container.innerHTML = '';
+            progressContainer.style.display = 'block';
+            
+            const section = document.createElement('div');
+            section.className = 'section';
+            
+            const header = document.createElement('h2');
+            header.textContent = `Tiles ${formatId(start)} - ${formatId(end)}`;
+            section.appendChild(header);
+            
+            const grid = document.createElement('div');
+            grid.className = 'tile-grid';
+            section.appendChild(grid);
+            
+            container.appendChild(section);
+            
+            const total = end - start + 1;
+            let loaded = 0;
+            let found = 0;
+            
+            for (let i = start; i <= end; i++) {
+                const tileId = formatId(i);
+                const category = getCategory(i);
+                
+                const item = document.createElement('div');
+                item.className = `tile-item cat-${category}`;
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = 44;
+                canvas.height = 44;
+                item.appendChild(canvas);
+                
+                const idLabel = document.createElement('div');
+                idLabel.className = 'tile-id';
+                idLabel.textContent = tileId;
+                item.appendChild(idLabel);
+                
+                const decLabel = document.createElement('div');
+                decLabel.className = 'tile-dec';
+                decLabel.textContent = `(${i})`;
+                item.appendChild(decLabel);
+                
+                grid.appendChild(item);
+                
+                // Load tile
+                const tile = await loadTile(tileId);
+                if (tile) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(tile, 0, 0);
+                    found++;
+                } else {
+                    item.classList.add('missing');
+                }
+                
+                loaded++;
+                const percent = Math.round((loaded / total) * 100);
+                progressFill.style.width = percent + '%';
+                progressText.textContent = `${percent}% (${loaded}/${total})`;
+                
+                // Yield to UI every 50 tiles
+                if (loaded % 50 === 0) {
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            }
+            
+            progressContainer.style.display = 'none';
+            stats.textContent = `Showing ${found} tiles (${total - found} missing) from ${formatId(start)} to ${formatId(end)}`;
+        }
+        
+        // Load from inputs
+        function loadRange() {
+            const startInput = document.getElementById('rangeStart').value;
+            const endInput = document.getElementById('rangeEnd').value;
+            
+            const start = parseInt(startInput, 16) || 0;
+            const end = parseInt(endInput, 16) || 255;
+            
+            if (end - start > 2000) {
+                if (!confirm(`Loading ${end - start + 1} tiles may be slow. Continue?`)) {
+                    return;
+                }
+            }
+            
+            loadTileRange(start, end);
+        }
+        
+        // Quick range buttons
+        function loadQuickRange(start, end) {
+            document.getElementById('rangeStart').value = formatId(start);
+            document.getElementById('rangeEnd').value = formatId(end);
+            loadTileRange(start, end);
+        }
+        
+        // Load all tiles
+        async function loadAll() {
+            if (!confirm('Loading all 16,384 tiles will take a while and may slow your browser. Continue?')) {
+                return;
+            }
+            
+            document.getElementById('rangeStart').value = '0x0000';
+            document.getElementById('rangeEnd').value = '0x3FFF';
+            loadTileRange(0x0000, 0x3FFF);
+        }
+        
+        // Initial load
+        loadQuickRange(0x0000, 0x00FF);
+    </script>
+</body>
+</html>

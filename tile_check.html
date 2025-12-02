@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tile Check - 0x003E</title>
+    <style>
+        body { background: #333; color: white; font-family: monospace; padding: 20px; }
+        .tile-container { 
+            display: inline-block; 
+            margin: 20px; 
+            text-align: center;
+            background: magenta; /* To see transparency */
+            padding: 10px;
+        }
+        .tile-container img {
+            image-rendering: pixelated;
+            width: 176px;
+            height: 176px;
+        }
+        .label { margin-top: 10px; font-size: 14px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        .corner-labels {
+            position: relative;
+            width: 176px;
+            height: 176px;
+            margin: 0 auto;
+        }
+        .corner-labels img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            image-rendering: pixelated;
+            width: 176px;
+            height: 176px;
+        }
+        .corner-labels .tl { position: absolute; top: 5px; left: 5px; color: yellow; font-weight: bold; }
+        .corner-labels .tr { position: absolute; top: 5px; right: 5px; color: yellow; font-weight: bold; }
+        .corner-labels .bl { position: absolute; bottom: 5px; left: 5px; color: yellow; font-weight: bold; }
+        .corner-labels .br { position: absolute; bottom: 5px; right: 5px; color: yellow; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Tile Image Check</h1>
+    <p>Checking which corner the grass pokes from in each tile.</p>
+    <p>Background is MAGENTA to show transparency.</p>
+    
+    <h2>Case 14 (0x003E) - "Inner NW (only BL grass)"</h2>
+    <p>Expected: Grass should poke from BOTTOM-LEFT corner</p>
+    <div class="tile-container">
+        <div class="corner-labels">
+            <img src="assets/tiles/0x003E.bmp" alt="0x003E">
+            <span class="tl">TL</span>
+            <span class="tr">TR</span>
+            <span class="bl">BL</span>
+            <span class="br">BR</span>
+        </div>
+        <div class="label">0x003E - Case 14<br>TL=sand, TR=sand, BL=GRASS, BR=sand</div>
+    </div>
+
+    <h2>All Inner Corner Tiles (Cases 7, 11, 13, 14)</h2>
+    <div class="grid">
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x003B.bmp" alt="0x003B">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x003B - Case 7<br>TL=GRASS, TR=sand, BL=sand, BR=sand<br>"Inner SE (only TL grass)"</div>
+        </div>
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x003C.bmp" alt="0x003C">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x003C - Case 11<br>TL=sand, TR=GRASS, BL=sand, BR=sand<br>"Inner SW (only TR grass)"</div>
+        </div>
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x003D.bmp" alt="0x003D">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x003D - Case 13<br>TL=sand, TR=sand, BL=sand, BR=GRASS<br>"Inner NE (only BR grass)"</div>
+        </div>
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x003E.bmp" alt="0x003E">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x003E - Case 14<br>TL=sand, TR=sand, BL=GRASS, BR=sand<br>"Inner NW (only BL grass)"</div>
+        </div>
+    </div>
+
+    <h2>Pure Tiles</h2>
+    <div class="grid">
+        <div class="tile-container">
+            <img src="assets/tiles/0x0003.bmp" alt="0x0003" style="width:176px;height:176px;image-rendering:pixelated;">
+            <div class="label">0x0003 - Case 0<br>Pure Grass</div>
+        </div>
+        <div class="tile-container">
+            <img src="assets/tiles/0x0016.bmp" alt="0x0016" style="width:176px;height:176px;image-rendering:pixelated;">
+            <div class="label">0x0016 - Case 15<br>Pure Sand</div>
+        </div>
+    </div>
+
+    <h2>Outer Corner Tiles (Cases 1, 2, 4, 8)</h2>
+    <div class="grid">
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x0036.bmp" alt="0x0036">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x0036 - Case 1<br>TL=grass, TR=grass, BL=SAND, BR=grass<br>"Outer NW (BL sand)"</div>
+        </div>
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x0033.bmp" alt="0x0033">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x0033 - Case 2<br>TL=grass, TR=grass, BL=grass, BR=SAND<br>"Outer SE (BR sand)"</div>
+        </div>
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x0034.bmp" alt="0x0034">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x0034 - Case 4<br>TL=grass, TR=SAND, BL=grass, BR=grass<br>"Outer SW (TR sand)"</div>
+        </div>
+        <div class="tile-container">
+            <div class="corner-labels">
+                <img src="assets/tiles/0x0035.bmp" alt="0x0035">
+                <span class="tl">TL</span>
+                <span class="tr">TR</span>
+                <span class="bl">BL</span>
+                <span class="br">BR</span>
+            </div>
+            <div class="label">0x0035 - Case 8<br>TL=SAND, TR=grass, BL=grass, BR=grass<br>"Outer NE (TL sand)"</div>
+        </div>
+    </div>
+</body>
+</html>
+
+
+

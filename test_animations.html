@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animation Test - UO PvP Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .status.loaded { background: #0a0; }
+        .status.missing { background: #a00; }
+        .sprite-preview {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .sprite-preview img {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            border: 2px solid #555;
+            margin: 5px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #4a4a4a;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #5a5a5a;
+        }
+        #console-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎮 Animation Loading Test</h1>
+        
+        <div class="test-section">
+            <h2>Test Controls</h2>
+            <button onclick="testAssetLoading()">Test Asset Loading</button>
+            <button onclick="testWalkingAnimations()">Test Walking Animations</button>
+            <button onclick="testInGame()">Test In Game</button>
+            <button onclick="clearConsole()">Clear Console</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Walking Animation Status</h2>
+            <div id="walk-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Sprite Previews</h2>
+            <div id="sprite-previews"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Console Output</h2>
+            <div id="console-output"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the asset loader
+        import { AssetLoader } from './js/modules/assetLoader.js';
+        
+        let assetLoader = null;
+        let assets = null;
+        
+        // Console logging helper
+        function log(message, type = 'info') {
+            const consoleDiv = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#f00' : type === 'success' ? '#0f0' : '#0ff';
+            consoleDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        window.clearConsole = function() {
+            document.getElementById('console-output').innerHTML = '';
+        };
+        
+        window.testAssetLoading = async function() {
+            log('Starting asset loading test...', 'info');
+            
+            if (!assetLoader) {
+                assetLoader = new AssetLoader((progress) => {
+                    log(`Loading progress: ${progress}%`);
+                });
+            }
+            
+            try {
+                assets = await assetLoader.loadAll();
+                log('✅ All assets loaded!', 'success');
+                testWalkingAnimations();
+            } catch (error) {
+                log(`❌ Error loading assets: ${error.message}`, 'error');
+            }
+        };
+        
+        window.testWalkingAnimations = function() {
+            if (!assets) {
+                log('❌ Assets not loaded yet. Click "Test Asset Loading" first.', 'error');
+                return;
+            }
+            
+            log('Testing walking animations...', 'info');
+            
+            const directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+            const statusDiv = document.getElementById('walk-status');
+            const previewsDiv = document.getElementById('sprite-previews');
+            
+            statusDiv.innerHTML = '';
+            previewsDiv.innerHTML = '';
+            
+            let loadedCount = 0;
+            let missingCount = 0;
+            
+            directions.forEach(dir => {
+                const key = `char_walk_${dir}_sheet`;
+                const sprite = assets.sprites[key];
+                const exists = sprite && sprite.complete && sprite.naturalWidth > 0;
+                
+                if (exists) {
+                    loadedCount++;
+                    log(`✅ ${key}: ${sprite.naturalWidth}x${sprite.naturalHeight}px`, 'success');
+                    
+                    // Add status badge
+                    const statusBadge = document.createElement('span');
+                    statusBadge.className = 'status loaded';
+                    statusBadge.textContent = 'LOADED';
+                    statusDiv.innerHTML += `<div>${key} ${statusBadge.outerHTML} (${sprite.naturalWidth}x${sprite.naturalHeight})</div>`;
+                    
+                    // Add preview
+                    const preview = document.createElement('div');
+                    preview.className = 'sprite-preview';
+                    preview.innerHTML = `
+                        <strong>${dir}</strong>
+                        <img src="${sprite.src}" alt="${key}" style="max-width: 200px; max-height: 100px;">
+                        <div style="font-size: 10px; color: #aaa;">${sprite.naturalWidth}x${sprite.naturalHeight}</div>
+                    `;
+                    previewsDiv.appendChild(preview);
+                } else {
+                    missingCount++;
+                    log(`❌ ${key}: MISSING`, 'error');
+                    
+                    const statusBadge = document.createElement('span');
+                    statusBadge.className = 'status missing';
+                    statusBadge.textContent = 'MISSING';
+                    statusDiv.innerHTML += `<div>${key} ${statusBadge.outerHTML}</div>`;
+                }
+            });
+            
+            // Summary
+            log(`\n📊 Summary: ${loadedCount}/${directions.length} walking animations loaded`, loadedCount === directions.length ? 'success' : 'error');
+            statusDiv.innerHTML += `<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #555;"><strong>Summary:</strong> ${loadedCount}/${directions.length} loaded</div>`;
+        };
+        
+        window.testInGame = function() {
+            log('Opening game in new window...', 'info');
+            window.open('index.html', '_blank');
+        };
+        
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            log('Animation test page loaded. Click "Test Asset Loading" to begin.', 'info');
+        });
+    </script>
+</body>
+</html>
+

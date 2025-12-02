@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Walking Animation Loading</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        .test { margin: 10px 0; padding: 10px; background: #2a2a2a; border-radius: 5px; }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        img { border: 2px solid #555; margin: 5px; image-rendering: pixelated; }
+    </style>
+</head>
+<body>
+    <h1>Walking Animation Load Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+        const results = document.getElementById('results');
+        
+        let loaded = 0;
+        let failed = 0;
+        
+        directions.forEach(dir => {
+            const img = new Image();
+            const path = `assets/sprites/characters/test/male_walk_${dir}_sheet.png`;
+            
+            img.onload = () => {
+                loaded++;
+                const div = document.createElement('div');
+                div.className = 'test success';
+                div.innerHTML = `✅ ${dir}: ${img.naturalWidth}x${img.naturalHeight}px<br><img src="${path}" style="max-width: 300px;">`;
+                results.appendChild(div);
+                checkComplete();
+            };
+            
+            img.onerror = () => {
+                failed++;
+                const div = document.createElement('div');
+                div.className = 'test error';
+                div.innerHTML = `❌ ${dir}: FAILED to load ${path}`;
+                results.appendChild(div);
+                checkComplete();
+            };
+            
+            img.src = path;
+        });
+        
+        function checkComplete() {
+            if (loaded + failed === directions.length) {
+                const summary = document.createElement('div');
+                summary.className = 'test';
+                summary.style.fontSize = '18px';
+                summary.style.fontWeight = 'bold';
+                summary.innerHTML = `Summary: ${loaded}/${directions.length} loaded successfully`;
+                results.appendChild(summary);
+            }
+        }
+    </script>
+</body>
+</html>
+

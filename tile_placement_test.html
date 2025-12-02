@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UO Tile Placement Test</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+        h1 { color: #4CAF50; text-align: center; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+        
+        .section {
+            background: #252540;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .section h2 {
+            color: #ff9800;
+            margin-top: 0;
+        }
+        
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .tile-item {
+            text-align: center;
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .tile-item canvas {
+            display: block;
+            margin: 0 auto 5px;
+            image-rendering: pixelated;
+        }
+        .tile-item .tile-id {
+            font-size: 12px;
+            color: #4CAF50;
+            font-family: monospace;
+        }
+        .tile-item .tile-desc {
+            font-size: 10px;
+            color: #888;
+        }
+        
+        .preview-section {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .preview-box {
+            background: #1a1a2e;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .preview-box h3 {
+            color: #4CAF50;
+            margin: 0 0 15px 0;
+        }
+        .preview-box canvas {
+            image-rendering: pixelated;
+            border: 2px solid #333;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        select {
+            padding: 8px 15px;
+            font-size: 14px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        
+        .tile-category {
+            margin-bottom: 30px;
+        }
+        .tile-category h3 {
+            color: #ff9800;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        
+        .placement-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 80px);
+            gap: 5px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .placement-cell {
+            width: 80px;
+            height: 80px;
+            background: #333;
+            border: 2px solid #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+        .placement-cell:hover {
+            border-color: #4CAF50;
+        }
+        .placement-cell canvas {
+            image-rendering: pixelated;
+        }
+        .placement-cell .cell-label {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 8px;
+            color: #888;
+            background: rgba(0,0,0,0.7);
+            padding: 1px 3px;
+        }
+        
+        .selected-tile {
+            border: 3px solid #4CAF50 !important;
+        }
+        
+        #selectedTileDisplay {
+            text-align: center;
+            font-size: 14px;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 UO Tile Placement Test</h1>
+    <p class="subtitle">See all transition tiles and test their correct placement</p>
+    
+    <!-- All Transition Tiles -->
+    <div class="section">
+        <h2>📦 Sand-to-Grass Transition Tiles (0x0033 - 0x003E)</h2>
+        <p style="color: #888;">Click a tile to select it, then click a cell in the placement grid below.</p>
+        
+        <div class="tile-category">
+            <h3>Inner Corners (Mostly Grass with Sand Corner)</h3>
+            <div class="tile-grid" id="innerCornerTiles"></div>
+        </div>
+        
+        <div class="tile-category">
+            <h3>Edge Tiles (Half Sand, Half Grass)</h3>
+            <div class="tile-grid" id="edgeTiles"></div>
+        </div>
+        
+        <div class="tile-category">
+            <h3>Outer Corners (Mostly Sand with Grass Corner)</h3>
+            <div class="tile-grid" id="outerCornerTiles"></div>
+        </div>
+        
+        <div class="tile-category">
+            <h3>Pure Tiles</h3>
+            <div class="tile-grid" id="pureTiles"></div>
+        </div>
+    </div>
+    
+    <!-- Placement Test -->
+    <div class="section">
+        <h2>🎨 Placement Test - Build Your Own 3x3</h2>
+        <div id="selectedTileDisplay">No tile selected - click a tile above</div>
+        
+        <div class="placement-grid" id="placementGrid">
+            <!-- 9 cells will be created by JS -->
+        </div>
+        
+        <div class="preview-box" style="margin: 20px auto; max-width: 300px;">
+            <h3>Isometric Preview</h3>
+            <canvas id="isoPreview" width="200" height="150"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button onclick="resetGrid()">Reset Grid</button>
+            <button onclick="exportPattern()">Export Pattern</button>
+        </div>
+    </div>
+    
+    <!-- Pre-made Examples -->
+    <div class="section">
+        <h2>📐 Correct Corner Examples</h2>
+        <div class="preview-section">
+            <div class="preview-box">
+                <h3>Top-Left Corner</h3>
+                <canvas id="exampleTL" width="200" height="150"></canvas>
+                <p style="font-size: 11px; color: #888;">Grass at TL, Sand at BR</p>
+            </div>
+            <div class="preview-box">
+                <h3>Top-Right Corner</h3>
+                <canvas id="exampleTR" width="200" height="150"></canvas>
+                <p style="font-size: 11px; color: #888;">Grass at TR, Sand at BL</p>
+            </div>
+            <div class="preview-box">
+                <h3>Bottom-Left Corner</h3>
+                <canvas id="exampleBL" width="200" height="150"></canvas>
+                <p style="font-size: 11px; color: #888;">Sand at TL, Grass at BR</p>
+            </div>
+            <div class="preview-box">
+                <h3>Bottom-Right Corner</h3>
+                <canvas id="exampleBR" width="200" height="150"></canvas>
+                <p style="font-size: 11px; color: #888;">Sand at TR, Grass at BL</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tiles = {};
+        let selectedTile = null;
+        
+        // Grid state (3x3)
+        let gridState = [
+            ['0x0003', '0x0003', '0x0003'],
+            ['0x0003', '0x0003', '0x0003'],
+            ['0x0003', '0x0003', '0x0003']
+        ];
+        
+        // Tile definitions
+        const TILE_DEFS = {
+            innerCorners: [
+                { id: '0x0033', desc: 'Inner Corner - SE sand' },
+                { id: '0x0034', desc: 'Inner Corner - SW sand' },
+                { id: '0x0035', desc: 'Inner Corner - NW sand' },
+                { id: '0x0036', desc: 'Inner Corner - NE sand' }
+            ],
+            edges: [
+                { id: '0x0037', desc: 'Edge - South sand' },
+                { id: '0x0038', desc: 'Edge - West sand' },
+                { id: '0x0039', desc: 'Edge - North sand' },
+                { id: '0x003A', desc: 'Edge - East sand' }
+            ],
+            outerCorners: [
+                { id: '0x003B', desc: 'Outer Corner - SE grass' },
+                { id: '0x003C', desc: 'Outer Corner - SW grass' },
+                { id: '0x003D', desc: 'Outer Corner - NW grass' },
+                { id: '0x003E', desc: 'Outer Corner - NE grass' }
+            ],
+            pure: [
+                { id: '0x0003', desc: 'Pure Grass' },
+                { id: '0x0016', desc: 'Pure Sand' },
+                { id: '0x00A8', desc: 'Water' }
+            ]
+        };
+        
+        // Correct corner patterns using the proper tiles
+        const CORRECT_PATTERNS = {
+            topLeft: [
+                ['0x0003', '0x0003', '0x0003'],
+                ['0x0003', '0x0033', '0x003A'],  // 0x0033 = inner corner (SE sand)
+                ['0x0003', '0x0038', '0x0016']
+            ],
+            topRight: [
+                ['0x0003', '0x0003', '0x0003'],
+                ['0x003A', '0x0034', '0x0003'],  // 0x0034 = inner corner (SW sand)
+                ['0x0016', '0x0037', '0x0003']
+            ],
+            bottomLeft: [
+                ['0x0003', '0x0038', '0x0016'],
+                ['0x0003', '0x0035', '0x0039'],  // 0x0035 = inner corner (NW sand)
+                ['0x0003', '0x0003', '0x0003']
+            ],
+            bottomRight: [
+                ['0x0016', '0x0037', '0x0003'],
+                ['0x0039', '0x0036', '0x0003'],  // 0x0036 = inner corner (NE sand)
+                ['0x0003', '0x0003', '0x0003']
+            ]
+        };
+        
+        // Process black to transparent
+        function processBlackToTransparent(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width || 44;
+            canvas.height = img.height || 44;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i] <= 5 && data[i+1] <= 5 && data[i+2] <= 5) {
+                    data[i + 3] = 0;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            return canvas;
+        }
+        
+        // Load tile
+        async function loadTile(tileId) {
+            if (tiles[tileId]) return tiles[tileId];
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    tiles[tileId] = processBlackToTransparent(img);
+                    resolve(tiles[tileId]);
+                };
+                img.onerror = () => {
+                    console.error('Failed to load:', tileId);
+                    resolve(null);
+                };
+                img.src = `assets/tiles/${tileId}.bmp`;
+            });
+        }
+        
+        // Create tile display item
+        async function createTileItem(tileDef, container) {
+            const item = document.createElement('div');
+            item.className = 'tile-item';
+            item.dataset.tileId = tileDef.id;
+            item.onclick = () => selectTile(tileDef.id, item);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 44;
+            canvas.height = 44;
+            item.appendChild(canvas);
+            
+            const idLabel = document.createElement('div');
+            idLabel.className = 'tile-id';
+            idLabel.textContent = tileDef.id;
+            item.appendChild(idLabel);
+            
+            const descLabel = document.createElement('div');
+            descLabel.className = 'tile-desc';
+            descLabel.textContent = tileDef.desc;
+            item.appendChild(descLabel);
+            
+            container.appendChild(item);
+            
+            // Load and draw tile
+            const tile = await loadTile(tileDef.id);
+            if (tile) {
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(tile, 0, 0);
+            }
+        }
+        
+        // Select tile
+        function selectTile(tileId, element) {
+            // Remove previous selection
+            document.querySelectorAll('.tile-item.selected-tile').forEach(el => {
+                el.classList.remove('selected-tile');
+            });
+            
+            selectedTile = tileId;
+            element.classList.add('selected-tile');
+            document.getElementById('selectedTileDisplay').textContent = `Selected: ${tileId}`;
+        }
+        
+        // Create placement grid
+        function createPlacementGrid() {
+            const grid = document.getElementById('placementGrid');
+            grid.innerHTML = '';
+            
+            const labels = [
+                ['TL', 'T', 'TR'],
+                ['L', 'C', 'R'],
+                ['BL', 'B', 'BR']
+            ];
+            
+            for (let y = 0; y < 3; y++) {
+                for (let x = 0; x < 3; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'placement-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.onclick = () => placeSelectedTile(x, y);
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 44;
+                    canvas.height = 44;
+                    canvas.id = `cell-${x}-${y}`;
+                    cell.appendChild(canvas);
+                    
+                    const label = document.createElement('div');
+                    label.className = 'cell-label';
+                    label.textContent = labels[y][x];
+                    cell.appendChild(label);
+                    
+                    grid.appendChild(cell);
+                }
+            }
+            
+            updateGridDisplay();
+        }
+        
+        // Place selected tile
+        async function placeSelectedTile(x, y) {
+            if (!selectedTile) {
+                alert('Select a tile first!');
+                return;
+            }
+            
+            gridState[y][x] = selectedTile;
+            await updateGridDisplay();
+            await updateIsoPreview();
+        }
+        
+        // Update grid display
+        async function updateGridDisplay() {
+            for (let y = 0; y < 3; y++) {
+                for (let x = 0; x < 3; x++) {
+                    const canvas = document.getElementById(`cell-${x}-${y}`);
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 44, 44);
+                    
+                    const tile = await loadTile(gridState[y][x]);
+                    if (tile) {
+                        ctx.drawImage(tile, 0, 0);
+                    }
+                }
+            }
+        }
+        
+        // Draw isometric 3x3 pattern
+        async function drawIsoPattern(canvasId, pattern) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Fill with grass color
+            ctx.fillStyle = '#3d5c3d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const tileWidth = 44;
+            const tileHeight = 44;
+            const centerX = canvas.width / 2;
+            const startY = 20;
+            
+            // Draw in correct order (back to front)
+            for (let y = 0; y < 3; y++) {
+                for (let x = 0; x < 3; x++) {
+                    const tileId = pattern[y][x];
+                    const tile = await loadTile(tileId);
+                    
+                    if (tile) {
+                        // Isometric positioning
+                        const isoX = centerX + (x - y) * (tileWidth / 2) - tileWidth / 2;
+                        const isoY = startY + (x + y) * (tileHeight / 4);
+                        
+                        ctx.drawImage(tile, isoX, isoY);
+                    }
+                }
+            }
+        }
+        
+        // Update iso preview
+        async function updateIsoPreview() {
+            await drawIsoPattern('isoPreview', gridState);
+        }
+        
+        // Reset grid
+        function resetGrid() {
+            gridState = [
+                ['0x0003', '0x0003', '0x0003'],
+                ['0x0003', '0x0003', '0x0003'],
+                ['0x0003', '0x0003', '0x0003']
+            ];
+            updateGridDisplay();
+            updateIsoPreview();
+        }
+        
+        // Export pattern
+        function exportPattern() {
+            const json = JSON.stringify(gridState, null, 2);
+            console.log('Pattern:', json);
+            navigator.clipboard.writeText(json).then(() => {
+                alert('Pattern copied to clipboard!');
+            });
+        }
+        
+        // Initialize
+        async function init() {
+            // Load all tile displays
+            for (const def of TILE_DEFS.innerCorners) {
+                await createTileItem(def, document.getElementById('innerCornerTiles'));
+            }
+            for (const def of TILE_DEFS.edges) {
+                await createTileItem(def, document.getElementById('edgeTiles'));
+            }
+            for (const def of TILE_DEFS.outerCorners) {
+                await createTileItem(def, document.getElementById('outerCornerTiles'));
+            }
+            for (const def of TILE_DEFS.pure) {
+                await createTileItem(def, document.getElementById('pureTiles'));
+            }
+            
+            // Create placement grid
+            createPlacementGrid();
+            updateIsoPreview();
+            
+            // Draw correct examples
+            await drawIsoPattern('exampleTL', CORRECT_PATTERNS.topLeft);
+            await drawIsoPattern('exampleTR', CORRECT_PATTERNS.topRight);
+            await drawIsoPattern('exampleBL', CORRECT_PATTERNS.bottomLeft);
+            await drawIsoPattern('exampleBR', CORRECT_PATTERNS.bottomRight);
+        }
+        
+        init();
+    </script>
+</body>
+</html>
+
+
+
+

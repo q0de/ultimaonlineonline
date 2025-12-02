@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UO Curve Trainer</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        h1 { color: #4CAF50; text-align: center; margin: 0 0 10px 0; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 20px; }
+        
+        .stats {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #252540;
+            border-radius: 8px;
+        }
+        .stats .approved { color: #4CAF50; }
+        .stats .rejected { color: #f44336; }
+        
+        .corners-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .corner-card {
+            background: #252540;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .corner-card h3 {
+            color: #ff9800;
+            margin: 0 0 5px 0;
+            font-size: 16px;
+        }
+        .corner-card .tile-info {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        
+        .preview-container {
+            background: #000;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+        }
+        canvas {
+            image-rendering: pixelated;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-approve {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-approve:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+        .btn-reject {
+            background: #f44336;
+            color: white;
+        }
+        .btn-reject:hover {
+            background: #da190b;
+            transform: scale(1.05);
+        }
+        
+        .corner-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .toggle-ids {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .toggle-ids label {
+            cursor: pointer;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 UO Curve Trainer</h1>
+    <p class="subtitle">Approve ✓ or Reject ✗ each curve - new one appears automatically</p>
+    
+    <div class="stats">
+        <span class="approved">✓ <span id="approvedCount">0</span> Approved</span>
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        <span class="rejected">✗ <span id="rejectedCount">0</span> Rejected</span>
+    </div>
+    
+    <!-- BIG PROGRESS SECTION -->
+    <div style="max-width: 700px; margin: 10px auto 20px; padding: 15px; background: #252540; border-radius: 12px; text-align: center;">
+        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">
+            <span id="totalCount" style="color: #4CAF50;">0</span> / <span style="color: #888;">40</span>
+            <span style="font-size: 14px; color: #888; margin-left: 10px;">minimum needed</span>
+        </div>
+        <div style="background: #333; border-radius: 10px; height: 30px; overflow: hidden; margin-bottom: 10px;">
+            <div id="progressBar" style="height: 100%; background: linear-gradient(90deg, #f44336, #ff9800, #4CAF50); width: 0%; transition: width 0.3s; border-radius: 10px;"></div>
+        </div>
+        <div id="progressMsg" style="font-size: 16px; color: #ff9800;">Click ✓ or ✗ to start training!</div>
+    </div>
+    
+    <div class="toggle-ids">
+        <label>
+            <input type="checkbox" id="showIds" onchange="renderAll()"> Show Tile IDs
+        </label>
+    </div>
+    
+    <div class="corners-grid">
+        <div class="corner-card" id="card-topLeft">
+            <h3>Top-Left Corner</h3>
+            <div class="tile-info" id="info-topLeft">Loading...</div>
+            <div class="preview-container">
+                <canvas id="canvas-topLeft" width="180" height="150"></canvas>
+            </div>
+            <div class="buttons">
+                <button class="btn-approve" onclick="approve('topLeft')">✓</button>
+                <button class="btn-reject" onclick="reject('topLeft')">✗</button>
+            </div>
+            <div class="corner-label">Grass surrounds sand at top-left</div>
+        </div>
+        
+        <div class="corner-card" id="card-topRight">
+            <h3>Top-Right Corner</h3>
+            <div class="tile-info" id="info-topRight">Loading...</div>
+            <div class="preview-container">
+                <canvas id="canvas-topRight" width="180" height="150"></canvas>
+            </div>
+            <div class="buttons">
+                <button class="btn-approve" onclick="approve('topRight')">✓</button>
+                <button class="btn-reject" onclick="reject('topRight')">✗</button>
+            </div>
+            <div class="corner-label">Sand at bottom-left, grass at top-right</div>
+        </div>
+        
+        <div class="corner-card" id="card-bottomLeft">
+            <h3>Bottom-Left Corner</h3>
+            <div class="tile-info" id="info-bottomLeft">Loading...</div>
+            <div class="preview-container">
+                <canvas id="canvas-bottomLeft" width="180" height="150"></canvas>
+            </div>
+            <div class="buttons">
+                <button class="btn-approve" onclick="approve('bottomLeft')">✓</button>
+                <button class="btn-reject" onclick="reject('bottomLeft')">✗</button>
+            </div>
+            <div class="corner-label">Sand at top-right, grass at bottom-left</div>
+        </div>
+        
+        <div class="corner-card" id="card-bottomRight">
+            <h3>Bottom-Right Corner</h3>
+            <div class="tile-info" id="info-bottomRight">Loading...</div>
+            <div class="preview-container">
+                <canvas id="canvas-bottomRight" width="180" height="150"></canvas>
+            </div>
+            <div class="buttons">
+                <button class="btn-approve" onclick="approve('bottomRight')">✓</button>
+                <button class="btn-reject" onclick="reject('bottomRight')">✗</button>
+            </div>
+            <div class="corner-label">Grass surrounds sand at bottom-right</div>
+        </div>
+    </div>
+
+    <script>
+        // Tile cache
+        const tiles = {};
+        
+        // Curve tile pool
+        const CURVE_TILES = [
+            '0x03B7', '0x03B8', '0x03B9', '0x03BA', '0x03BB', '0x03BC', '0x03BD', '0x03BE', '0x03BF',
+            '0x03C0', '0x03C1', '0x03C2', '0x03C3', '0x03C4', '0x03C5', '0x03C6', '0x03C7', '0x03C8',
+            '0x037E', '0x037C', '0x037D', '0x0375', '0x0376', '0x0377', '0x0378', '0x0379', '0x037A', '0x037B',
+            '0x01A5', '0x01A6', '0x01A7', '0x01A8', '0x01A9', '0x01AA', '0x01AB',
+            '0x0684', '0x012A', '0x012C',
+            '0x035C', '0x035D', '0x035E', '0x035F',
+            '0x0360', '0x0361', '0x0362', '0x0363', '0x0364', '0x0365', '0x0366', '0x0367',
+            '0x0368', '0x0369', '0x036A', '0x036B', '0x036C', '0x036D', '0x036E', '0x036F',
+            '0x0370', '0x0371', '0x0372', '0x0373', '0x0374'
+        ];
+        
+        // Current patterns for each corner
+        let currentPatterns = {};
+        
+        // Results storage
+        let results = JSON.parse(localStorage.getItem('curveTrainerResults') || '{"approved":[],"rejected":[]}');
+        
+        // Process black to transparent
+        function processBlackToTransparent(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width || 44;
+            canvas.height = img.height || 44;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i] <= 5 && data[i+1] <= 5 && data[i+2] <= 5) {
+                    data[i + 3] = 0;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            return canvas;
+        }
+        
+        // Load tile
+        async function loadTile(tileId) {
+            if (tiles[tileId]) return tiles[tileId];
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    tiles[tileId] = processBlackToTransparent(img);
+                    resolve(tiles[tileId]);
+                };
+                img.onerror = () => resolve(null);
+                img.src = `assets/tiles/${tileId}.bmp`;
+            });
+        }
+        
+        // Random curve tile
+        function randomCurve() {
+            return CURVE_TILES[Math.floor(Math.random() * CURVE_TILES.length)];
+        }
+        
+        // Generate pattern for corner - ACTUALLY DIFFERENT curve styles each time
+        function generatePattern(corner) {
+            // Pick a random curve tile - THIS is what we're testing
+            const curve = randomCurve();
+            
+            // Different STYLES of using the curve tile
+            const styles = {
+                topLeft: [
+                    // Style 1: Curve replaces the corner tile entirely
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],["0x0003",curve,"0x003A"],["0x0003","0x0038","0x0016"]], 
+                        style: "Corner replacement",
+                        key: curve 
+                    },
+                    // Style 2: Curve as smooth transition (more grass showing)
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],["0x0003",curve,"0x0003"],["0x0003","0x0038","0x0016"]], 
+                        style: "Smooth transition",
+                        key: curve 
+                    },
+                    // Style 3: Curve with feathered grass edge
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],["0x0003","0x037E",curve],["0x0003","0x0038","0x0016"]], 
+                        style: "Feathered edge",
+                        key: curve 
+                    },
+                    // Style 4: Double curve (two curve tiles)
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],["0x0003",curve,"0x0003"],["0x0003",randomCurve(),"0x003A"]], 
+                        style: "Double curve",
+                        key: curve 
+                    }
+                ],
+                topRight: [
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],["0x003A",curve,"0x0003"],["0x0016","0x0037","0x0003"]], 
+                        style: "Corner replacement",
+                        key: curve 
+                    },
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],["0x0003",curve,"0x0003"],["0x0016","0x0037","0x0003"]], 
+                        style: "Smooth transition",
+                        key: curve 
+                    },
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],["0x003A","0x003C",curve],["0x0016","0x0037","0x0003"]], 
+                        style: "Edge accent",
+                        key: curve 
+                    },
+                    { 
+                        tiles: [["0x0003","0x0003","0x0003"],[curve,"0x037E","0x0003"],["0x0016","0x0037","0x0003"]], 
+                        style: "Feathered edge",
+                        key: curve 
+                    }
+                ],
+                bottomLeft: [
+                    { 
+                        tiles: [["0x0003","0x0038","0x0016"],["0x0003",curve,"0x0039"],["0x0003","0x0003","0x0003"]], 
+                        style: "Corner replacement",
+                        key: curve 
+                    },
+                    { 
+                        tiles: [["0x0003",curve,"0x0016"],["0x0003","0x0003","0x0039"],["0x0003","0x0003","0x0003"]], 
+                        style: "Top edge curve",
+                        key: curve 
+                    },
+                    { 
+                        tiles: [["0x0003","0x0038","0x0016"],["0x0003","0x037E",curve],["0x0003","0x0003","0x0003"]], 
+                        style: "Feathered edge",
+                        key: curve 
+                    }
+                ],
+                bottomRight: [
+                    { 
+                        tiles: [["0x0016","0x0037","0x0003"],["0x0039",curve,"0x0003"],["0x0003","0x0003","0x0003"]], 
+                        style: "Corner replacement",
+                        key: curve 
+                    },
+                    { 
+                        tiles: [["0x0016",curve,"0x0003"],["0x0039","0x0003","0x0003"],["0x0003","0x0003","0x0003"]], 
+                        style: "Top edge curve",
+                        key: curve 
+                    },
+                    { 
+                        tiles: [["0x0016","0x0037","0x0003"],[curve,"0x037E","0x0003"],["0x0003","0x0003","0x0003"]], 
+                        style: "Feathered edge",
+                        key: curve 
+                    }
+                ]
+            };
+            
+            const options = styles[corner];
+            const selected = options[Math.floor(Math.random() * options.length)];
+            selected.curveTile = curve; // Track which curve we're testing
+            return selected;
+        }
+        
+        // Render pattern to canvas
+        async function renderPattern(corner) {
+            const pattern = currentPatterns[corner];
+            const canvas = document.getElementById(`canvas-${corner}`);
+            const ctx = canvas.getContext('2d');
+            const showIds = document.getElementById('showIds').checked;
+            
+            ctx.fillStyle = '#3a5c1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const tileWidth = 44, tileHeight = 44;
+            const halfW = 22, halfH = 22;
+            
+            // Draw back to front
+            for (let row = 0; row < 6; row++) {
+                for (let x = 0; x < 3; x++) {
+                    const y = row - x;
+                    if (y < 0 || y >= 3) continue;
+                    
+                    const tileId = pattern.tiles[y][x];
+                    const tile = await loadTile(tileId);
+                    
+                    const screenX = (x - y) * halfW + 90 - halfW;
+                    const screenY = (x + y) * halfH + 10;
+                    
+                    if (tile) {
+                        ctx.drawImage(tile, screenX, screenY, tileWidth, tileHeight);
+                    }
+                    
+                    if (showIds) {
+                        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                        ctx.fillRect(screenX + 7, screenY + 18, 30, 10);
+                        ctx.fillStyle = '#ff0';
+                        ctx.font = '8px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(tileId.slice(-4), screenX + 22, screenY + 26);
+                    }
+                }
+            }
+            
+            // Update info - show STYLE and key tile
+            const style = pattern.style || 'Basic';
+            const keyTile = pattern.curveTile || pattern.key;
+            document.getElementById(`info-${corner}`).innerHTML = `<strong>${style}</strong> - Testing: ${keyTile}`;
+        }
+        
+        // Render all corners
+        async function renderAll() {
+            for (const corner of ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']) {
+                await renderPattern(corner);
+            }
+        }
+        
+        // Approve
+        async function approve(corner) {
+            const pattern = currentPatterns[corner];
+            results.approved.push({
+                corner,
+                tiles: pattern.tiles,
+                key: pattern.key,
+                timestamp: new Date().toISOString()
+            });
+            saveResults();
+            
+            // Animate and replace
+            const card = document.getElementById(`card-${corner}`);
+            card.style.background = '#2d4a2d';
+            setTimeout(async () => {
+                card.style.background = '#252540';
+                currentPatterns[corner] = generatePattern(corner);
+                await renderPattern(corner);
+            }, 200);
+        }
+        
+        // Reject
+        async function reject(corner) {
+            const pattern = currentPatterns[corner];
+            results.rejected.push({
+                corner,
+                tiles: pattern.tiles,
+                key: pattern.key,
+                timestamp: new Date().toISOString()
+            });
+            saveResults();
+            
+            // Animate and replace
+            const card = document.getElementById(`card-${corner}`);
+            card.style.background = '#4a2d2d';
+            setTimeout(async () => {
+                card.style.background = '#252540';
+                currentPatterns[corner] = generatePattern(corner);
+                await renderPattern(corner);
+            }, 200);
+        }
+        
+        // Save results
+        function saveResults() {
+            localStorage.setItem('curveTrainerResults', JSON.stringify(results));
+            updateStats();
+        }
+        
+        // Update stats display
+        function updateStats() {
+            const approved = results.approved.length;
+            const rejected = results.rejected.length;
+            const total = approved + rejected;
+            
+            document.getElementById('approvedCount').textContent = approved;
+            document.getElementById('rejectedCount').textContent = rejected;
+            document.getElementById('totalCount').textContent = total;
+            
+            // Progress tracking - need ~40 minimum for basic, ~100 for good
+            const minForBasic = 40;
+            const minForGood = 100;
+            const progress = Math.min(100, (total / minForBasic) * 100);
+            
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            const progressMsg = document.getElementById('progressMsg');
+            if (total === 0) {
+                progressMsg.textContent = `Click ✓ or ✗ to start training!`;
+                progressMsg.style.color = '#888';
+            } else if (total < 10) {
+                progressMsg.textContent = `Keep going! ${40 - total} more needed`;
+                progressMsg.style.color = '#f44336';
+            } else if (total < minForBasic) {
+                progressMsg.textContent = `Great progress! Only ${minForBasic - total} more to go!`;
+                progressMsg.style.color = '#ff9800';
+            } else if (total < minForGood) {
+                progressMsg.textContent = `✓ MINIMUM REACHED! Keep going for better accuracy (${total}/${minForGood})`;
+                progressMsg.style.color = '#8BC34A';
+            } else {
+                progressMsg.textContent = `🎉 EXCELLENT! ${total} samples - you can stop now!`;
+                progressMsg.style.color = '#4CAF50';
+            }
+        }
+        
+        // Initialize
+        async function init() {
+            updateStats();
+            
+            // Generate initial patterns
+            for (const corner of ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']) {
+                currentPatterns[corner] = generatePattern(corner);
+            }
+            
+            await renderAll();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
+

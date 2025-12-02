@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>UO Tile Viewer</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #1a1a1a; 
+            color: #e0e0e0; 
+            margin: 0; 
+            padding: 20px;
+        }
+        h1 { color: #4CAF50; text-align: center; }
+        h2 { color: #ff9800; border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 30px; }
+        .type-section { margin-bottom: 40px; }
+        .tile-grid { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            background: #2a2a2a; 
+            padding: 15px; 
+            border-radius: 8px;
+        }
+        .tile-item {
+            text-align: center;
+            background: #333;
+            padding: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .tile-item:hover { border-color: #4CAF50; }
+        .tile-item.selected { border-color: #ff9800; background: #444; }
+        .tile-item img { 
+            width: 44px; 
+            height: 44px; 
+            image-rendering: pixelated;
+            display: block;
+            margin: 0 auto;
+        }
+        .tile-id { font-size: 9px; color: #888; margin-top: 3px; }
+        .tile-index { font-size: 8px; color: #666; }
+        .stats { 
+            background: #2a2a2a; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .stat-item { }
+        .stat-label { color: #888; font-size: 12px; }
+        .stat-value { font-size: 24px; color: #4CAF50; }
+        .selected-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            max-width: 350px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .selected-info img {
+            width: 132px;
+            height: 132px;
+            image-rendering: pixelated;
+        }
+        .filter-buttons {
+            margin-bottom: 20px;
+            position: sticky;
+            top: 0;
+            background: #1a1a1a;
+            padding: 10px 0;
+            z-index: 100;
+        }
+        .filter-buttons button {
+            padding: 8px 16px;
+            margin: 4px;
+            background: #444;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .filter-buttons button:hover { background: #555; }
+        .filter-buttons button.active { background: #4CAF50; }
+        .loading { text-align: center; padding: 50px; font-size: 20px; }
+        .neighbor-info { 
+            margin-top: 10px; 
+            font-size: 11px; 
+            color: #888; 
+            border-top: 1px solid #444; 
+            padding-top: 10px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 UO Tile Viewer - Identify Tile Connections</h1>
+    <p style="text-align:center;color:#888;">Click tiles to see them enlarged. Use this to understand how tiles should connect to neighbors.</p>
+    
+    <div class="stats" id="stats">
+        <div class="stat-item"><div class="stat-label">Status</div><div class="stat-value">Loading...</div></div>
+    </div>
+    
+    <div class="filter-buttons" id="filterButtons">
+        <span style="color:#888;">Loading tiles...</span>
+    </div>
+    
+    <div id="tileContent">
+        <div class="loading">Loading tile data from CSV...</div>
+    </div>
+    
+    <div class="selected-info" id="selectedInfo" style="display:none;"></div>
+    
+    <script type="module">
+        import { LandTileLoader } from './js/modules/landTileLoader.js';
+        
+        let tiles = [];
+        let tilesByType = {};
+        
+        async function loadTiles() {
+            try {
+                tiles = await LandTileLoader.loadFromURL('./assets/tiles/LandData.csv');
+                console.log('Loaded', tiles.length, 'tiles');
+                
+                // Group tiles by type
+                tiles.forEach((tile, index) => {
+                    const tileName = tile.Name || tile.name || 'unknown';
+                    const type = (typeof tileName === 'string' ? tileName : String(tileName)).toLowerCase().trim();
+                    if (!tilesByType[type]) tilesByType[type] = [];
+                    tilesByType[type].push({ ...tile, globalIndex: index });
+                });
+                
+                updateUI();
+            } catch (error) {
+                console.error('Failed to load tiles:', error);
+                document.getElementById('tileContent').innerHTML = 
+                    '<div class="loading" style="color:red;">Error loading tiles: ' + error.message + '</div>';
+            }
+        }
+        
+        function updateUI() {
+            const types = Object.keys(tilesByType).filter(t => 
+                t && t !== 'void!!!!!!' && t !== 'nodraw' && t !== 'ed' && t !== 'noname'
+            ).sort();
+            
+            // Update stats
+            document.getElementById('stats').innerHTML = 
+                '<div class="stat-item"><div class="stat-label">Total Tiles</div><div class="stat-value">' + tiles.length + '</div></div>' +
+                '<div class="stat-item"><div class="stat-label">Tile Types</div><div class="stat-value">' + types.length + '</div></div>';
+            
+            // Create filter buttons
+            const mainTypes = ['grass', 'sand', 'water', 'embank', 'dirt', 'rock', 'cave', 'forest', 'furrows', 'jungle', 'snow'];
+            let buttonsHTML = '<button onclick="window.showAllTypes()">Show All Types</button>';
+            
+            mainTypes.forEach(t => {
+                if (tilesByType[t]) {
+                    buttonsHTML += '<button onclick="window.showType(\'' + t + '\')">' + t + ' (' + tilesByType[t].length + ')</button>';
+                }
+            });
+            
+            // Add Search Box
+            buttonsHTML += '<div style="margin-top:10px;"><input type="text" id="searchId" placeholder="Search Hex ID (e.g. 0071)" style="padding:8px;background:#333;color:#fff;border:1px solid #555;border-radius:4px;"> <button onclick="window.searchTile()">Search</button></div>';
+            
+            document.getElementById('filterButtons').innerHTML = buttonsHTML;
+            
+            // Show sand tiles by default (most relevant for transitions)
+            showType('sand');
+        }
+        
+        window.searchTile = function() {
+            const query = document.getElementById('searchId').value.trim().toLowerCase();
+            if (!query) return;
+            
+            // Find tile in all lists
+            let found = null;
+            let foundType = '';
+            
+            // Normalize query (remove 0x)
+            const cleanQuery = query.replace('0x', '');
+            
+            for (const [type, list] of Object.entries(tilesByType)) {
+                const match = list.find(t => t.ID.toLowerCase().endsWith(cleanQuery.toLowerCase()));
+                if (match) {
+                    found = match;
+                    foundType = type;
+                    break;
+                }
+            }
+            
+            if (found) {
+                window.showType(foundType);
+                // Highlight it (using timeout to wait for render)
+                setTimeout(() => {
+                    let hexId = found.ID;
+                    if (!hexId.toUpperCase().startsWith('0X')) hexId = '0x' + hexId;
+                    hexId = '0x' + hexId.substring(2).toUpperCase().padStart(4, '0');
+                    
+                    const el = document.querySelector('.tile-item[data-id="' + hexId + '"]');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.classList.add('selected');
+                        el.click(); // Trigger info
+                    }
+                }, 100);
+            } else {
+                alert('Tile not found!');
+            }
+        };
+        
+        window.showAllTypes = function() {
+            const types = Object.keys(tilesByType).filter(t => 
+                t && t !== 'void!!!!!!' && t !== 'nodraw' && t !== 'ed' && t !== 'noname'
+            ).sort();
+            
+            let html = '';
+            types.forEach(type => {
+                html += renderTypeSection(type);
+            });
+            document.getElementById('tileContent').innerHTML = html;
+        };
+        
+        window.showType = function(type) {
+            document.getElementById('tileContent').innerHTML = renderTypeSection(type);
+        };
+        
+        function renderTypeSection(type) {
+            const typeTiles = tilesByType[type] || [];
+            if (typeTiles.length === 0) return '';
+            
+            let html = '<div class="type-section">';
+            html += '<h2>' + type.toUpperCase() + ' (' + typeTiles.length + ' tiles)</h2>';
+            html += '<p style="color:#888;margin-bottom:10px;">Tiles are shown in order by ID. Sequential tiles often form visual groups.</p>';
+            html += '<div class="tile-grid">';
+            
+            typeTiles.forEach((tile, idx) => {
+                let hexId = tile.ID;
+                if (!hexId.toUpperCase().startsWith('0X')) {
+                    hexId = '0x' + hexId;
+                }
+                hexId = '0x' + hexId.substring(2).toUpperCase().padStart(4, '0');
+                
+                html += '<div class="tile-item" data-id="' + hexId + '" data-type="' + type + '" data-idx="' + idx + '">';
+                html += '<img src="./assets/tiles/' + hexId + '.bmp" onerror="this.style.background=\'#f00\'">';
+                html += '<div class="tile-id">' + hexId + '</div>';
+                html += '<div class="tile-index">#' + idx + '</div>';
+                html += '</div>';
+            });
+            
+            html += '</div></div>';
+            return html;
+        }
+        
+        // Handle tile clicks
+        document.addEventListener('click', function(e) {
+            const tileItem = e.target.closest('.tile-item');
+            if (!tileItem) return;
+            
+            document.querySelectorAll('.tile-item').forEach(el => el.classList.remove('selected'));
+            tileItem.classList.add('selected');
+            
+            const hexId = tileItem.dataset.id;
+            const type = tileItem.dataset.type;
+            const idx = tileItem.dataset.idx;
+            
+            document.getElementById('selectedInfo').style.display = 'block';
+            document.getElementById('selectedInfo').innerHTML = 
+                '<img src="./assets/tiles/' + hexId + '.bmp">' +
+                '<div><strong>ID:</strong> ' + hexId + '</div>' +
+                '<div><strong>Type:</strong> ' + type + '</div>' +
+                '<div><strong>Index in type:</strong> #' + idx + '</div>' +
+                '<div class="neighbor-info">' +
+                '<strong>How to identify edges:</strong><br>' +
+                '• Look at each corner of the diamond<br>' +
+                '• Pure sand tiles: all tan/beige<br>' +
+                '• Transition tiles: have grass (green) on some edges<br>' +
+                '• Water edge tiles: have water (blue) on some edges<br>' +
+                '</div>';
+        });
+        
+        // Load tiles on startup
+        loadTiles();
+    </script>
+</body>
+</html>
+
