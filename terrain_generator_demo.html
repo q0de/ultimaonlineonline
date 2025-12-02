@@ -7762,7 +7762,9 @@ CORNERS:
             // UO-authentic: ALWAYS update direction when clicking (character turns to face)
             // Only update direction if cursor is far enough to determine a clear direction
             if (pixelDistance > 15) {
-                playerCharacter.direction = getDirectionFromScreenPixels(pixelDx, pixelDy);
+                const clickDir = getDirectionFromScreenPixels(pixelDx, pixelDy);
+                console.log(`[Click Debug] Screen delta: (${pixelDx.toFixed(0)}, ${pixelDy.toFixed(0)}), Target tile: (${tile.x}, ${tile.y}), Tile delta: (${dx.toFixed(1)}, ${dy.toFixed(1)}), Direction: ${clickDir}`);
+                playerCharacter.direction = clickDir;
             }
             
             // Movement threshold: Only move if click is far enough away
