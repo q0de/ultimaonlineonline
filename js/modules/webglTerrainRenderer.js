@@ -30,6 +30,7 @@ export class WebGLTerrainRenderer {
         
         this.textures = {};  // Tile ID -> WebGL texture
         this.shaderProgram = null;
+        this.characterTextureCache = new Map();
         
         this.init();
     }
@@ -724,7 +725,7 @@ export class WebGLTerrainRenderer {
      * @param {number} zoom - Zoom level (1.0 = normal, 2.0 = 2x zoom in)
      * @param {Array} statics - Optional static objects
      */
-    renderWithCamera(map, cornerHeights, cameraTarget, imageLoader, zoom = 1.0, statics = null) {
+    renderWithCamera(map, cornerHeights, cameraTarget, imageLoader, zoom = 1.0, statics = null, characters = null) {
         const gl = this.gl;
         const mapHeight = map.length;
         const mapWidth = map[0].length;
@@ -872,19 +873,26 @@ export class WebGLTerrainRenderer {
             }
         }
         
-        // Render statics with camera
-        if (statics && statics.length > 0) {
-            this.renderStaticsWithCamera(gl, statics, offsetX, offsetY, zoom);
+        const hasStatics = statics && statics.length > 0;
+        const hasCharacters = characters && characters.length > 0;
+        if (hasStatics || hasCharacters) {
+            this.renderSceneObjectsWithCamera(
+                gl,
+                hasStatics ? statics : [],
+                hasCharacters ? characters : [],
+                offsetX,
+                offsetY,
+                zoom
+            );
         }
     }
     
     /**
-     * Render statics with camera offset and zoom
+     * Render statics and characters with unified depth ordering
      */
-    renderStaticsWithCamera(gl, statics, offsetX, offsetY, zoom) {
+    renderSceneObjectsWithCamera(gl, statics, characters, offsetX, offsetY, zoom) {
         const spacing = 22;
         
-        // Create placeholder texture if needed
         if (!this.staticPlaceholderTexture) {
             this.staticPlaceholderTexture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, this.staticPlaceholderTexture);
@@ -893,41 +901,28 @@ export class WebGLTerrainRenderer {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         }
-        
-        // Cache for static textures
         if (!this.staticTextureCache) {
             this.staticTextureCache = new Map();
         }
+        if (!this.characterTextureCache) {
+            this.characterTextureCache = new Map();
+        }
         
-        // Sort statics by render order (back to front: y+x, then z)
-        const sortedStatics = [...statics].sort((a, b) => {
-            const aX = a.relX !== undefined ? a.relX : (a.worldX || 0);
-            const aY = a.relY !== undefined ? a.relY : (a.worldY || 0);
-            const bX = b.relX !== undefined ? b.relX : (b.worldX || 0);
-            const bY = b.relY !== undefined ? b.relY : (b.worldY || 0);
-            const aOrder = (aX + aY) * 1000 + (a.z || 0);
-            const bOrder = (bX + bY) * 1000 + (b.z || 0);
-            return aOrder - bOrder;
-        });
+        const drawables = [];
         
-        for (const staticObj of sortedStatics) {
+        for (const staticObj of statics) {
             const tileX = staticObj.relX !== undefined ? staticObj.relX : (staticObj.worldX || 0);
             const tileY = staticObj.relY !== undefined ? staticObj.relY : (staticObj.worldY || 0);
-            
-            const baseX = (tileX - tileY) * spacing + 22; // Center on tile
+            const baseX = (tileX - tileY) * spacing + 22;
             const baseY = (tileX + tileY) * spacing + 22;
-            
             const isoX = offsetX + baseX * zoom;
             const isoY = offsetY + baseY * zoom;
-            
             const zOffset = (staticObj.z || 0) * this.pixelsPerZ * zoom;
             
-            // Check if we have an art texture for this static
-            let texture = null;
-            let w, h;
-            
+            let texture;
+            let w;
+            let h;
             if (staticObj.artTexture) {
-                // Get or create WebGL texture from canvas
                 const cacheKey = staticObj.graphic || staticObj.hexId || 'unknown';
                 if (!this.staticTextureCache.has(cacheKey)) {
                     const glTex = gl.createTexture();
@@ -943,34 +938,80 @@ export class WebGLTerrainRenderer {
                 w = staticObj.artTexture.width * zoom;
                 h = staticObj.artTexture.height * zoom;
             } else {
-                // Use placeholder (small white square)
                 texture = this.staticPlaceholderTexture;
                 w = 12 * zoom;
                 h = 12 * zoom;
             }
             
-            // Position using ClassicUO formula for static sprites:
-            // UO sprites are designed to align to 44x44 tile center (at pixel 22,44)
-            // screenX = posX - (spriteWidth/2 - 22) = posX - spriteWidth/2 + 22
-            // screenY = posY - (spriteHeight - 44) = posY - spriteHeight + 44
-            // Note: offsets scaled by zoom for camera view
-            const screenX = isoX - w / 2 + 22 * zoom;
-            const screenY = isoY - zOffset - h + 44 * zoom;
+            drawables.push({
+                texture,
+                w,
+                h,
+                screenX: isoX - w / 2 + 22 * zoom,
+                screenY: isoY - zOffset - h + 44 * zoom,
+                order: (tileX + tileY) * 1000 + (staticObj.z || 0)
+            });
+        }
+        
+        for (const character of characters) {
+            if (!character || !character.sprite) continue;
+            let sprite = character.sprite;
+            if (sprite && typeof sprite === 'object' && !sprite.getContext && sprite.idle) {
+                sprite = sprite.idle;
+            }
+            if (!sprite || typeof sprite.getContext !== 'function') continue;
             
-            // Skip if completely outside viewport
-            const margin = Math.max(w, h);
-            if (screenX + w < -margin || screenX > this.canvas.width + margin ||
-                screenY + h < -margin || screenY > this.canvas.height + margin) {
+            let texture = this.characterTextureCache.get(sprite);
+            if (!texture) {
+                texture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sprite);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                this.characterTextureCache.set(sprite, texture);
+            }
+            
+            const spriteW = (sprite.width || sprite.naturalWidth || 64) * zoom;
+            const spriteH = (sprite.height || sprite.naturalHeight || 64) * zoom;
+            const baseX = (character.x - character.y) * spacing + 22;
+            const baseY = (character.x + character.y) * spacing + 22;
+            const isoX = offsetX + baseX * zoom;
+            const isoY = offsetY + baseY * zoom;
+            const zOffset = (character.z || 0) * this.pixelsPerZ * zoom;
+            
+            drawables.push({
+                texture,
+                w: spriteW,
+                h: spriteH,
+                screenX: isoX - spriteW / 2,
+                screenY: isoY - zOffset - spriteH + 44 * zoom,
+                order: (character.x + character.y) * 1000 + (character.z || 0)
+            });
+        }
+        
+        drawables.sort((a, b) => a.order - b.order);
+        
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.useProgram(this.shaderProgram);
+        gl.uniform2f(this.uResolution, this.canvas.width, this.canvas.height);
+        
+        for (const drawable of drawables) {
+            const margin = Math.max(drawable.w, drawable.h);
+            if (drawable.screenX + drawable.w < -margin || drawable.screenX > this.canvas.width + margin ||
+                drawable.screenY + drawable.h < -margin || drawable.screenY > this.canvas.height + margin) {
                 continue;
             }
             
             const positions = new Float32Array([
-                screenX, screenY,
-                screenX + w, screenY,
-                screenX + w, screenY + h,
-                screenX, screenY,
-                screenX + w, screenY + h,
-                screenX, screenY + h
+                drawable.screenX, drawable.screenY,
+                drawable.screenX + drawable.w, drawable.screenY,
+                drawable.screenX + drawable.w, drawable.screenY + drawable.h,
+                drawable.screenX, drawable.screenY,
+                drawable.screenX + drawable.w, drawable.screenY + drawable.h,
+                drawable.screenX, drawable.screenY + drawable.h
             ]);
             
             const texCoords = new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]);
@@ -992,126 +1033,11 @@ export class WebGLTerrainRenderer {
             gl.vertexAttribPointer(this.aYOffset, 1, gl.FLOAT, false, 0, 0);
             
             gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.bindTexture(gl.TEXTURE_2D, drawable.texture);
             gl.uniform1i(this.uTexture, 0);
             
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
-    }
-    
-    /**
-     * Render character with camera offset and zoom
-     */
-    renderCharacterWithCamera(character, sprites) {
-        console.log('[WebGLRenderer] renderCharacterWithCamera called', {
-            hasCharacter: !!character,
-            hasSprite: !!(character && character.sprite),
-            spriteType: character?.sprite?.constructor?.name
-        });
-        if (!character || !character.sprite) {
-            console.warn('[WebGLRenderer] No character or sprite to render');
-            return;
-        }
-        
-        const gl = this.gl;
-        const zoom = this.currentZoom || 1.0;
-        
-        const charX = character.x;
-        const charY = character.y;
-        const charZ = character.z || 0;
-        
-        // Get sprite - handle both direct canvas and sprite objects
-        let sprite = character.sprite;
-        
-        // If sprite is an object with idle/walk/run, extract the canvas
-        if (sprite && typeof sprite === 'object' && !sprite.getContext && sprite.idle) {
-            sprite = sprite.idle;
-        }
-        
-        if (!sprite || typeof sprite.getContext !== 'function') {
-            console.warn('[WebGLRenderer] Invalid sprite - not a canvas element');
-            return;
-        }
-        
-        // Get sprite dimensions from canvas - use defaults if not available
-        // Canvas elements store dimensions, Images use naturalWidth/naturalHeight
-        let spriteW = sprite.width || sprite.naturalWidth || 64;
-        let spriteH = sprite.height || sprite.naturalHeight || 64;
-        
-        // Final safety check for any NaN or zero values
-        if (!Number.isFinite(spriteW) || spriteW <= 0) spriteW = 64;
-        if (!Number.isFinite(spriteH) || spriteH <= 0) spriteH = 64;
-        
-        // In camera follow mode, character is always centered on screen
-        // Use actual canvas dimensions as fallback
-        const viewWidth = this.viewportWidth || this.canvas.width || 800;
-        const viewHeight = this.viewportHeight || this.canvas.height || 600;
-        
-        // Character goes in the center of the screen
-        const w = spriteW * zoom;
-        const h = spriteH * zoom;
-        
-        // Center character on screen (camera follow mode)
-        const zOffset = charZ * this.pixelsPerZ * zoom;
-        const screenX = (viewWidth / 2) - (w / 2);
-        const screenY = (viewHeight / 2) - zOffset - (h / 2);
-        
-        // Re-upload texture if sprite changed (for animation)
-        if (!this.characterTexture || this.lastCharacterSprite !== sprite) {
-            if (this.characterTexture) {
-                gl.deleteTexture(this.characterTexture);
-            }
-            
-            this.characterTexture = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, this.characterTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sprite);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            this.lastCharacterSprite = sprite;
-        }
-        
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        
-        gl.useProgram(this.shaderProgram);
-        gl.uniform2f(this.uResolution, this.canvas.width, this.canvas.height);
-        
-        const positions = new Float32Array([
-            screenX, screenY,
-            screenX + w, screenY,
-            screenX + w, screenY + h,
-            screenX, screenY,
-            screenX + w, screenY + h,
-            screenX, screenY + h
-        ]);
-        
-        const texCoords = new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]);
-        const yOffsets = new Float32Array([0, 0, 0, 0, 0, 0]);
-        
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(this.aPosition);
-        gl.vertexAttribPointer(this.aPosition, 2, gl.FLOAT, false, 0, 0);
-        
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(this.aTexCoord);
-        gl.vertexAttribPointer(this.aTexCoord, 2, gl.FLOAT, false, 0, 0);
-        
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.yOffsetBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, yOffsets, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(this.aYOffset);
-        gl.vertexAttribPointer(this.aYOffset, 1, gl.FLOAT, false, 0, 0);
-        
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.characterTexture);
-        gl.uniform1i(this.uTexture, 0);
-        
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        
-        console.log(`[WebGLRenderer] Character rendered at (${charX}, ${charY}, z=${charZ}), screen: (${screenX.toFixed(0)}, ${screenY.toFixed(0)}), sprite: ${w}x${h}`);
     }
     
     /**

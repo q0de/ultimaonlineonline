@@ -317,6 +317,7 @@
         .btn-pink { background: linear-gradient(135deg, #E91E63, #C2185B) !important; }
         .btn-gradient-fire { background: linear-gradient(135deg, #FF6B35, #F7931E) !important; }
         .btn-gradient-magic { background: linear-gradient(135deg, #E040FB, #7C4DFF) !important; }
+        .btn-gradient-earth { background: linear-gradient(135deg, #2b8a3e, #a6c34c) !important; }
         
         /* Tile Palette Styles */
         #tilePalette {
@@ -611,6 +612,14 @@
                     <button onclick="testProceduralStatics()" class="btn-gradient-fire">
                         <span class="btn-icon">🌲</span>
                         <span class="btn-text">Procedural Statics</span>
+                    </button>
+                    <button onclick="loadHybridRegion()" class="btn-gradient-earth">
+                        <span class="btn-icon">🌀</span>
+                        <span class="btn-text">Hybrid Real + Procedural</span>
+                    </button>
+                    <button onclick="loadMountainMiningScenario()" class="btn-gradient-fire">
+                        <span class="btn-icon">⛏️</span>
+                        <span class="btn-text">Mountain Mining Defense</span>
                     </button>
                     <button onclick="spawnCharacter()" class="btn-gradient-magic">
                         <span class="btn-icon">🧙</span>
@@ -1791,6 +1800,7 @@
         import { BiomeStaticPlacer } from './js/modules/biomeStaticPlacer.js';
         import { prefabLoader } from './js/modules/prefabLoader.js';
         import { UOItemLoader } from './js/modules/uoItemLoader.js';
+        import { annotateMapWithSurfaces } from './js/data/landSurfaceClassifier.js';
 
         console.log('[OK] Modules imported successfully');
         
@@ -1817,6 +1827,21 @@
         let currentStatics = []; // Array of static objects (from map or procedural)
         let currentMap = null;
         let currentCornerHeights = null; // Store corner heights for re-rendering
+        function updateCurrentMapReference(map) {
+            currentMap = map;
+            currentMapIsUORegion = !!(map && map.__isUORegion);
+        }
+
+        const SCENARIO_PRESETS = {
+            mountain_mining: {
+                key: 'mountain_mining',
+                name: 'Mountain Mining Defense',
+                description: 'Secure a valorite mining site high in the mountains. Keep the supply crates intact while miners work.',
+                region: { x: 2450, y: 460 },
+                objective: 'Protect the miners and defend the ore stockpile.'
+            }
+        };
+        let currentScenario = null;
         
         // Player character (reuses PvP Character class!)
         let playerCharacter = null;
@@ -1826,6 +1851,35 @@
         let tileImages = {}; // Cache for processed tile images (with transparent corners)
         let showTileIds = false; // Toggle for showing tile IDs on map
         let enableZHeight = false; // Toggle for UO-style Z-height rendering (3D effect) - disabled by default because proper UO rendering requires texture stretching over triangles
+        
+        const AUTO_REGION_EDGE_BUFFER = 4; // tiles from border to trigger streaming
+        const REGION_OVERLAP_TILES = 8; // keep a small overlap to avoid seams
+        const UO_MAP_WIDTH = 7168;
+        const UO_MAP_HEIGHT = 4096;
+        const clampValue = (value, min, max) => Math.min(max, Math.max(min, value));
+        
+        let currentRegionOrigin = { x: 0, y: 0 };
+        let currentRegionSize = { width: 0, height: 0 };
+        let currentRegionBlendProcedural = false;
+        let currentMapIsUORegion = false;
+        let mapLoadInProgress = false;
+        let pendingWorldPosition = null;
+
+        function getScenarioPreset(key) {
+            return key ? SCENARIO_PRESETS[key] || null : null;
+        }
+        function updatePendingWorldFollow() {
+            if (
+                !pendingWorldPosition ||
+                !pendingWorldPosition.followPlayer ||
+                !playerCharacter ||
+                !mapLoadInProgress
+            ) {
+                return;
+            }
+            pendingWorldPosition.worldX = currentRegionOrigin.x + playerCharacter.x;
+            pendingWorldPosition.worldY = currentRegionOrigin.y + playerCharacter.y;
+        }
         
         // Viewport state
         let viewportZoom = 1.0; // Default zoom level
@@ -2158,8 +2212,8 @@
                 } else {
                     map = terrainGenerator.generateMap(width, height, seed);
                 }
-
-                currentMap = map;
+                updateCurrentMapReference(map);
+                
                 await renderMap(map);
                 
                 // Count biomes
@@ -2196,7 +2250,7 @@
                 const height = 30;
                 
                 const map = terrainGenerator.generateTestMap(width, height);
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 document.getElementById('status').textContent = `✅ Generated Test Scene (Mirror Ref)`;
@@ -2253,7 +2307,7 @@
                 const genV2 = new TerrainGeneratorV2(seed, allMappings);
                 
                 const map = genV2.generateMap(width, height);
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 const mappingCount = Object.keys(allMappings).length;
@@ -2278,7 +2332,7 @@
                 const allMappings = getAllSavedTransitionMappings();
                 const genV2 = new TerrainGeneratorV2(seed, allMappings);
                 const map = genV2.generateMap(width, height);
-                currentMap = map;
+                updateCurrentMapReference(map);
                 
                 // Create a separate canvas for WebGL (can't mix 2D and WebGL contexts)
                 const canvasContainer = document.getElementById('canvas').parentElement;
@@ -2382,7 +2436,7 @@
             try {
                 const genV2 = new TerrainGeneratorV2(12345); // Fixed seed for testing
                 const map = genV2.generateTestMap(40, 40);
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 document.getElementById('status').textContent = `✅ V2 Test Scene - Proper Tile Tessellation`;
@@ -2407,7 +2461,7 @@
             try {
                 const genV2 = new TerrainGeneratorV2(12345); 
                 const map = genV2.generateCliffTestMap(40, 40, mode);
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 document.getElementById('status').textContent = `✅ ${typeName} Face Test - High elevation cliff wall`;
@@ -2421,9 +2475,17 @@
         function getBiomeFromTileId(tileId) {
             const id = typeof tileId === 'string' ? parseInt(tileId, 16) : tileId;
             
+            // Void/Black tiles - these are impassable holes/caves
+            if (id === 0x0001 || id === 0x0002) return 'void';  // Common void tiles
+            if (id >= 0x3FF8 && id <= 0x3FFB) return 'void';    // Extended void tiles (16376-16379)
+            if (id >= 0x054C && id <= 0x0553) return 'cave';    // Cave floor tiles (1356-1363)
+            
             // Water tiles - IMPORTANT: 0x00A8-0x00AB (168-171) is the main water tileset!
             if (id >= 0x00A8 && id <= 0x00AB) return 'water';  // Main water (168-171)
             if (id >= 0x0160 && id <= 0x017F) return 'water';  // Additional water (352-383)
+            
+            // Swamp/Marsh tiles (0x00AC-0x00C3) - gray rocky swamp, no vegetation
+            if (id >= 0x00AC && id <= 0x00C3) return 'swamp';
             
             // Sand tiles (0x001C-0x0033) - includes sand embankments
             if (id >= 0x001C && id <= 0x0033) return 'sand';
@@ -2618,7 +2680,23 @@
             }
         };
         
-        window.loadRealUOMap = async function(fixedX = null, fixedY = null, regionName = 'Region') {
+        window.loadRealUOMap = async function(fixedX = null, fixedY = null, regionName = 'Region', options = {}) {
+            let blendProcedural = options.blendProcedural === true;
+            const blendSeed = options.blendSeed ?? Math.floor(Math.random() * 100000);
+            const scenarioKey = options.scenario || null;
+            const scenarioPreset = getScenarioPreset(scenarioKey);
+            currentScenario = scenarioPreset || null;
+            if (scenarioPreset) {
+                blendProcedural = true;
+                if (scenarioPreset.region && fixedX === null && fixedY === null) {
+                    fixedX = scenarioPreset.region.x;
+                    fixedY = scenarioPreset.region.y;
+                }
+                if (!regionName || regionName === 'Region') {
+                    regionName = scenarioPreset.name;
+                }
+            }
+            
             const statusEl = document.getElementById('status');
             statusEl.textContent = '🔄 Loading real UO map data...';
             statusEl.style.color = '#4CAF50';
@@ -2626,6 +2704,13 @@
             
             try {
                 console.log('[loadRealUOMap] Starting...');
+                
+                if (mapLoadInProgress) {
+                    console.warn('[loadRealUOMap] Load already in progress, ignoring new request.');
+                    statusEl.textContent = '⏳ Already loading a region...';
+                    return;
+                }
+                mapLoadInProgress = true;
                 
                 // Initialize static loader
                 const staticLoader = new UOStaticLoader();
@@ -2727,8 +2812,10 @@
                 
                 updateProgress(50, '🔄 Processing terrain data...');
                 
-                // Load statics for this region (limit to 50 for testing)
+                // Load statics for this region (limit removed for real map load)
                 let statics = [];
+                let hybridProceduralStatics = [];
+                let hybridOverlayMap = null;
                 if (staticsLoaded) {
                     try {
                         updateProgress(55, '🔄 Loading static objects for region...');
@@ -2776,12 +2863,14 @@
                         if (tile.z < minZ) minZ = tile.z;
                         if (tile.z > maxZ) maxZ = tile.z;
                         
+                        const isWaterTile = biome === 'water';
                         map[y][x] = {
                             id: tile.hexId, // Keep original tile ID!
                             biome: biome,
                             elevation: tile.z, // Store raw Z for 3D rendering
-                            moisture: biome === 'water' ? 1.0 : 0.5,
+                            moisture: isWaterTile ? 1.0 : 0.5,
                             z: tile.z, // Signed Z-height (-128 to 127)
+                            isWater: isWaterTile, // Explicitly mark water tiles
                             isWaterEdge: false,
                             originalTileId: tile.tileId // Keep original for reference
                         };
@@ -2789,6 +2878,9 @@
                 }
                 
                 console.log(`[loadRealUOMap] Z-height range: ${minZ} to ${maxZ}`);
+            
+            // Attach surface metadata so statics know whether tiles are water/road/etc.
+            annotateMapWithSurfaces(map, { landTileData });
                 
                 // First, check what tile IDs are actually in the map file
                 // UO map files MAY already contain embankment tiles - we should check before replacing
@@ -2995,6 +3087,57 @@
                 console.log(`  - Water edges: ${map.flat().filter(t => t.isWaterEdge).length}`);
                 console.log(`  - Unique tile IDs: ${Object.keys(tileIdCounts).length}`);
                 
+                if (blendProcedural) {
+                    console.log(`[HybridBlend] Mixing in procedural overlay (seed ${blendSeed}) for ${regionWidth}×${regionHeight}`);
+                    const overlayGenerator = new TerrainGeneratorV2(blendSeed, null, {
+                        enableProceduralRegioning: true,
+                        embankmentChance: 0.6
+                    });
+                    hybridOverlayMap = overlayGenerator.generateMap(regionWidth, regionHeight);
+                    
+                    // Blend overlay metadata into the real map for richer data visualizations
+                    for (let y = 0; y < regionHeight; y++) {
+                        for (let x = 0; x < regionWidth; x++) {
+                            const overlayTile = hybridOverlayMap[y][x];
+                            const baseTile = map[y][x];
+                            if (!overlayTile || !baseTile) continue;
+                            
+                            baseTile.hybridOverlay = {
+                                biome: overlayTile.biome,
+                                tileId: overlayTile.id,
+                                moisture: overlayTile.moisture,
+                                z: overlayTile.z
+                            };
+                            
+                            // Soften moisture differences to reduce harsh edges
+                            baseTile.moisture = (baseTile.moisture * 0.6) + (overlayTile.moisture * 0.4);
+                        }
+                    }
+                    
+                    // Convert overlay map to format expected by BiomeStaticPlacer
+                    const overlayForPlacer = hybridOverlayMap.map(row => row.map(tile => ({
+                        tileId: typeof tile.id === 'string'
+                            ? tile.id
+                            : `0x${(tile.id ?? 0).toString(16).toUpperCase().padStart(4, '0')}`,
+                        name: `${tile.biome} (hybrid)`,
+                        z: tile.z || 0,
+                        biome: tile.biome,
+                        isWater: tile.biome === 'water',
+                        surfaceClass: tile.surfaceClass || tile.biome
+                    })));
+                    
+                    const biomePlacer = new BiomeStaticPlacer();
+                    hybridProceduralStatics = biomePlacer.placeStatics(overlayForPlacer, {
+                        seed: blendSeed,
+                        densityMultiplier: 0.85,
+                        enableClustering: true,
+                        waterEdgeBonus: true,
+                        landTileData
+                    });
+                    
+                    console.log(`[HybridBlend] Overlay produced ${hybridProceduralStatics.length} additional statics`);
+                }
+                
                 // Check if we're missing statics
                 console.log(`[loadRealUOMap] ⚠️  MISSING: Static objects (trees, rocks, buildings) are NOT loaded yet.`);
                 console.log(`[loadRealUOMap] To load statics, we need statics0.mul and staidx0.mul files.`);
@@ -3110,9 +3253,13 @@
                 updateProgress(95, `✅ Loaded ${loadedCount}/${totalTextures} textures`);
                 console.log(`[loadRealUOMap] Loaded ${loadedCount}/${totalTextures} textures`);
                 
-                // Try to load art for static objects
+                // Try to load art for static objects (real + optional hybrid overlay)
                 let artTextures = {};
-                if (statics.length > 0) {
+                const staticsForArt = blendProcedural
+                    ? statics.concat(hybridProceduralStatics)
+                    : statics;
+
+                if (staticsForArt.length > 0) {
                     updateProgress(96, '🔄 Loading static object graphics...');
                     try {
                         if (!itemLoader) {
@@ -3142,7 +3289,7 @@
                             }
                         }
                         
-                        const uniqueGraphics = [...new Set(statics.map(s => s.graphic))];
+                        const uniqueGraphics = [...new Set(staticsForArt.map(s => s.graphic))];
                         console.log(`[loadRealUOMap] Loading ${uniqueGraphics.length} unique static graphics...`);
                         console.log(`[loadRealUOMap] First 5 graphic IDs:`, uniqueGraphics.slice(0, 5));
                         
@@ -3190,33 +3337,151 @@
                 // Convert statics to region-relative coordinates
                 const regionStatics = statics.map(s => ({
                     ...s,
-                    relX: s.worldX - regionX, // Relative X within region
-                    relY: s.worldY - regionY,  // Relative Y within region
-                    artTexture: artTextures[s.graphic] || null // Attach art if available
+                    relX: s.worldX - regionX,
+                    relY: s.worldY - regionY,
+                    artTexture: artTextures[s.graphic] || null
                 }));
+
+                let hybridRegionStatics = [];
+                let scenarioSpawnPoint = null;
+                if (blendProcedural && hybridProceduralStatics.length > 0) {
+                    hybridRegionStatics = hybridProceduralStatics
+                        .map(s => {
+                            const relX = s.x;
+                            const relY = s.y;
+                            const baseTile = map[relY]?.[relX];
+                            if (!baseTile) return null;
+                            
+                            const baseBiome = (baseTile.biome || '').toLowerCase();
+                            const isWater = baseBiome.includes('water') || baseTile.isWater;
+                            const isCaveOrVoid = baseBiome.includes('cave') || baseBiome.includes('void');
+                            const isRock = baseBiome === 'rock';
+                            const isSwamp = baseBiome === 'swamp';  // Gray marshy areas
+                            
+                            // Also check the original tile ID directly for terrain that shouldn't have vegetation
+                            const origId = baseTile.originalTileId || 0;
+                            
+                            // Void tiles
+                            const isVoidTileId = origId === 0x0001 || origId === 0x0002 || 
+                                                 (origId >= 0x3FF8 && origId <= 0x3FFB);
+                            
+                            // Cave floor tiles
+                            const isCaveTileId = (origId >= 0x054C && origId <= 0x0553);
+                            
+                            // ALL rock/cliff/mountain tile ranges
+                            const isRockTileId = (origId >= 0x00C4 && origId <= 0x00DB) || // Cliff transitions
+                                                 (origId >= 0x00DC && origId <= 0x00FF) || // Rough rock
+                                                 (origId >= 0x0071 && origId <= 0x008F) || // Rock transitions
+                                                 (origId >= 0x00F0 && origId <= 0x00F3) || // Mountain rock
+                                                 (origId >= 0x01D3 && origId <= 0x01DA);   // More mountain rock
+                            
+                            // Water tile IDs (direct check in case biome wasn't set)
+                            const isWaterTileId = (origId >= 0x00A8 && origId <= 0x00AB) || // Main water
+                                                  (origId >= 0x0160 && origId <= 0x017F);   // Additional water
+                            
+                            // Swamp tile IDs (gray marshy areas - no trees)
+                            const isSwampTileId = (origId >= 0x00AC && origId <= 0x00C3);
+                            
+                            const isInvalidTerrain = isWater || isCaveOrVoid || isRock || isSwamp ||
+                                                     isVoidTileId || isCaveTileId || isRockTileId || isWaterTileId || isSwampTileId;
+                            if (isInvalidTerrain) {
+                                return null; // Skip hybrid statics on water, caves, void, rocks, or cliffs
+                            }
+                            
+                            const zFromMap = baseTile.z ?? s.z ?? 0;
+                            return {
+                                ...s,
+                                relX,
+                                relY,
+                                worldX: regionX + relX,
+                                worldY: regionY + relY,
+                                z: zFromMap,
+                                artTexture: artTextures[s.graphic] || null,
+                                isProceduralHybrid: true
+                            };
+                        })
+                        .filter(Boolean);
+                }
+
+                const combinedRegionStatics = regionStatics.concat(hybridRegionStatics);
+                if (scenarioPreset && scenarioPreset.key === 'mountain_mining') {
+                    scenarioSpawnPoint = applyMountainMiningScenario(
+                        map,
+                        combinedRegionStatics,
+                        regionX,
+                        regionY,
+                        artTextures
+                    );
+                }
                 
                 // Store statics globally for collision detection
-                currentStatics = regionStatics;
+                currentStatics = combinedRegionStatics;
+                currentCornerHeights = cornerHeights;
+                map.__isUORegion = true;
+                currentRegionOrigin = { x: regionX, y: regionY };
+                currentRegionSize = { width: regionWidth, height: regionHeight };
+                currentRegionBlendProcedural = blendProcedural;
                 
                 // Render with WebGL (proper 3D stretched tiles + statics)
                 updateProgress(98, '🔄 Rendering 3D terrain with WebGL...');
-                webglRenderer.render(map, cornerHeights, null, regionStatics);
+                webglRenderer.render(map, cornerHeights, null, combinedRegionStatics);
                 
                 // Log statics info
-                if (statics.length > 0) {
-                    const uniqueGraphics = new Set(statics.map(s => s.hexId));
+                if (combinedRegionStatics.length > 0) {
+                    const uniqueGraphics = new Set(combinedRegionStatics.map(s => s.hexId));
                     const artCount = Object.keys(artTextures).length;
                     const renderMode = artCount > 0 ? `${artCount} with graphics` : 'placeholder squares';
-                    updateProgress(100, `✅ Map rendered! ${statics.length} statics (${renderMode})`);
+                    const hybridNote = hybridRegionStatics.length > 0 ? ` | Hybrid +${hybridRegionStatics.length}` : '';
+                    updateProgress(100, `✅ Map rendered! ${combinedRegionStatics.length} statics (${renderMode}${hybridNote})`);
                     statusEl.style.color = '#4CAF50';
-                    console.log(`[loadRealUOMap] ✅ ${statics.length} static objects loaded (${uniqueGraphics.size} unique types)`);
+                    console.log(`[loadRealUOMap] ✅ ${combinedRegionStatics.length} static objects loaded (${uniqueGraphics.size} unique types)`);
                     console.log(`[loadRealUOMap] Static rendering: ${artCount > 0 ? `${artCount} art textures loaded` : 'Placeholder mode (colored squares)'}`);
+                    if (hybridRegionStatics.length > 0) {
+                        console.log(`[HybridBlend] Added ${hybridRegionStatics.length} procedural statics to real region`);
+                    }
                 } else {
                     updateProgress(100, `✅ Map rendered! (No static objects in this region)`);
                     statusEl.style.color = '#4CAF50';
                 }
                 
-                currentMap = map;
+                if (!pendingWorldPosition && scenarioSpawnPoint) {
+                    pendingWorldPosition = {
+                        worldX: regionX + clampValue(scenarioSpawnPoint.x, 1, regionWidth - 2),
+                        worldY: regionY + clampValue(scenarioSpawnPoint.y, 1, regionHeight - 2),
+                        direction: 'n'
+                    };
+                }
+                updateCurrentMapReference(map);
+                
+                if (pendingWorldPosition) {
+                    const { worldX, worldY, direction } = pendingWorldPosition;
+                    const snappedWorldX = Math.round(worldX);
+                    const snappedWorldY = Math.round(worldY);
+                    const localX = clampValue(snappedWorldX - regionX, 1, regionWidth - 2);
+                    const localY = clampValue(snappedWorldY - regionY, 1, regionHeight - 2);
+                    if (playerCharacter) {
+                        playerCharacter.x = localX;
+                        playerCharacter.y = localY;
+                        playerCharacter.z = map[localY]?.[localX]?.z || 0;
+                        movementStartX = localX;
+                        movementStartY = localY;
+                        movementStartZ = playerCharacter.z;
+                        nextTileX = null;
+                        nextTileY = null;
+                        movementProgress = 0;
+                        isMoving = false;
+                        rightMouseHeld = false;
+                        stopAfterStep = false;
+                        const dirSprites = characterSprites[playerCharacter.direction];
+                        if (dirSprites?.idle) {
+                            playerCharacter.sprite = dirSprites.idle;
+                        }
+                        console.log(`[AutoRegion] Player moved to new region (${direction}) at local (${localX}, ${localY})`);
+                    }
+                    pendingWorldPosition = null;
+                } else {
+                    pendingWorldPosition = null;
+                }
                 
                 // Auto-center and auto-zoom the map
                 setTimeout(() => {
@@ -3224,7 +3489,12 @@
                 }, 100);
                 
                 // Final status - show coordinates prominently
-                const finalStatus = `✅ LOADED: X=${regionX}, Y=${regionY} | Size: ${regionWidth}×${regionHeight} | Z: ${minZ} to ${maxZ} | Statics: ${staticsCount}`;
+                const totalStaticsForStatus = currentStatics ? currentStatics.length : staticsCount;
+                const hybridSuffix = blendProcedural && hybridRegionStatics.length > 0
+                    ? ` (Hybrid +${hybridRegionStatics.length})`
+                    : '';
+                const scenarioObjectiveNote = scenarioPreset?.objective ? ` | 🛡️ ${scenarioPreset.objective}` : '';
+                const finalStatus = `✅ LOADED: X=${regionX}, Y=${regionY} | Size: ${regionWidth}×${regionHeight} | Z: ${minZ} to ${maxZ} | Statics: ${totalStaticsForStatus}${hybridSuffix}${scenarioObjectiveNote}`;
                 updateProgress(100, finalStatus);
                 statusEl.style.color = '#4CAF50';
                 statusEl.style.fontSize = '14px';
@@ -3234,8 +3504,95 @@
                 console.error('[loadRealUOMap] Error:', error);
                 document.getElementById('status').textContent = `❌ Error: ${error.message}`;
                 alert(`Error loading map: ${error.message}\n\nCheck browser console (F12) for details.`);
+                pendingWorldPosition = null;
+                currentMapIsUORegion = false;
+            } finally {
+                mapLoadInProgress = false;
             }
         };
+
+        window.loadHybridRegion = function() {
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+                statusEl.textContent = '🔄 Hybrid: mixing real Britannia data with procedural magic...';
+            }
+            console.log('[HybridBlend] Triggered hybrid real + procedural region load');
+            return loadRealUOMap(null, null, 'Hybrid Blend', { blendProcedural: true });
+        };
+
+        window.loadMountainMiningScenario = function() {
+            const preset = getScenarioPreset('mountain_mining');
+            const statusEl = document.getElementById('status');
+            if (preset && statusEl) {
+                statusEl.textContent = '⛏️ Setting up Mountain Mining Defense scenario...';
+            }
+            if (!preset) {
+                console.warn('[Scenario] Mountain mining preset missing, falling back to random hybrid load');
+                return loadRealUOMap(null, null, 'Hybrid Blend', { blendProcedural: true });
+            }
+            console.log('[Scenario] Loading Mountain Mining Defense at', preset.region);
+            return loadRealUOMap(
+                preset.region.x,
+                preset.region.y,
+                preset.name,
+                {
+                    blendProcedural: true,
+                    scenario: preset.key
+                }
+            );
+        };
+
+        function applyMountainMiningScenario(map, statics, regionX, regionY, artTextures = {}) {
+            if (!map || map.length === 0 || !statics) return null;
+            const height = map.length;
+            const width = map[0].length;
+            let anchor = { x: Math.floor(width / 2), y: Math.floor(height / 2), z: -Infinity };
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const tile = map[y][x];
+                    if (!tile) continue;
+                    if (tile.z > anchor.z) {
+                        anchor = { x, y, z: tile.z };
+                    }
+                }
+            }
+            if (anchor.z === -Infinity) {
+                anchor = { x: Math.floor(width / 2), y: Math.floor(height / 2), z: 0 };
+            }
+            const placements = [
+                { dx: 0, dy: 0, graphic: 0x0E85, name: 'Ore Cart' },
+                { dx: 1, dy: 0, graphic: 0x0E86, name: 'Ore Cart' },
+                { dx: -1, dy: 0, graphic: 0x0E7C, name: 'Forge' },
+                { dx: 0, dy: 1, graphic: 0x0E76, name: 'Anvil' },
+                { dx: 1, dy: 1, graphic: 0x0B90, name: 'Supply Tent' },
+                { dx: -1, dy: 1, graphic: 0x0C0E, name: 'Campfire' },
+                { dx: 0, dy: 2, graphic: 0x0E3E, name: 'Crate Stack' },
+                { dx: 1, dy: 2, graphic: 0x0E3F, name: 'Crate Stack' }
+            ];
+            placements.forEach((obj) => {
+                const relX = clampValue(anchor.x + obj.dx, 1, width - 2);
+                const relY = clampValue(anchor.y + obj.dy, 1, height - 2);
+                const tile = map[relY]?.[relX];
+                const z = tile?.z ?? anchor.z;
+                const staticEntry = {
+                    graphic: obj.graphic,
+                    hexId: `0x${obj.graphic.toString(16).toUpperCase()}`,
+                    name: obj.name,
+                    relX,
+                    relY,
+                    worldX: regionX + relX,
+                    worldY: regionY + relY,
+                    z,
+                    artTexture: artTextures[obj.graphic] || null,
+                    isScenarioProp: true
+                };
+                statics.push(staticEntry);
+            });
+            return {
+                x: anchor.x + 2,
+                y: anchor.y + 3
+            };
+        }
         
         // TEST: Sand + Water example for user to review transitions
         window.generateTestSandWater = async function() {
@@ -3286,7 +3643,7 @@
                 const { apply8BitTransitions } = await import('./js/data/transitionTiles8bit.js?v=' + Date.now());
                 apply8BitTransitions(map, width, height);
                 
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 document.getElementById('status').textContent = `✅ Sand + Water Test (20x20) - Diamond shape to match your painted map!`;
@@ -3752,7 +4109,7 @@
                     }
                 }
                 
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 document.getElementById('status').textContent = `✅ ${trans.name} diagonal test - Cases: ${JSON.stringify(caseCounts)}`;
@@ -3824,7 +4181,7 @@
                 }
             }
             
-            currentMap = map;
+            updateCurrentMapReference(map);
             await renderMap(map);
             document.getElementById('status').textContent = `✅ ${trans.name} Plateau Test - High Center, Low Edges`;
         };
@@ -4102,7 +4459,7 @@
             try {
                 const genV2 = new TerrainGeneratorV2(12345);
                 const map = genV2.generateCliffTestMap(40, 40, 'custom_pattern', pattern);
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 document.getElementById('status').textContent = '✅ Custom Stitch Pattern Applied! (Scroll up)';
@@ -4340,7 +4697,7 @@
                     }
                 }
                 
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
                 document.getElementById('status').textContent = '✅ Pure Grass 2x2 - If seams visible, tessellation is broken!';
@@ -4387,7 +4744,7 @@
                 }
             }
             
-            currentMap = map;
+            updateCurrentMapReference(map);
             await renderMap(map);
             
             console.log(`${testName} Case Counts:`, caseCounts);
@@ -6012,7 +6369,7 @@
                 }
             }
             
-            currentMap = map;
+            updateCurrentMapReference(map);
             await renderMap(map);
             
             document.getElementById('status').textContent = 
@@ -6206,7 +6563,7 @@
                 }
             }
             
-            currentMap = map;
+            updateCurrentMapReference(map);
             await renderMap(map);
             
             document.getElementById('status').textContent = 
@@ -6499,7 +6856,7 @@ CORNERS:
                 }
             }
             
-            currentMap = map;
+            updateCurrentMapReference(map);
             await renderMap(map);
             
             document.getElementById('status').textContent = `Testing ${tileId}`;
@@ -6580,7 +6937,7 @@ CORNERS:
                 }
             }
             
-            currentMap = map;
+            updateCurrentMapReference(map);
             await renderMap(map);
             
             document.getElementById('status').textContent = 'Showing all 8 transition tiles with correct neighbor placement';
@@ -6790,7 +7147,7 @@ CORNERS:
                 transitionModule.apply8BitTransitions(map, width, height);
             }
             
-            currentMap = map;
+            updateCurrentMapReference(map);
             await renderMap(map);
             document.getElementById('status').textContent = `Neighbor test rendered - Center tile shows transition`;
         };
@@ -6916,7 +7273,7 @@ CORNERS:
                     `<div style="margin-top: 10px; color: #4CAF50; font-weight: bold;">Total regions analyzed: ${learningData.regionsAnalyzed}</div>`;
                 
                 // Also render the map so user can see what was analyzed
-                currentMap = map;
+                updateCurrentMapReference(map);
                 await renderMap(map);
                 
             } catch (e) {
@@ -7389,6 +7746,7 @@ CORNERS:
         let animationTime = 0;   // Time-based animation tracking (ms)
         let lastFrameTime = performance.now();
         let gameLoopRunning = false;
+        let stopAfterStep = false;
         
         // UO movement constants (from ClassicUO source - authentic values)
         const TILE_SIZE = 1;  // We use tile coordinates, not pixels
@@ -7450,6 +7808,7 @@ CORNERS:
             movementProgress = 0;
             playerCharacter.direction = getDirectionFromDelta(nextTileX - movementStartX, nextTileY - movementStartY);
             isMoving = true;
+        stopAfterStep = !rightMouseHeld;
             return true;
         }
         
@@ -7694,203 +8053,15 @@ CORNERS:
                     cameraTarget, 
                     null,
                     cameraZoom,
-                    currentStatics.length > 0 ? currentStatics : null
+                    currentStatics.length > 0 ? currentStatics : null,
+                    [playerCharacter]
                 );
-                
-                // Render character on 2D canvas overlay (more reliable than WebGL for debugging)
-                renderCharacterOverlay();
             } else {
                 // No character - render normally
                 webglRenderer.render(currentMap, currentCornerHeights, null, currentStatics.length > 0 ? currentStatics : null);
             }
         }
         
-        // Render character on 2D canvas overlay (simpler and more reliable)
-        function renderCharacterOverlay() {
-            if (!playerCharacter || !playerCharacter.sprite) return;
-            
-            let overlayCanvas = document.getElementById('character-overlay-canvas');
-            const webglCanvasEl = document.getElementById('webgl-canvas');
-            if (!webglCanvasEl) return;
-            
-            // Create overlay canvas if it doesn't exist
-            if (!overlayCanvas) {
-                overlayCanvas = document.createElement('canvas');
-                overlayCanvas.id = 'character-overlay-canvas';
-                overlayCanvas.style.position = 'absolute';
-                overlayCanvas.style.top = '0';
-                overlayCanvas.style.left = '0';
-                overlayCanvas.style.pointerEvents = 'none';
-                overlayCanvas.style.zIndex = '10';
-                webglCanvasEl.parentElement.appendChild(overlayCanvas);
-            }
-            
-            // Match WebGL canvas size
-            overlayCanvas.width = webglCanvasEl.width;
-            overlayCanvas.height = webglCanvasEl.height;
-            
-            const ctx = overlayCanvas.getContext('2d');
-            ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            
-            const sprite = playerCharacter.sprite;
-            const zoom = cameraZoom;
-            
-            // Get sprite dimensions
-            let spriteW = sprite.width || 64;
-            let spriteH = sprite.height || 64;
-            
-            // Character is always centered in camera follow mode
-            const viewWidth = overlayCanvas.width;
-            const viewHeight = overlayCanvas.height;
-            const zOffset = (playerCharacter.z || 0) * 4 * zoom; // 4 pixels per Z level
-
-            // Feet should sit on the same line as the tile base (center + 22px, scaled by zoom)
-            const feetY = (viewHeight / 2 + 22 * zoom) - zOffset;
-            const screenX = (viewWidth / 2) - (spriteW * zoom / 2);
-            const screenY = feetY - (spriteH * zoom);
-            
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(sprite, screenX, screenY, spriteW * zoom, spriteH * zoom);
-            
-            // Debug: Draw red dot at character center
-            ctx.fillStyle = 'red';
-            ctx.beginPath();
-            ctx.arc(viewWidth / 2, feetY, 5, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Draw UO isometric compass in corner (helps understand direction mapping)
-            const compassX = 80;
-            const compassY = viewHeight - 100;
-            const compassR = 50;
-            
-            // Draw compass circle
-            ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(compassX, compassY, compassR, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // Draw compass directions (UO isometric - rotated 45° from screen)
-            const compassDirs = {
-                'N': [compassR * 0.7, -compassR * 0.7],   // Up-right
-                'NE': [compassR, 0],                       // Right
-                'E': [compassR * 0.7, compassR * 0.7],    // Down-right
-                'SE': [0, compassR],                       // Down
-                'S': [-compassR * 0.7, compassR * 0.7],   // Down-left
-                'SW': [-compassR, 0],                      // Left
-                'W': [-compassR * 0.7, -compassR * 0.7],  // Up-left
-                'NW': [0, -compassR]                       // Up
-            };
-            
-            ctx.font = 'bold 12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            for (const [dir, [dx, dy]] of Object.entries(compassDirs)) {
-                const isActive = playerCharacter.direction.toUpperCase() === dir.toLowerCase() || 
-                                 playerCharacter.direction.toLowerCase() === dir.toLowerCase();
-                ctx.fillStyle = isActive ? 'lime' : 'rgba(255,255,255,0.7)';
-                ctx.fillText(dir, compassX + dx, compassY + dy);
-            }
-            
-            // Compass center label
-            ctx.fillStyle = 'white';
-            ctx.font = '10px Arial';
-            ctx.fillText('UO', compassX, compassY);
-            
-            // Debug: Draw direction arrow from character (UO isometric directions)
-            // In UO isometric: N=up-right, E=down-right, S=down-left, W=up-left
-            const dirArrows = {
-                'n': [21, -21],   // North = up-right on screen
-                'ne': [30, 0],   // Northeast = right on screen
-                'e': [21, 21],   // East = down-right on screen
-                'se': [0, 30],   // Southeast = down on screen
-                's': [-21, 21],  // South = down-left on screen
-                'sw': [-30, 0],  // Southwest = left on screen
-                'w': [-21, -21], // West = up-left on screen
-                'nw': [0, -30]   // Northwest = up on screen
-            };
-            const arrow = dirArrows[playerCharacter.direction] || [0, 0];
-            ctx.strokeStyle = 'lime';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(viewWidth / 2, feetY);
-            ctx.lineTo(viewWidth / 2 + arrow[0], feetY + arrow[1]);
-            ctx.stroke();
-            
-            // Debug: Draw character position text
-            ctx.fillStyle = 'yellow';
-            ctx.font = '14px monospace';
-            ctx.fillText(`Pos: (${playerCharacter.x.toFixed(1)}, ${playerCharacter.y.toFixed(1)}, z=${playerCharacter.z || 0})`, 10, 20);
-            ctx.fillText(`Dir: ${playerCharacter.direction} | Running: ${isRunning} | Moving: ${isMoving}`, 10, 40);
-            
-            // Animation Debug Panel (bottom-right corner)
-            const debugX = viewWidth - 280;
-            const debugY = 20;
-            
-            // Draw debug panel background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.fillRect(debugX - 10, debugY - 15, 280, 175);
-            ctx.strokeStyle = 'cyan';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(debugX - 10, debugY - 15, 280, 180);
-            
-            ctx.fillStyle = 'cyan';
-            ctx.font = 'bold 14px monospace';
-            ctx.fillText('ANIMATION DEBUG', debugX, debugY);
-            
-            ctx.fillStyle = 'white';
-            ctx.font = '12px monospace';
-            
-            // Get current animation data
-            const dirSprites = characterSprites[playerCharacter.direction];
-            const frames = isRunning ? (dirSprites?.run || dirSprites?.walk || []) : (dirSprites?.walk || []);
-            const effectiveFrameCount = getEffectiveFrameCount(frames);
-            const currentFrameDuration = isRunning ? RUN_ANIM_FRAME_DURATION : WALK_ANIM_FRAME_DURATION;
-            
-            let logicalFrame;
-            if (ANIM_SYNC_MODE === 'movement') {
-                logicalFrame = Math.floor(movementProgress * effectiveFrameCount);
-                logicalFrame = Math.min(logicalFrame, effectiveFrameCount - 1);
-            } else {
-                logicalFrame = Math.floor(animationTime / currentFrameDuration) % effectiveFrameCount;
-            }
-            const actualFrameIndex = getAnimationFrameIndex(frames, logicalFrame);
-            const fps = 1000 / currentFrameDuration;
-            const cycleTime = effectiveFrameCount * currentFrameDuration;
-            
-            ctx.fillText(`Mode: ${FRAME_SELECTION_MODE} | Sync: ${ANIM_SYNC_MODE}`, debugX, debugY + 20);
-            ctx.fillText(`Frame Duration: ${currentFrameDuration}ms`, debugX, debugY + 35);
-            ctx.fillText(`Total: ${frames.length} | Effective: ${effectiveFrameCount}`, debugX, debugY + 50);
-            ctx.fillText(`Logical: ${logicalFrame} → Actual: ${actualFrameIndex}`, debugX, debugY + 65);
-            ctx.fillText(`Anim Time: ${animationTime.toFixed(0)}ms`, debugX, debugY + 80);
-            ctx.fillText(`Movement: ${(movementProgress * 100).toFixed(0)}%`, debugX, debugY + 95);
-            ctx.fillText(`Cycle: ${cycleTime}ms | FPS: ${fps.toFixed(1)}`, debugX, debugY + 110);
-            ctx.fillText(`Running: ${isRunning} | Moving: ${isMoving}`, debugX, debugY + 125);
-            
-            // Visual frame indicator (boxes showing which frames are used)
-            const frameBoxY = debugY + 140;
-            const frameBoxSize = 15;
-            for (let i = 0; i < Math.min(frames.length, 15); i++) {
-                // Determine if this frame index is used based on current selection mode
-                let isUsed = false;
-                switch (FRAME_SELECTION_MODE) {
-                    case 'all': isUsed = true; break;
-                    case 'skip2': isUsed = (i % 2 === 0); break; // 0, 2, 4, 6, 8
-                    case 'first5': isUsed = (i < 5); break; // 0, 1, 2, 3, 4
-                    case 'last5': isUsed = (i >= frames.length - 5); break; // 5, 6, 7, 8, 9
-                    default: isUsed = true;
-                }
-                const isCurrent = (i === actualFrameIndex);
-                
-                ctx.fillStyle = isCurrent ? 'lime' : (isUsed ? 'cyan' : 'gray');
-                ctx.fillRect(debugX + i * (frameBoxSize + 2), frameBoxY, frameBoxSize, frameBoxSize);
-                
-                ctx.fillStyle = 'black';
-                ctx.font = '8px monospace';
-                ctx.fillText(i.toString(), debugX + i * (frameBoxSize + 2) + 3, frameBoxY + 11);
-            }
-        }
         
         
         // UO-authentic discrete tile-to-tile movement update (called every frame)
@@ -7900,6 +8071,7 @@ CORNERS:
             if (nextTileX === null || nextTileY === null) {
                 if (!queueNextStepFromDirection()) {
                     isMoving = false;
+                    stopAfterStep = false;
                     return;
                 }
             }
@@ -7920,8 +8092,14 @@ CORNERS:
                 movementProgress = 0;
                 animationFrame = 0;
                 
-                if (!rightMouseHeld) {
+                updatePendingWorldFollow();
+                checkAutoRegionTransition();
+                
+                if (rightMouseHeld) {
+                    stopAfterStep = false;
+                } else if (stopAfterStep) {
                     isMoving = false;
+                    stopAfterStep = false;
                     animationTime = 0;
                     const dirSprites = characterSprites[playerCharacter.direction];
                     if (dirSprites?.idle) {
@@ -7932,6 +8110,7 @@ CORNERS:
                 playerCharacter.x = movementStartX + (nextTileX - movementStartX) * movementProgress;
                 playerCharacter.y = movementStartY + (nextTileY - movementStartY) * movementProgress;
                 playerCharacter.z = movementStartZ + (nextTileZ - movementStartZ) * movementProgress;
+                updatePendingWorldFollow();
                 
                 animationTime += deltaTime;
                 
@@ -7960,6 +8139,71 @@ CORNERS:
                     playerCharacter.sprite = frames[actualFrameIndex];
                 }
             }
+        }
+        
+        function checkAutoRegionTransition() {
+            if (!playerCharacter || !currentMap || !currentMapIsUORegion || mapLoadInProgress) return;
+            if (!currentRegionSize.width || !currentRegionSize.height) return;
+            
+            const mapWidth = currentMap[0].length;
+            const mapHeight = currentMap.length;
+            const px = Math.round(playerCharacter.x);
+            const py = Math.round(playerCharacter.y);
+            const buffer = Math.min(AUTO_REGION_EDGE_BUFFER, Math.floor(Math.min(mapWidth, mapHeight) / 3));
+            
+            if (px <= buffer) {
+                requestRegionTransition('west');
+            } else if (px >= mapWidth - 1 - buffer) {
+                requestRegionTransition('east');
+            } else if (py <= buffer) {
+                requestRegionTransition('north');
+            } else if (py >= mapHeight - 1 - buffer) {
+                requestRegionTransition('south');
+            }
+        }
+        
+        function requestRegionTransition(direction) {
+            if (!playerCharacter || !currentMap || !currentMapIsUORegion) return;
+            if (mapLoadInProgress) return;
+            
+            const width = currentRegionSize.width || currentMap[0].length;
+            const height = currentRegionSize.height || currentMap.length;
+            const overlap = Math.min(REGION_OVERLAP_TILES, Math.floor(Math.min(width, height) / 2));
+            
+            let targetX = currentRegionOrigin.x;
+            let targetY = currentRegionOrigin.y;
+            
+            switch (direction) {
+                case 'east':
+                    targetX = currentRegionOrigin.x + Math.max(1, width - overlap);
+                    break;
+                case 'west':
+                    targetX = currentRegionOrigin.x - Math.max(1, width - overlap);
+                    break;
+                case 'north':
+                    targetY = currentRegionOrigin.y - Math.max(1, height - overlap);
+                    break;
+                case 'south':
+                    targetY = currentRegionOrigin.y + Math.max(1, height - overlap);
+                    break;
+                default:
+                    return;
+            }
+            
+            targetX = clampValue(targetX, 0, UO_MAP_WIDTH - width);
+            targetY = clampValue(targetY, 0, UO_MAP_HEIGHT - height);
+            
+            const worldX = currentRegionOrigin.x + Math.round(playerCharacter.x);
+            const worldY = currentRegionOrigin.y + Math.round(playerCharacter.y);
+            pendingWorldPosition = {
+                worldX,
+                worldY,
+                direction,
+                followPlayer: true
+            };
+            
+            console.log(`[AutoRegion] Streaming ${direction} chunk → (${targetX}, ${targetY}) from world (${worldX}, ${worldY})`);
+            loadRealUOMap(targetX, targetY, `Auto ${direction}`, { blendProcedural: currentRegionBlendProcedural });
         }
         
         // Game loop (UO-authentic - continuous updates at 60fps)
@@ -8023,6 +8267,7 @@ CORNERS:
             nextTileZ = upcomingTile?.z ?? movementStartZ;
             movementProgress = 0;
             isMoving = true;
+            stopAfterStep = true;
             startGameLoop();
         }
         
@@ -8083,6 +8328,7 @@ CORNERS:
                 isRunning = false;  // Not moving = not running
                 nextTileX = null;
                 nextTileY = null;
+                stopAfterStep = true;
                 animationTime = 0;  // Reset animation
                 
                 // Update sprite to idle in the new direction
@@ -8120,6 +8366,7 @@ CORNERS:
             nextTileZ = upcomingTile?.z ?? movementStartZ;
             movementProgress = 0;
             isMoving = true;
+            stopAfterStep = true;
             startGameLoop();
         }
         
@@ -8273,6 +8520,7 @@ CORNERS:
                     rightMouseDown = true;
                     rightMouseHeld = true;  // Track continuous hold
                     isRunning = false; // Start with walk, distance determines run
+                    stopAfterStep = false;
                     
                     // FIRST: Update mouse position BEFORE starting game loop
                     // This prevents the race condition where gameLoop uses stale (0,0) coordinates
@@ -8325,13 +8573,17 @@ CORNERS:
                     rightMouseHeld = false;
 
                     if (playerCharacter) {
-                        nextTileX = null;
-                        nextTileY = null;
-                        isMoving = false;
-                        animationTime = 0;
-                        const dirSprites = characterSprites[playerCharacter.direction];
-                        if (dirSprites?.idle) {
-                            playerCharacter.sprite = dirSprites.idle;
+                        if (isMoving) {
+                            stopAfterStep = true;
+                        } else {
+                            isMoving = false;
+                            nextTileX = null;
+                            nextTileY = null;
+                            animationTime = 0;
+                            const dirSprites = characterSprites[playerCharacter.direction];
+                            if (dirSprites?.idle) {
+                                playerCharacter.sprite = dirSprites.idle;
+                            }
                         }
                     }
                     console.log('[Mouse] Right-click released - stopping after current step');
@@ -8391,17 +8643,20 @@ CORNERS:
                 rightMouseHeld = false;
                 
                 // Stop movement when mouse leaves (UO-style)
-                if (playerCharacter && isMoving) {
-                    nextTileX = null;
-                    nextTileY = null;
-                    movementProgress = 0;
-                    isMoving = false;
-                    animationTime = 0;  // Reset animation
-                    // Snap to nearest tile
-                    playerCharacter.x = Math.round(playerCharacter.x);
-                    playerCharacter.y = Math.round(playerCharacter.y);
-                    const dirSprites = characterSprites[playerCharacter.direction];
-                    playerCharacter.sprite = dirSprites?.idle || dirSprites;
+                if (playerCharacter) {
+                    if (isMoving) {
+                        stopAfterStep = true;
+                    } else {
+                        isMoving = false;
+                        nextTileX = null;
+                        nextTileY = null;
+                        animationTime = 0;  // Reset animation
+                        // Snap to nearest tile
+                        playerCharacter.x = Math.round(playerCharacter.x);
+                        playerCharacter.y = Math.round(playerCharacter.y);
+                        const dirSprites = characterSprites[playerCharacter.direction];
+                        playerCharacter.sprite = dirSprites?.idle || dirSprites;
+                    }
                 }
                 container.style.cursor = 'crosshair';
             });
@@ -8495,7 +8750,8 @@ CORNERS:
                 const placedStatics = biomePlacer.placeStatics(map, {
                     seed: seed,
                     densityMultiplier: 1.5,
-                    enableClustering: true
+                    enableClustering: true,
+                    landTileData
                 });
                 console.log(`[ProceduralTest] Generated ${placedStatics.length} statics`);
                 
@@ -8592,7 +8848,7 @@ CORNERS:
                 webglRenderer.render(map, cornerHeights, null, regionStatics);
                 
                 // Save state for character rendering
-                currentMap = map;
+                updateCurrentMapReference(map);
                 currentCornerHeights = cornerHeights;
                 currentStatics = regionStatics;
                 

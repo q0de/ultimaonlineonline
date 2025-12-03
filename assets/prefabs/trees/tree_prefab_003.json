@@ -1,0 +1,20 @@
+{
+  "name": "tree_prefab_003",
+  "width": 2,
+  "height": 2,
+  "baseZ": 0,
+  "parts": [
+    {
+      "graphic": 3290,
+      "dx": 0,
+      "dy": 0,
+      "dz": 0
+    },
+    {
+      "graphic": 3280,
+      "dx": 1,
+      "dy": 1,
+      "dz": 0
+    }
+  ]
+}

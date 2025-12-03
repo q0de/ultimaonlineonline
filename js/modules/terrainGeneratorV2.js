@@ -35,6 +35,7 @@ import {
     getGrassToSandTransition,
     calculate8BitBitmask
 } from '../data/transitionTiles8bit.js?v=20251130c';
+import { determineSurfaceClass, normalizeTileId } from '../data/landSurfaceClassifier.js';
 
 // Simplex Noise for coherent terrain
 class SimplexNoise {
@@ -122,12 +123,32 @@ class SimplexNoise {
 }
 
 export class TerrainGeneratorV2 {
-    constructor(seed = Date.now(), allTransitionMappings = null) {
+    constructor(seed = Date.now(), allTransitionMappings = null, options = {}) {
         this.seed = seed;
         this.noise = new SimplexNoise(seed);
         this.tileSetNoise = new SimplexNoise(seed + 1000); // For tile set variation
         // ALL transition mappings from Tile Teacher (grass_sand, grass_dirt, jungle_sand, etc.)
         this.allTransitionMappings = allTransitionMappings;
+
+        // Store generator options (allows overrides from UI/tests)
+        this.options = options || {};
+
+        // Procedural regioning is effectively enabled when we have explicit transition mappings
+        // or when the caller opts in via options.
+        const hasMappings = allTransitionMappings && typeof allTransitionMappings === 'object'
+            ? Object.keys(allTransitionMappings).length > 0
+            : false;
+        this.proceduralRegioningEnabled = this.options.enableProceduralRegioning ?? hasMappings;
+
+        // Fallback embankment chance is lower when we have no procedural region data,
+        // which keeps coastlines from being overrun with cliffs in simplified mode.
+        const fallbackChance = this.proceduralRegioningEnabled ? 0.7 : 0.35;
+        const optionChance = typeof this.options.embankmentChance === 'number'
+            ? this.options.embankmentChance
+            : null;
+        this.embankmentChance = optionChance != null
+            ? Math.min(1, Math.max(0, optionChance))
+            : fallbackChance;
     }
     
     /**
@@ -259,7 +280,8 @@ export class TerrainGeneratorV2 {
                     biome: biome,
                     elevation: elevation,
                     moisture: moisture,
-                    z: 0
+                    z: 0,
+                    surfaceClass: determineSurfaceClass({ biome })
                 };
             }
         }
@@ -280,6 +302,8 @@ export class TerrainGeneratorV2 {
                 // Get specific tile from the set based on position and context
                 tile.id = this.getTileFromSetAtPosition(biome, x, y, setIndex, context);
                 tile.setIndex = setIndex;
+                const numericTileId = normalizeTileId(tile.id);
+                tile.surfaceClass = determineSurfaceClass({ tileId: numericTileId, biome });
             }
         }
         
@@ -525,7 +549,8 @@ export class TerrainGeneratorV2 {
      */
     applyWaterEdgeTiles(map, width, height) {
         // Configuration - how often to apply embankment tiles
-        const EMBANKMENT_CHANCE = 0.7;  // 70% of eligible tiles get embankment
+        // When procedural regioning (tile teacher data) is unavailable we lower this automatically.
+        const EMBANKMENT_CHANCE = Math.min(1, Math.max(0, this.embankmentChance ?? 0.7));
         const MIN_Z_FOR_EMBANKMENT = 3; // Minimum Z-height difference to show cliff
         // GRASS/DIRT EMBANKMENT TILES (0x098C-0x09BF)
         // These show grass on top with a darker cliff face below

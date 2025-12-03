@@ -37,6 +37,22 @@ Copy-Item "Ultima Online Classic\staidx0.mul" "assets\mul\staidx0.mul"
 **Static Rendering:** ❌ Not implemented yet
 **Static Graphics:** ❌ Not loaded yet
 
+## 🌲 Tree Prefab Workflow (2025-12-02)
+
+- Added `scripts/extract_tree_prefabs.js` to mine real multi-part trees from `assets/mul/staidx0.mul` + `statics0.mul`.
+  - Run with defaults:  
+    ```powershell
+    node scripts/extract_tree_prefabs.js --width 512 --height 512
+    ```
+  - Outputs individual JSON prefabs and `tree_prefabs_manifest.json` under `assets/prefabs/trees/`.
+- Created `js/modules/prefabLoader.js` so the browser fetches prefab manifests + JSON files at runtime.
+- `BiomeStaticPlacer` now understands `prefab` entries (falls back to single `graphic` if prefabs are missing).
+- `terrain_generator_demo.html` loads prefabs before `placeStatics()` so procedural statics spawn aligned, multi-part trees.
+- Test via **Generate Procedural Terrain** ➜ confirm console logs like  
+  `Generated N statics` and `prefab` names, then visually inspect trees for aligned canopies.
+- **Environmental constraints (2025-12-03):** Tree placement now skips pure water/ocean tiles entirely and only allows a deterministic ~1% of road/bridge tiles to receive a tree, matching classic map etiquette (no more forests covering highways or docks).
+- **Surface classifier (2025-12-03):** Added `landSurfaceClassifier` which tags every land tile with a surface class via LandData.csv metadata. `BiomeStaticPlacer` and the hybrid overlay now respect these tags so trees only spawn on grass/forest/jungle/dirt/sand/swamp surfaces.
+
 ## Test It
 
 1. Copy statics files to `assets/mul/`

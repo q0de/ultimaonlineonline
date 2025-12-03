@@ -4,8 +4,17 @@
  * Mimics how Ultima Online's world was designed
  */
 
+import { 
+    determineSurfaceClass, 
+    normalizeTileId, 
+    isRoadSurface, 
+    isTreeFriendlySurface, 
+    isWaterSurface 
+} from '../data/landSurfaceClassifier.js';
+
 export class BiomeStaticPlacer {
     constructor() {
+        this.treePrefabs = {};
         // Define static pools for each biome
         // Graphics IDs are from real UO static art
         this.biomeProfiles = {
@@ -14,7 +23,8 @@ export class BiomeStaticPlacer {
                 density: 0.06,  // 6% of tiles get statics
                 statics: {
                     trees: [
-                        { graphic: 0x0CCA, weight: 30, name: 'oak tree', zOffset: 0 },
+                        { prefab: 'tree_prefab_001', fallbackGraphic: 0x0CCA, weight: 20, name: 'oak cluster', zOffset: 0 },
+                        { prefab: 'tree_prefab_002', fallbackGraphic: 0x0CD0, weight: 15, name: 'paired oak', zOffset: 0 },
                         { graphic: 0x0CCB, weight: 25, name: 'oak tree 2', zOffset: 0 },
                         { graphic: 0x0CCD, weight: 20, name: 'small oak', zOffset: 0 },
                         { graphic: 0x0CD0, weight: 15, name: 'walnut tree', zOffset: 0 },
@@ -40,7 +50,8 @@ export class BiomeStaticPlacer {
                 density: 0.18,  // Dense trees
                 statics: {
                     trees: [
-                        { graphic: 0x0CD3, weight: 35, name: 'pine tree', zOffset: 0 },
+                        { prefab: 'tree_prefab_003', fallbackGraphic: 0x0CD3, weight: 20, name: 'forest canopy', zOffset: 0 },
+                        { graphic: 0x0CD3, weight: 25, name: 'pine tree', zOffset: 0 },
                         { graphic: 0x0CD6, weight: 30, name: 'tall pine', zOffset: 0 },
                         { graphic: 0x0CD8, weight: 25, name: 'fir tree', zOffset: 0 },
                         { graphic: 0x0CDA, weight: 20, name: 'cedar', zOffset: 0 },
@@ -64,7 +75,8 @@ export class BiomeStaticPlacer {
                 density: 0.22,  // Very dense
                 statics: {
                     trees: [
-                        { graphic: 0x0CE0, weight: 35, name: 'palm tree', zOffset: 0 },
+                        { prefab: 'tree_prefab_001', fallbackGraphic: 0x0CE0, weight: 20, name: 'jungle oak', zOffset: 0 },
+                        { prefab: 'tree_prefab_004', fallbackGraphic: 0x0CE3, weight: 15, name: 'dense jungle', zOffset: 0 },
                         { graphic: 0x0CE3, weight: 30, name: 'tall palm', zOffset: 0 },
                         { graphic: 0x0CE6, weight: 25, name: 'banana tree', zOffset: 0 },
                         { graphic: 0x0D41, weight: 20, name: 'jungle tree', zOffset: 0 },
@@ -187,6 +199,48 @@ export class BiomeStaticPlacer {
         // Perlin noise for natural clustering
         this.noiseScale = 0.15;
         this.clusterThreshold = 0.35;
+        this.roadTreeChance = 0.01; // 1% chance to allow a tree on a road/bridge
+    }
+
+    instantiatePrefab(prefabName, tile, baseX, baseY, statics, biome, category, staticDef) {
+        const prefab = this.getPrefab(prefabName);
+        if (!prefab || !prefab.parts || prefab.parts.length === 0) {
+            return false;
+        }
+
+        const tileZ = tile.z || 0;
+        const baseZ = tileZ + (staticDef?.zOffset || 0);
+        const prefabBaseZ = prefab.baseZ || 0;
+
+        for (const part of prefab.parts) {
+            const finalGraphic = part.graphic;
+            if (finalGraphic == null) continue;
+            statics.push({
+                x: baseX + part.dx,
+                y: baseY + part.dy,
+                z: baseZ + prefabBaseZ + (part.dz || 0),
+                graphic: finalGraphic,
+                hexId: `0x${finalGraphic.toString(16).toUpperCase().padStart(4, '0')}`,
+                name: staticDef?.name || prefab.name,
+                biome,
+                category,
+                worldX: baseX + part.dx,
+                worldY: baseY + part.dy,
+                relX: baseX + part.dx,
+                relY: baseY + part.dy
+            });
+        }
+
+        return true;
+    }
+
+    setTreePrefabs(prefabs = {}) {
+        this.treePrefabs = prefabs || {};
+    }
+
+    getPrefab(name) {
+        if (!name) return null;
+        return this.treePrefabs[name] || null;
     }
     
     /**
@@ -222,7 +276,7 @@ export class BiomeStaticPlacer {
                 if (nx >= 0 && nx < map[0].length && ny >= 0 && ny < map.length) {
                     const tile = map[ny][nx];
                     const name = (tile.name || '').toLowerCase();
-                    if (name.includes('water') || tile.isWater) {
+                    if (isWaterSurface(tile.surfaceClass) || name.includes('water') || tile.isWater) {
                         return true;
                     }
                 }
@@ -230,7 +284,7 @@ export class BiomeStaticPlacer {
         }
         return false;
     }
-    
+
     /**
      * Simple Perlin-like noise for clustering
      */
@@ -307,7 +361,8 @@ export class BiomeStaticPlacer {
             seed = Math.random() * 10000,
             densityMultiplier = 1.0,
             enableClustering = true,
-            waterEdgeBonus = true
+            waterEdgeBonus = true,
+            landTileData = null
         } = options;
         
         const statics = [];
@@ -323,6 +378,19 @@ export class BiomeStaticPlacer {
             for (let x = 0; x < width; x++) {
                 const tile = map[y][x];
                 if (!tile) continue;
+                const tileId = normalizeTileId(tile.tileId ?? tile.originalTileId ?? tile.id);
+                const tileInfo = landTileData && tileId != null ? landTileData.get(tileId) : null;
+                if (tileInfo) {
+                    tile.name = tile.name || tileInfo.Name || tileInfo.name || '';
+                }
+                const surfaceClass = tile.surfaceClass || determineSurfaceClass({
+                    tileId,
+                    biome: tile.biome,
+                    tileInfo
+                });
+                tile.surfaceClass = surfaceClass;
+                if (isWaterSurface(surfaceClass)) continue; // Never place on water/ocean
+                const isRoadBridgeTile = isRoadSurface(surfaceClass);
                 
                 // Classify biome
                 let biome = this.classifyBiome(tile.name, tile.tileId);
@@ -365,16 +433,35 @@ export class BiomeStaticPlacer {
                 const category = this.pickCategory(profile);
                 const categoryStatics = profile.statics[category];
                 if (!categoryStatics || categoryStatics.length === 0) continue;
+
+                if (category === 'trees' && !isTreeFriendlySurface(surfaceClass)) {
+                    continue;
+                }
+
+                if (category === 'trees' && isRoadBridgeTile) {
+                    const rareRoll = this.noise2D((x + seed) * 0.73, (y + seed) * 0.91, seed + 999);
+                    if (rareRoll > this.roadTreeChance) {
+                        continue; // Trees on roads/bridges are extremely rare
+                    }
+                }
                 
                 const staticDef = this.pickStatic(categoryStatics);
-                
+
+                if (staticDef.prefab && this.instantiatePrefab(staticDef.prefab, tile, x, y, statics, biome, category, staticDef)) {
+                    placedCount++;
+                    continue;
+                }
+
+                const finalGraphic = staticDef.graphic ?? staticDef.fallbackGraphic;
+                if (finalGraphic == null) continue;
+
                 // Create static object
                 statics.push({
                     x: x,
                     y: y,
                     z: (tile.z || 0) + (staticDef.zOffset || 0),
-                    graphic: staticDef.graphic,
-                    hexId: `0x${staticDef.graphic.toString(16).toUpperCase().padStart(4, '0')}`,
+                    graphic: finalGraphic,
+                    hexId: `0x${finalGraphic.toString(16).toUpperCase().padStart(4, '0')}`,
                     name: staticDef.name,
                     biome: biome,
                     category: category,
