@@ -1,0 +1,39 @@
+warning: in the working copy of 'js/modules/terrainGeneratorV2.js', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/js/modules/terrainGeneratorV2.js b/js/modules/terrainGeneratorV2.js[m
+[1mindex 378f956..5ed5e53 100644[m
+[1m--- a/js/modules/terrainGeneratorV2.js[m
+[1m+++ b/js/modules/terrainGeneratorV2.js[m
+[36m@@ -155,16 +155,17 @@[m [mexport class TerrainGeneratorV2 {[m
+      * Get biome based on elevation and moisture[m
+      * [m
+      * Sand Logic: Sand appears PRIMARILY near water (beaches).[m
+[31m-     * - Primary: Narrow band just above water level (elevation 0.35-0.39)[m
+[32m+[m[32m     * - Primary: Narrow band just above water level (elevation 0.42-0.48)[m
+      * - Secondary: RARE desert patches in very dry, low areas (10% chance)[m
+      */[m
+     getBiome(elevation, moisture, x = 0, y = 0) {[m
+[31m-        // Water[m
+[31m-        if (elevation < 0.35) return 'water';[m
+[32m+[m[32m        // Water - increased threshold for larger lakes/rivers (~25% coverage)[m
+[32m+[m[32m        // but not so high that water dominates the map[m
+[32m+[m[32m        if (elevation < 0.42) return 'water';[m
+         [m
+         // Beach/Sand zone - MORE LIKELY near water but not guaranteed[m
+         // This creates varied coastlines: beaches, cliffs, rocky shores, jungle coasts[m
+[31m-        const coastZone = elevation < 0.42; // Near water[m
+[32m+[m[32m        const coastZone = elevation < 0.50; // Near water[m
+         if (coastZone) {[m
+             // Use position-based pseudo-random to decide if this coast tile is sandy[m
+             // ~60% chance of sand near water (was 100% before)[m
+[36m@@ -396,9 +397,9 @@[m [mexport class TerrainGeneratorV2 {[m
+                 if (tile.biome === 'water') {[m
+                     tile.z = 0; // Water at sea level[m
+                 } else {[m
+[31m-                    // Scale elevation above water (0.35-1.0) to Z (0-15)[m
+[32m+[m[32m                    // Scale elevation above water (0.42-1.0) to Z (0-15)[m
+                     // Using smaller range (0-15) for gentler slopes[m
+[31m-                    const elevAboveWater = Math.max(0, tile.elevation - 0.35) / 0.65;[m
+[32m+[m[32m                    const elevAboveWater = Math.max(0, tile.elevation - 0.42) / 0.58;[m
+                     tile.z = Math.floor(elevAboveWater * 15);[m
+                 }[m
+             }[m

@@ -173,6 +173,63 @@ const FOREST_JUNGLE_TILES = {
 };
 
 /**
+ * Grass-to-Water transitions using embankment/shore tiles
+ * These create proper coastline transitions with cliff/shore appearance
+ * 
+ * UO uses embankment tiles (0x098C-0x09BF) for grass meeting water
+ * These show grass on top with darker cliff/shore below
+ */
+const GRASS_WATER_TILES = {
+    // Pure grass (no water neighbors)
+    0:  { id: '0x0003', name: 'Pure Grass', tiles: ['0x0003', '0x0004', '0x0005', '0x0006'] },
+    
+    // Outer corners - water pokes into grass from one corner
+    1:  { id: '0x099E', name: 'Water NW corner (BL water)' },    // Water in BL corner
+    2:  { id: '0x099C', name: 'Water NE corner (BR water)' },    // Water in BR corner
+    3:  { id: '0x0990', name: 'Water South edge' },              // Water on bottom
+    4:  { id: '0x09A0', name: 'Water SE corner (TR water)' },    // Water in TR corner  
+    5:  { id: '0x0990', name: 'Diagonal water BL+TR' },          // Saddle - use south edge
+    6:  { id: '0x0994', name: 'Water East edge' },               // Water on right
+    7:  { id: '0x09A8', name: 'Inner SE (only TL grass)' },      // Grass peninsula TL
+    8:  { id: '0x09A2', name: 'Water SW corner (TL water)' },    // Water in TL corner
+    9:  { id: '0x0998', name: 'Water West edge' },               // Water on left
+    10: { id: '0x0994', name: 'Diagonal water TL+BR' },          // Saddle - use east edge
+    11: { id: '0x09A6', name: 'Inner SW (only TR grass)' },      // Grass peninsula TR
+    12: { id: '0x098C', name: 'Water North edge' },              // Water on top
+    13: { id: '0x09A4', name: 'Inner NE (only BR grass)' },      // Grass peninsula BR
+    14: { id: '0x09AA', name: 'Inner NW (only BL grass)' },      // Grass peninsula BL
+    // Pure water
+    15: { id: '0x00A8', name: 'Pure Water', tiles: ['0x00A8', '0x00A9', '0x00AA', '0x00AB'] }
+};
+
+/**
+ * Sand-to-Water transitions for beach edges
+ * These use sand embankment tiles for coastal sand areas
+ */
+const SAND_WATER_TILES = {
+    // Pure sand (no water neighbors)
+    0:  { id: '0x0016', name: 'Pure Sand', tiles: ['0x0016', '0x0017', '0x0018', '0x0019'] },
+    
+    // Outer corners - water pokes into sand from one corner
+    1:  { id: '0x002E', name: 'Water NW corner (BL water)' },
+    2:  { id: '0x002C', name: 'Water NE corner (BR water)' },
+    3:  { id: '0x0020', name: 'Water South edge' },
+    4:  { id: '0x0030', name: 'Water SE corner (TR water)' },
+    5:  { id: '0x0020', name: 'Diagonal water BL+TR' },
+    6:  { id: '0x0024', name: 'Water East edge' },
+    7:  { id: '0x0048', name: 'Inner SE (only TL sand)' },
+    8:  { id: '0x0032', name: 'Water SW corner (TL water)' },
+    9:  { id: '0x0028', name: 'Water West edge' },
+    10: { id: '0x0024', name: 'Diagonal water TL+BR' },
+    11: { id: '0x0046', name: 'Inner SW (only TR sand)' },
+    12: { id: '0x001C', name: 'Water North edge' },
+    13: { id: '0x0044', name: 'Inner NE (only BR sand)' },
+    14: { id: '0x004A', name: 'Inner NW (only BL sand)' },
+    // Pure water
+    15: { id: '0x00A8', name: 'Pure Water', tiles: ['0x00A8', '0x00A9', '0x00AA', '0x00AB'] }
+};
+
+/**
  * Default transition mappings lookup
  * Maps biome pair keys to their transition tile definitions
  * 
@@ -181,10 +238,12 @@ const FOREST_JUNGLE_TILES = {
  * tiles in the original UO data - they use abrupt boundaries or the same tiles
  * as grass_sand which doesn't look right.
  * 
- * For now, ONLY use grass_sand transitions - the rest will use pure biome tiles
+ * ENHANCED: Now includes grass_water and sand_water for proper coastlines
  */
 export const DEFAULT_TRANSITION_MAPPINGS = {
     'grass_sand': GRASS_SAND_TILES,
+    'grass_water': GRASS_WATER_TILES,
+    'sand_water': SAND_WATER_TILES,
     // Disabled - these don't have proper UO transition tiles:
     // 'forest_grass': GRASS_FOREST_TILES,
     // 'grass_forest': GRASS_FOREST_TILES,
@@ -214,9 +273,17 @@ function isSandLike(biome) {
     return biome === 'sand';
 }
 
+function isWaterLike(biome) {
+    return biome === 'water';
+}
+
 function isGrassLike(biome) {
     return biome === 'grass' || biome === 'forest' || biome === 'jungle' || 
            biome === 'dirt' || biome === 'rock' || biome === 'snow';
+}
+
+function isLandBiome(biome) {
+    return biome !== 'water';
 }
 
 // =============================================================================
@@ -336,36 +403,70 @@ export function generateCornerBiomesFromNoise(width, height, noiseFunc, waterThr
 /**
  * Fallback: Generate corner biomes from existing tile map
  * Used when noise function is not available (legacy support)
+ * ENHANCED: Now properly detects water biomes from the actual map tiles
  */
 function generateCornerBiomesFromMap(map, width, height) {
     const corners = [];
-    const SAND_THRESHOLD = 0.40;
     
     for (let cy = 0; cy <= height; cy++) {
         corners[cy] = [];
         for (let cx = 0; cx <= width; cx++) {
-            // Get elevation from adjacent tiles and average them
-            const elevations = [];
+            // Get biomes from adjacent tiles and find the dominant one
+            const adjacentBiomes = [];
+            const adjacentTiles = [];
             
             if (cy > 0 && cx > 0 && map[cy-1] && map[cy-1][cx-1]) {
-                elevations.push(map[cy-1][cx-1].elevation || 0.5);
+                adjacentBiomes.push(map[cy-1][cx-1].biome);
+                adjacentTiles.push(map[cy-1][cx-1]);
             }
             if (cy > 0 && cx < width && map[cy-1] && map[cy-1][cx]) {
-                elevations.push(map[cy-1][cx].elevation || 0.5);
+                adjacentBiomes.push(map[cy-1][cx].biome);
+                adjacentTiles.push(map[cy-1][cx]);
             }
             if (cy < height && cx > 0 && map[cy] && map[cy][cx-1]) {
-                elevations.push(map[cy][cx-1].elevation || 0.5);
+                adjacentBiomes.push(map[cy][cx-1].biome);
+                adjacentTiles.push(map[cy][cx-1]);
             }
             if (cy < height && cx < width && map[cy] && map[cy][cx]) {
-                elevations.push(map[cy][cx].elevation || 0.5);
+                adjacentBiomes.push(map[cy][cx].biome);
+                adjacentTiles.push(map[cy][cx]);
             }
             
-            const avgElevation = elevations.length > 0 
-                ? elevations.reduce((a, b) => a + b, 0) / elevations.length
+            // Count biome occurrences and pick the most common
+            const biomeCounts = {};
+            for (const biome of adjacentBiomes) {
+                biomeCounts[biome] = (biomeCounts[biome] || 0) + 1;
+            }
+            
+            // Find most common biome (prioritize water if present for clean transitions)
+            let dominantBiome = 'grass';
+            let maxCount = 0;
+            
+            // Check for water first - if any adjacent tile is water, this might be a water corner
+            const hasWater = adjacentBiomes.includes('water');
+            const waterCount = biomeCounts['water'] || 0;
+            
+            // If 2+ water tiles, corner is water
+            // If 1 water tile but 2+ same land type, corner is that land type
+            if (waterCount >= 2) {
+                dominantBiome = 'water';
+            } else {
+                // Find most common non-water biome
+                for (const [biome, count] of Object.entries(biomeCounts)) {
+                    if (count > maxCount) {
+                        maxCount = count;
+                        dominantBiome = biome;
+                    }
+                }
+            }
+            
+            // Calculate average elevation from adjacent tiles
+            const avgElevation = adjacentTiles.length > 0
+                ? adjacentTiles.reduce((sum, t) => sum + (t.elevation || 0.5), 0) / adjacentTiles.length
                 : 0.5;
             
             corners[cy][cx] = {
-                biome: avgElevation < SAND_THRESHOLD ? 'sand' : 'grass',
+                biome: dominantBiome,
                 elevation: avgElevation
             };
         }

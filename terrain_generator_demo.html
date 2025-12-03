@@ -318,6 +318,13 @@
         .btn-gradient-fire { background: linear-gradient(135deg, #FF6B35, #F7931E) !important; }
         .btn-gradient-magic { background: linear-gradient(135deg, #E040FB, #7C4DFF) !important; }
         .btn-gradient-earth { background: linear-gradient(135deg, #2b8a3e, #a6c34c) !important; }
+        .btn-small { 
+            padding: 4px 8px !important; 
+            font-size: 11px !important; 
+            background: #444 !important;
+            border: 1px solid #666 !important;
+        }
+        .btn-small:hover { background: #555 !important; }
         
         /* Tile Palette Styles */
         #tilePalette {
@@ -543,37 +550,6 @@
                 </div>
             </div>
 
-            <!-- ========== TESTING SECTION ========== -->
-            <div class="section" onclick="toggleSection(this, event)">
-                <div class="section-header">
-                    <span class="section-icon">🧪</span>
-                    <span class="section-title">Testing</span>
-                    <span class="section-chevron">▼</span>
-                </div>
-                <div class="section-content" onclick="event.stopPropagation()">
-                    <button onclick="generateCliffTest('rough')" class="btn-gray">
-                        <span class="btn-icon">🏔️</span>
-                        <span class="btn-text">Rock Face</span>
-                    </button>
-                    <button onclick="generateCliffTest('cave')" class="btn-gray">
-                        <span class="btn-icon">🕳️</span>
-                        <span class="btn-text">Cave Face</span>
-                    </button>
-                    <button onclick="generateCliffTest('match')" class="btn-brown">
-                        <span class="btn-icon">⛰️</span>
-                        <span class="btn-text">Match Image (Mountain)</span>
-                    </button>
-                    <button onclick="generateTestSandWater()" class="btn-cyan">
-                        <span class="btn-icon">🌊</span>
-                        <span class="btn-text">Sand + Water</span>
-                    </button>
-                    <button onclick="testPureGrass2x2()" class="btn-generate">
-                        <span class="btn-icon">🌿</span>
-                        <span class="btn-text">Pure Grass 2x2</span>
-                    </button>
-                </div>
-            </div>
-
             <!-- ========== TOOLS SECTION ========== -->
             <div class="section" onclick="toggleSection(this, event)">
                 <div class="section-header">
@@ -589,10 +565,6 @@
                     <button onclick="togglePalette()" class="btn-orange">
                         <span class="btn-icon">🖌️</span>
                         <span class="btn-text">Paint Mode</span>
-                    </button>
-                    <button onclick="toggleTileTeacher()" class="btn-purple">
-                        <span class="btn-icon">🎓</span>
-                        <span class="btn-text">Tile Teacher</span>
                     </button>
                     <button onclick="togglePatternDesigner()" class="btn-brown">
                         <span class="btn-icon">🧱</span>
@@ -612,6 +584,10 @@
                     <button onclick="testProceduralStatics()" class="btn-gradient-fire">
                         <span class="btn-icon">🌲</span>
                         <span class="btn-text">Procedural Statics</span>
+                    </button>
+                    <button onclick="testProceduralEnhanced()" class="btn-gradient-magic">
+                        <span class="btn-icon">✨</span>
+                        <span class="btn-text">Procedural Enhanced</span>
                     </button>
                     <button onclick="loadHybridRegion()" class="btn-gradient-earth">
                         <span class="btn-icon">🌀</span>
@@ -654,84 +630,7 @@
                     </button>
                 </div>
             </div>
-
-            <!-- ========== DISPLAY OPTIONS ========== -->
-            <div class="section open" onclick="toggleSection(this, event)">
-                <div class="section-header">
-                    <span class="section-icon">👁️</span>
-                    <span class="section-title">Display</span>
-                    <span class="section-chevron">▼</span>
-                </div>
-                <div class="section-content" onclick="event.stopPropagation()">
-                    <div class="checkbox-group">
-                        <label class="checkbox-item">
-                            <input type="checkbox" id="showTileIds" onchange="toggleTileIds()">
-                            <span class="cb-icon">🔢</span>
-                            <span class="cb-label">Show Tile IDs</span>
-                        </label>
-                        <label class="checkbox-item" style="background: linear-gradient(135deg, #3a1a2e, #1a1a2e);">
-                            <input type="checkbox" id="enable3DHeight" checked>
-                            <span class="cb-icon">🏔️</span>
-                            <span class="cb-label">3D Height</span>
-                        </label>
-                        <label class="checkbox-item" style="background: #0d3d35;">
-                            <input type="checkbox" id="trustOriginalTiles" checked>
-                            <span class="cb-icon">📜</span>
-                            <span class="cb-label">Trust Original Map</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
             
-            <!-- ANIMATION SETTINGS SECTION -->
-            <div class="section open" onclick="toggleSection(this, event)">
-                <div class="section-header">
-                    <span class="section-icon">🎬</span>
-                    <span class="section-title">Animation</span>
-                    <span class="section-chevron">▼</span>
-                </div>
-                <div class="section-content" onclick="event.stopPropagation()">
-                    <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Animation Mode</label>
-                        <select id="animModeSelect" onchange="updateAnimationMode()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
-                            <option value="classic">ClassicUO (5 frames, movement synced)</option>
-                            <option value="smooth" selected>Smooth (110ms/70ms, all frames)</option>
-                            <option value="fast">Fast Run (60ms walk, 40ms run)</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-                    <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Walk Frame Duration: <span id="walkFrameLabel">110</span>ms</label>
-                        <input type="range" id="walkFrameSlider" min="20" max="200" value="110" onchange="updateWalkFrameDuration()" style="width: 100%;">
-                    </div>
-                    <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Run Frame Duration: <span id="runFrameLabel">70</span>ms</label>
-                        <input type="range" id="runFrameSlider" min="10" max="120" value="70" onchange="updateRunFrameDuration()" style="width: 100%;">
-                    </div>
-                    <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Frame Selection</label>
-                        <select id="frameSkipSelect" onchange="updateFrameSkip()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
-                            <option value="all" selected>All frames (0,1,2,3...9)</option>
-                            <option value="skip2">Skip every other (0,2,4,6,8)</option>
-                            <option value="first5">First 5 only (0,1,2,3,4)</option>
-                            <option value="last5">Last 5 only (5,6,7,8,9)</option>
-                        </select>
-                    </div>
-                    <div style="padding: 5px 0;">
-                        <label style="color: #aaa; font-size: 11px; display: block; margin-bottom: 3px;">Animation Sync</label>
-                        <select id="animSyncSelect" onchange="updateAnimSync()" style="width: 100%; padding: 6px; background: #2a2a3e; color: #fff; border: 1px solid #444; border-radius: 4px;">
-                            <option value="time" selected>Time-based (independent)</option>
-                            <option value="movement">Movement-synced (UO style)</option>
-                        </select>
-                    </div>
-                    <div style="padding: 5px 0; font-size: 10px; color: #666; border-top: 1px solid #333; margin-top: 8px; padding-top: 8px;">
-                        <strong style="color: #888;">Debug Info (top-right corner)</strong><br>
-                        • Green box = current frame<br>
-                        • Cyan = frames in use<br>
-                        • Gray = skipped frames
-                    </div>
-                </div>
-            </div>
             </div>
         
         <!-- LEARNING MODE PANEL -->
@@ -797,67 +696,6 @@
                 <div id="learningOutput">No analysis run yet. Click "Start Analysis" to begin.</div>
             </div>
         </div>
-        
-        <!-- TILE TEACHER PANEL -->
-        <div id="tileTeacher" style="display: none; background: #1a1a2e; border: 2px solid #4CAF50; border-radius: 8px; padding: 15px; margin: 10px 0;">
-            <h3 style="color: #4CAF50; margin-top: 0;">🎓 Tile Teaching System</h3>
-            
-            <!-- TRANSITION TYPE SELECTOR -->
-            <div style="margin-bottom: 15px; padding: 10px; background: #252545; border-radius: 5px;">
-                <label style="color: #fff; font-weight: bold; margin-right: 10px;">🔄 Transition Type:</label>
-                <select id="transitionSelect" onchange="switchTransition(this.value)" style="padding: 8px 15px; font-size: 14px; border-radius: 5px; background: #333; color: #fff; border: 2px solid #4CAF50;">
-                    <option value="grass_sand">🌱↔🏖️ Grass ↔ Sand ✅</option>
-                    <option value="grass_water">🌱↔💧 Grass ↔ Water</option>
-                    <option value="sand_water">🏖️↔💧 Sand ↔ Water</option>
-                    <option value="grass_dirt">🌱↔🟤 Grass ↔ Dirt</option>
-                    <option value="grass_rock">🌱↔🪨 Grass ↔ Rock</option>
-                    <option value="grass_jungle">🌱↔🌴 Grass ↔ Jungle</option>
-                    <option value="grass_forest">🌱↔🌲 Grass ↔ Forest</option>
-                    <option value="sand_dirt">🏖️↔🟤 Sand ↔ Dirt</option>
-                    <option value="jungle_sand">🌴↔🏖️ Jungle ↔ Sand</option>
-                    <option value="forest_sand">🌲↔🏖️ Forest ↔ Sand</option>
-                    <option value="jungle_dirt">🌴↔🟤 Jungle ↔ Dirt (Mud)</option>
-                    <option value="forest_dirt">🌲↔🟤 Forest ↔ Dirt (Mud)</option>
-                    <option value="grass_embank_water">🏔️ Grass Cliff ↔ Water</option>
-                    <option value="sand_embank_water">🏖️ Sand Cliff ↔ Water</option>
-                    <option value="rock_cliff_land">🏔️ Rock Cliff ↔ Grass</option>
-                    <option value="browse_all">🔍 Browse ALL Tiles (512)</option>
-                </select>
-                <span id="transitionStatus" style="color: #4CAF50; margin-left: 15px;">✅ Grass/Sand loaded</span>
-            </div>
-            
-            <p style="color: #aaa; font-size: 12px;">Click tiles on the map to select them, then click a tile below to replace. Changes auto-save per transition.</p>
-            
-            <!-- TEST PATTERN BUTTONS -->
-            <div style="margin-bottom: 15px; padding: 10px; background: #252545; border-radius: 5px;">
-                <label style="color: #fff; font-weight: bold; margin-right: 10px;">🧪 Test Patterns:</label>
-                <button onclick="generateTestDiagonal1()" style="background: #FF9800; margin: 2px;">↗️ Diagonal 1</button>
-                <button onclick="generateTestDiagonal2()" style="background: #FF5722; margin: 2px;">↘️ Diagonal 2</button>
-                <button onclick="generateTestOuterCorners()" style="background: #8BC34A; margin: 2px;">◇ Outer Corners</button>
-                <button onclick="generateTestInnerCorners()" style="background: #CDDC39; margin: 2px;">◆ Inner Corners</button>
-            </div>
-            
-            <div style="margin-bottom: 10px;">
-                <label style="color: #fff; margin-right: 10px;">Selection Mode:</label>
-                <button onclick="setSelectionMode('diag1')" id="btnDiag1" style="background: #FF9800;">Diagonal ↗</button>
-                <button onclick="setSelectionMode('diag2')" id="btnDiag2">Diagonal ↘</button>
-                <button onclick="setSelectionMode('case')" id="btnCase">By Case</button>
-                <span id="selectionInfo" style="color: #ff0; margin-left: 15px;">Click a tile on the map...</span>
-            </div>
-            
-            <div style="margin-bottom: 10px;">
-                <button onclick="saveTileMappings()" style="background: #4CAF50;">💾 Save Mappings</button>
-                <button onclick="resetTileMappings()" style="background: #f44336;">🔄 Reset to Default</button>
-                <button onclick="exportTileMappings()">📋 Export JSON</button>
-                <button onclick="exportAllTransitions()" style="background: #9C27B0;">📦 Export ALL Transitions</button>
-            </div>
-            
-            <h4 style="color: #fff; margin: 10px 0 5px 0;">Current 16 Cases for <span id="currentTransitionLabel">Grass↔Sand</span>:</h4>
-            <div id="caseGrid" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-bottom: 15px;"></div>
-            
-            <h4 style="color: #fff; margin: 10px 0 5px 0;">Available Tiles for <span id="availableTilesLabel">Grass/Sand</span> (<span id="tileCount">0</span>):</h4>
-            <div id="allTilesGrid" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; max-height: 300px; overflow-y: auto;"></div>
-        </div>
 
         <!-- PATTERN DESIGNER PANEL -->
         <div id="patternDesigner" style="display: none; background: #2e1a1a; border: 2px solid #795548; border-radius: 8px; padding: 15px; margin: 10px 0;">
@@ -921,845 +759,11 @@
                     <div id="progressBar" style="width: 0%; height: 4px; background: #4CAF50; margin-top: 5px; border-radius: 2px; transition: width 0.3s;"></div>
                 </div>
             </div>
-            
-            <!-- COLLAPSIBLE TILE TESTER SECTION -->
-        <details style="margin-top: 20px;">
-            <summary style="background: #3a3a3a; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 18px; color: #ff9800;">
-                🔧 <strong>Tile Transition Testers</strong> (Click to expand)
-            </summary>
-            
-            <div class="controls" style="margin-top: 10px;">
-            
-            <!-- Sand Transition Tile Tester - EDGES + CORNERS with Auto-Apply -->
-            <div class="control-group" style="background: #3a3a3a; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                <h4 style="margin: 0 0 10px 0; color: #ff9800;">🏖️ Sand Transition Tile Tester - EDGES & CORNERS</h4>
-                
-                <!-- Visual diagram showing isometric diamond with corners -->
-                <div style="text-align: center; margin-bottom: 15px; padding: 10px; background: #222; border-radius: 8px;">
-                    <pre style="color: #aaa; font-family: monospace; margin: 0; font-size: 11px;">
-           TOP-LEFT corner    TOP-RIGHT corner
-                  ↘              ↙
-        GRASS ◢◣◢◣◢◣◢◣ GRASS
-              ◢          ◣
-    LEFT  ◢                ◣  RIGHT
-    edge  ◥                ◤  edge
-              ◥          ◤
-        GRASS ◥◤◥◤◥◤◥◤ GRASS
-                  ↗              ↖
-         BOTTOM-LEFT corner  BOTTOM-RIGHT corner
-                    </pre>
-                </div>
-                
-                <!-- EDGES Section -->
-                <h5 style="color: #4fc3f7; margin: 10px 0 5px 0;">📐 SINGLE EDGES (grass on ONE side)</h5>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-                    <div style="background: #2a3a4a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #64b5f6; font-weight: bold; font-size: 12px;">⬆️ TOP</label><br>
-                        <img id="topEdgePreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="topEdgeSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A" selected>0x003A ✓</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #4a3a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ffb74d; font-weight: bold; font-size: 12px;">⬇️ BOTTOM</label><br>
-                        <img id="bottomEdgePreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="bottomEdgeSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039" selected>0x0039 ✓</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #2a4a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #81c784; font-weight: bold; font-size: 12px;">⬅️ LEFT</label><br>
-                        <img id="leftEdgePreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="leftEdgeSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038" selected>0x0038 ✓</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #4a4a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #dce775; font-weight: bold; font-size: 12px;">➡️ RIGHT</label><br>
-                        <img id="rightEdgePreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="rightEdgeSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037" selected>0x0037 ✓</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- CORNERS Section -->
-                <h5 style="color: #ce93d8; margin: 15px 0 5px 0;">🔷 CORNERS (grass on TWO adjacent sides)</h5>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-                    <div style="background: #3a2a4a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #b39ddb; font-weight: bold; font-size: 12px;">↖️ TOP-LEFT</label><br>
-                        <img id="topLeftCornerPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="topLeftCornerSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D" selected>0x003D ✓</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy Corners (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #4a2a3a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #f48fb1; font-weight: bold; font-size: 12px;">↗️ TOP-RIGHT</label><br>
-                        <img id="topRightCornerPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="topRightCornerSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C" selected>0x003C ✓</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy Corners (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #2a3a3a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #80cbc4; font-weight: bold; font-size: 12px;">↙️ BOTTOM-LEFT</label><br>
-                        <img id="bottomLeftCornerPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="bottomLeftCornerSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B" selected>0x003B ✓</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy Corners (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #3a3a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #fff59d; font-weight: bold; font-size: 12px;">↘️ BOTTOM-RIGHT</label><br>
-                        <img id="bottomRightCornerPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="bottomRightCornerSelect" onchange="autoApplyTest()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Basic (0x0033-0x003E)">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E" selected>0x003E ✓</option>
-                            </optgroup>
-                            <optgroup label="Extended (0x01A8-0x01BF)">
-                                <option value="0x01A8">0x01A8</option>
-                                <option value="0x01A9">0x01A9</option>
-                                <option value="0x01AA">0x01AA</option>
-                                <option value="0x01AB">0x01AB</option>
-                                <option value="0x01AC">0x01AC</option>
-                                <option value="0x01AD">0x01AD</option>
-                                <option value="0x01AE">0x01AE</option>
-                                <option value="0x01AF">0x01AF</option>
-                                <option value="0x01B0">0x01B0</option>
-                                <option value="0x01B1">0x01B1</option>
-                                <option value="0x01B2">0x01B2</option>
-                                <option value="0x01B3">0x01B3</option>
-                                <option value="0x01B4">0x01B4</option>
-                                <option value="0x01B5">0x01B5</option>
-                                <option value="0x01B6">0x01B6</option>
-                                <option value="0x01B7">0x01B7</option>
-                                <option value="0x01B8">0x01B8</option>
-                                <option value="0x01B9">0x01B9</option>
-                                <option value="0x01BA">0x01BA</option>
-                                <option value="0x01BB">0x01BB</option>
-                                <option value="0x01BC">0x01BC</option>
-                                <option value="0x01BD">0x01BD</option>
-                                <option value="0x01BE">0x01BE</option>
-                                <option value="0x01BF">0x01BF</option>
-                            </optgroup>
-                            <optgroup label="Grass-Heavy Corners (0x03BF-0x03C6)">
-                                <option value="0x03BF">0x03BF</option>
-                                <option value="0x03C0">0x03C0</option>
-                                <option value="0x03C1">0x03C1</option>
-                                <option value="0x03C2">0x03C2</option>
-                                <option value="0x03C3">0x03C3</option>
-                                <option value="0x03C4">0x03C4</option>
-                                <option value="0x03C5">0x03C5</option>
-                                <option value="0x03C6">0x03C6</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- INNER CORNERS Section (grass on THREE sides, sand only in one corner) -->
-                <h5 style="color: #ffab91; margin: 15px 0 5px 0;">🔶 INNER CORNERS (grass on THREE sides - sand only in one corner)</h5>
-                <p style="font-size: 11px; color: #888; margin: 0 0 10px 0;">These tiles are mostly grass with just a small sand corner. Used when sand is surrounded by grass on 3 sides.</p>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-                    <div style="background: #4a3a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ffcc80; font-weight: bold; font-size: 12px;">◤ INNER TL</label><br>
-                        <span style="font-size: 9px; color: #888;">Sand in TOP-LEFT only</span><br>
-                        <img id="innerTopLeftPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="innerTopLeftSelect" onchange="autoApplyInnerCorners()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Likely Inner Corners">
-                                <option value="0x0033" selected>0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                            </optgroup>
-                            <optgroup label="Other Options">
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0003">Pure Grass</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #4a3a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ffcc80; font-weight: bold; font-size: 12px;">◥ INNER TR</label><br>
-                        <span style="font-size: 9px; color: #888;">Sand in TOP-RIGHT only</span><br>
-                        <img id="innerTopRightPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="innerTopRightSelect" onchange="autoApplyInnerCorners()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Likely Inner Corners">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034" selected>0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                            </optgroup>
-                            <optgroup label="Other Options">
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0003">Pure Grass</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #4a3a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ffcc80; font-weight: bold; font-size: 12px;">◣ INNER BL</label><br>
-                        <span style="font-size: 9px; color: #888;">Sand in BOTTOM-LEFT only</span><br>
-                        <img id="innerBottomLeftPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="innerBottomLeftSelect" onchange="autoApplyInnerCorners()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Likely Inner Corners">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035" selected>0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                            </optgroup>
-                            <optgroup label="Other Options">
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0003">Pure Grass</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #4a3a2a; padding: 8px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ffcc80; font-weight: bold; font-size: 12px;">◢ INNER BR</label><br>
-                        <span style="font-size: 9px; color: #888;">Sand in BOTTOM-RIGHT only</span><br>
-                        <img id="innerBottomRightPreview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="innerBottomRightSelect" onchange="autoApplyInnerCorners()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Likely Inner Corners">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036" selected>0x0036</option>
-                            </optgroup>
-                            <optgroup label="Other Options">
-                                <option value="0x0037">0x0037</option>
-                                <option value="0x0038">0x0038</option>
-                                <option value="0x0039">0x0039</option>
-                                <option value="0x003A">0x003A</option>
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Pure">
-                                <option value="0x0003">Pure Grass</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-                <div style="margin-top: 10px;">
-                    <button onclick="testInnerCorners()" style="background: #ff7043; font-size: 14px; padding: 8px 16px;">🔶 Test Inner Corners</button>
-                </div>
-                
-                <!-- DIAGONAL TRANSITION TESTER -->
-                <h5 style="color: #b39ddb; margin: 20px 0 5px 0;">↗️ DIAGONAL TRANSITION TESTER</h5>
-                <p style="font-size: 11px; color: #888; margin: 0 0 10px 0;">Use these dropdowns to find the correct tiles for diagonal edges. Select tiles and click Test to see how they look.</p>
-                
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
-                    <!-- Diagonal Row 1 - Sand tiles going into grass diagonally -->
-                    <div style="background: #3a3a4a; padding: 10px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ce93d8; font-weight: bold; font-size: 12px;">↗️ DIAG 1</label><br>
-                        <span style="font-size: 9px; color: #888;">First diagonal tile</span><br>
-                        <img id="diag1Preview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="diag1Select" onchange="autoApplyDiagonal()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Edge Tiles">
-                                <option value="0x0037">0x0037 (RIGHT)</option>
-                                <option value="0x0038">0x0038 (LEFT)</option>
-                                <option value="0x0039">0x0039 (BOTTOM)</option>
-                                <option value="0x003A">0x003A (TOP)</option>
-                            </optgroup>
-                            <optgroup label="Corner Tiles">
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C" selected>0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Other Sand">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #3a3a4a; padding: 10px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ce93d8; font-weight: bold; font-size: 12px;">↗️ DIAG 2</label><br>
-                        <span style="font-size: 9px; color: #888;">Second diagonal tile</span><br>
-                        <img id="diag2Preview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="diag2Select" onchange="autoApplyDiagonal()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Edge Tiles">
-                                <option value="0x0037">0x0037 (RIGHT)</option>
-                                <option value="0x0038">0x0038 (LEFT)</option>
-                                <option value="0x0039">0x0039 (BOTTOM)</option>
-                                <option value="0x003A" selected>0x003A (TOP)</option>
-                            </optgroup>
-                            <optgroup label="Corner Tiles">
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Other Sand">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div style="background: #3a3a4a; padding: 10px; border-radius: 6px; text-align: center;">
-                        <label style="color: #ce93d8; font-weight: bold; font-size: 12px;">↗️ DIAG 3</label><br>
-                        <span style="font-size: 9px; color: #888;">Third diagonal tile</span><br>
-                        <img id="diag3Preview" src="" style="width: 44px; height: 44px; margin: 5px 0; background: #111; border: 1px solid #444;">
-                        <select id="diag3Select" onchange="autoApplyDiagonal()" style="width: 100%; font-size: 11px;">
-                            <optgroup label="Edge Tiles">
-                                <option value="0x0037" selected>0x0037 (RIGHT)</option>
-                                <option value="0x0038">0x0038 (LEFT)</option>
-                                <option value="0x0039">0x0039 (BOTTOM)</option>
-                                <option value="0x003A">0x003A (TOP)</option>
-                            </optgroup>
-                            <optgroup label="Corner Tiles">
-                                <option value="0x003B">0x003B</option>
-                                <option value="0x003C">0x003C</option>
-                                <option value="0x003D">0x003D</option>
-                                <option value="0x003E">0x003E</option>
-                            </optgroup>
-                            <optgroup label="Other Sand">
-                                <option value="0x0033">0x0033</option>
-                                <option value="0x0034">0x0034</option>
-                                <option value="0x0035">0x0035</option>
-                                <option value="0x0036">0x0036</option>
-                                <option value="0x0016">Pure Sand</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button onclick="testDiagonalWithDropdowns()" style="background: #9c27b0; font-size: 14px; padding: 8px 16px;">↗️ Test Diagonal Pattern</button>
-                    <button onclick="reverseDiagonal()" style="background: #673ab7; font-size: 12px; padding: 6px 12px;">🔄 Reverse Direction</button>
-                </div>
-                
-                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button onclick="testAllEdgesAndCorners()" style="background: #ff9800; font-size: 14px; padding: 8px 16px;">🔬 Test ALL (Edges + Corners)</button>
-                    <button onclick="showAllTransitions()" style="background: #e91e63;">📊 Show All Tiles</button>
-                    <button onclick="saveMappings()" style="background: #4caf50;">💾 Save Mappings</button>
-                </div>
-                
-                <div style="margin-top: 10px; padding: 10px; background: #222; border-radius: 4px; font-size: 12px;">
-                    <strong>✅ CONFIRMED MAPPINGS (Saved to Code!):</strong><br>
-                    <strong>EDGES:</strong> <span style="color: #64b5f6;">TOP: 0x003A</span> | 
-                    <span style="color: #ffb74d;">BOTTOM: 0x0039</span> | 
-                    <span style="color: #81c784;">LEFT: 0x0038</span> | 
-                    <span style="color: #dce775;">RIGHT: 0x0037</span><br>
-                    <strong>OUTER CORNERS:</strong> <span style="color: #b39ddb;">TL: 0x003D</span> | 
-                    <span style="color: #f48fb1;">TR: 0x003C</span> | 
-                    <span style="color: #80cbc4;">BL: 0x003B</span> | 
-                    <span style="color: #fff59d;">BR: 0x003E</span><br>
-                    <strong>INNER CORNERS:</strong> <span style="color: #ce93d8;">TL: 0x003E</span> | 
-                    <span style="color: #f48fb1;">TR: 0x003B</span> | 
-                    <span style="color: #80deea;">BL: 0x003C</span> | 
-                    <span style="color: #a5d6a7;">BR: 0x003D</span>
-                </div>
-                
-                <!-- NEIGHBOR CONFIGURATION TESTER - For debugging transition logic -->
-                <div style="background: #2a2a4a; padding: 15px; border-radius: 8px; margin-top: 15px; border: 2px solid #ff5722;">
-                    <h5 style="color: #ff5722; margin: 0 0 10px 0;">🔧 NEIGHBOR CONFIGURATION TESTER</h5>
-                    <p style="font-size: 11px; color: #aaa; margin: 0 0 10px 0;">
-                        Check which neighbors are GRASS, see what tile the code picks, and tell me what it SHOULD be.
-                    </p>
-                    
-                    <!-- 3x3 Grid for neighbor selection -->
-                    <div style="display: grid; grid-template-columns: repeat(3, 70px); gap: 5px; justify-content: center; margin-bottom: 15px;">
-                        <!-- Top row -->
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_tl" onchange="updateNeighborTest()"> 
-                            <span style="color: #81c784; font-size: 10px;">↖TL</span>
-                        </label>
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_t" onchange="updateNeighborTest()"> 
-                            <span style="color: #4fc3f7; font-size: 10px;">⬆TOP</span>
-                        </label>
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_tr" onchange="updateNeighborTest()"> 
-                            <span style="color: #81c784; font-size: 10px;">↗TR</span>
-                        </label>
-                        
-                        <!-- Middle row -->
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_l" onchange="updateNeighborTest()"> 
-                            <span style="color: #4fc3f7; font-size: 10px;">⬅LEFT</span>
-                        </label>
-                        <div style="background: #ffb74d; padding: 8px; border-radius: 4px; text-align: center;">
-                            <span style="color: #333; font-size: 10px; font-weight: bold;">SAND<br>TILE</span>
-                        </div>
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_r" onchange="updateNeighborTest()"> 
-                            <span style="color: #4fc3f7; font-size: 10px;">RIGHT➡</span>
-                        </label>
-                        
-                        <!-- Bottom row -->
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_bl" onchange="updateNeighborTest()"> 
-                            <span style="color: #81c784; font-size: 10px;">↙BL</span>
-                        </label>
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_b" onchange="updateNeighborTest()"> 
-                            <span style="color: #4fc3f7; font-size: 10px;">⬇BOT</span>
-                        </label>
-                        <label style="background: #333; padding: 8px; border-radius: 4px; text-align: center; cursor: pointer;">
-                            <input type="checkbox" id="nbr_br" onchange="updateNeighborTest()"> 
-                            <span style="color: #81c784; font-size: 10px;">↘BR</span>
-                        </label>
-                    </div>
-                    
-                    <!-- Results -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div style="background: #1a1a2e; padding: 10px; border-radius: 6px;">
-                            <div style="color: #f44336; font-weight: bold; margin-bottom: 5px;">❌ CODE PICKS:</div>
-                            <img id="codePicksPreview" src="" style="width: 44px; height: 44px; background: #111; border: 1px solid #444;">
-                            <div id="codePicksId" style="color: #fff; font-family: monospace; margin-top: 5px;">-</div>
-                            <div id="codePicksBitmask" style="color: #888; font-size: 10px;">Bitmask: -</div>
-                        </div>
-                        <div style="background: #1a2e1a; padding: 10px; border-radius: 6px;">
-                            <div style="color: #4caf50; font-weight: bold; margin-bottom: 5px;">✅ SHOULD BE:</div>
-                            <img id="shouldBePreview" src="" style="width: 44px; height: 44px; background: #111; border: 1px solid #444;">
-                            <select id="shouldBeSelect" onchange="updateShouldBePreview()" style="width: 100%; margin-top: 5px;">
-                                <option value="">-- Select correct tile --</option>
-                                <option value="0x0003">Pure Grass (0x0003)</option>
-                                <option value="0x0016">Pure Sand (0x0016)</option>
-                                <optgroup label="Edges (0x0037-0x003A)">
-                                    <option value="0x0037">0x0037 - RIGHT edge</option>
-                                    <option value="0x0038">0x0038 - LEFT edge</option>
-                                    <option value="0x0039">0x0039 - BOTTOM edge</option>
-                                    <option value="0x003A">0x003A - TOP edge</option>
-                                </optgroup>
-                                <optgroup label="Outer Corners (0x003B-0x003E)">
-                                    <option value="0x003B">0x003B - BL corner</option>
-                                    <option value="0x003C">0x003C - TR corner</option>
-                                    <option value="0x003D">0x003D - TL corner</option>
-                                    <option value="0x003E">0x003E - BR corner</option>
-                                </optgroup>
-                                <optgroup label="Inner Corners (0x0033-0x0036)">
-                                    <option value="0x0033">0x0033 - Inner TL</option>
-                                    <option value="0x0034">0x0034 - Inner TR</option>
-                                    <option value="0x0035">0x0035 - Inner BL</option>
-                                    <option value="0x0036">0x0036 - Inner BR</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: 10px;">
-                        <button onclick="renderNeighborTest()" style="background: #ff5722;">🎨 Render This Config</button>
-                        <button onclick="logCorrection()" style="background: #4caf50;">📋 Log Correction</button>
-                        <button onclick="clearNeighborTest()" style="background: #666;">🗑️ Clear All</button>
-                    </div>
-                    
-                    <!-- Logged corrections -->
-                    <div id="correctionLog" style="background: #111; padding: 10px; border-radius: 4px; margin-top: 10px; max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #0f0;">
-                        // Corrections will appear here...
-                    </div>
-                </div>
-            </div>
-            </div>
-        </details>
+        
+        <!-- Removed tile tester sections for cleaner UI -->
+        <div style="display: none;">
+            <!-- Legacy tile tester content removed -->
+        </div>
         
         <!-- Hidden duplicate elements removed - canvas/viewport/legend now at top -->
         <div class="info" style="display: none;">
@@ -1790,7 +794,7 @@
     <script type="module">
         import { LandTileLoader } from './js/modules/landTileLoader.js';
         import { TerrainGenerator } from './js/modules/terrainGenerator.js';
-        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=20251130_fixed_v3'; // Bump version
+        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=20251203_normalDir'; // Bump version - fixed direction mode to 'normal'
         import { WebGLTerrainRenderer } from './js/modules/webglTerrainRenderer.js?v=camerafollow1';
         import { initializeDynamicSets } from './js/data/uoTileSetsClean.js';
         import { UOMapLoader } from './js/modules/uoMapLoader.js';
@@ -2284,7 +1288,7 @@
         }
         
         window.generateTerrainV2 = async function() {
-            const use3D = document.getElementById('enable3DHeight').checked;
+            const use3D = document.getElementById('enable3DHeight')?.checked ?? true; // Default to 3D enabled
             
             // If 3D checkbox is checked, use WebGL renderer
             if (use3D) {
@@ -5765,7 +4769,7 @@
         
         // Toggle tile IDs display
         window.toggleTileIds = function() {
-            showTileIds = document.getElementById('showTileIds').checked;
+            showTileIds = document.getElementById('showTileIds')?.checked ?? false;
             if (currentMap) {
                 renderMap(currentMap);
             }
@@ -8707,7 +7711,7 @@ CORNERS:
                             if (tile.biome === 'water') {
                                 tile.z = Math.floor(tile.elevation * 10);
                             } else if (tile.biome === 'sand') {
-                                tile.z = 3 + Math.floor((tile.elevation - 0.35) * 30);
+                                tile.z = 3 + Math.floor((tile.elevation - 0.42) * 35);
                             } else if (tile.biome === 'rock') {
                                 tile.z = 25 + Math.floor((tile.elevation - 0.7) * 80);
                             } else {
@@ -8873,8 +7877,966 @@ CORNERS:
             }
         };
         
+        // ========================================
+        // PROCEDURAL ENHANCED TEST
+        // Uses enhanced mode with slope filtering,
+        // height-based density, horizontal flip,
+        // minimum spacing, and ground clutter
+        // ========================================
+        
+        /**
+         * Clean up water bodies - remove isolated water tiles, keep connected lakes/rivers
+         * Uses flood fill to find connected regions, removes regions < minSize tiles
+         */
+        function cleanupWaterBodies(map, width, height, minSize = 6) {
+            const visited = Array(height).fill(null).map(() => Array(width).fill(false));
+            const waterRegions = [];
+            
+            // Flood fill to find connected water regions
+            function floodFill(startX, startY) {
+                const region = [];
+                const stack = [[startX, startY]];
+                
+                while (stack.length > 0) {
+                    const [x, y] = stack.pop();
+                    
+                    if (x < 0 || x >= width || y < 0 || y >= height) continue;
+                    if (visited[y][x]) continue;
+                    if (map[y][x].biome !== 'water') continue;
+                    
+                    visited[y][x] = true;
+                    region.push({ x, y });
+                    
+                    // Check 4 cardinal neighbors (not diagonals for tighter water bodies)
+                    stack.push([x + 1, y]);
+                    stack.push([x - 1, y]);
+                    stack.push([x, y + 1]);
+                    stack.push([x, y - 1]);
+                }
+                
+                return region;
+            }
+            
+            // Find all water regions
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (!visited[y][x] && map[y][x].biome === 'water') {
+                        const region = floodFill(x, y);
+                        if (region.length > 0) {
+                            waterRegions.push(region);
+                        }
+                    }
+                }
+            }
+            
+            // Remove small regions (convert to surrounding biome)
+            let removedCount = 0;
+            let keptRegions = 0;
+            
+            for (const region of waterRegions) {
+                if (region.length < minSize) {
+                    // Remove this small water region
+                    for (const { x, y } of region) {
+                        const tile = map[y][x];
+                        // Convert to sand (beach) or grass based on neighbors
+                        let newBiome = 'sand';
+                        
+                        // Check neighbors for non-water biome
+                        const neighbors = [
+                            map[y - 1]?.[x], map[y + 1]?.[x],
+                            map[y]?.[x - 1], map[y]?.[x + 1]
+                        ].filter(t => t && t.biome !== 'water');
+                        
+                        if (neighbors.length > 0) {
+                            // Use most common neighbor biome
+                            const biomeCounts = {};
+                            for (const n of neighbors) {
+                                biomeCounts[n.biome] = (biomeCounts[n.biome] || 0) + 1;
+                            }
+                            newBiome = Object.entries(biomeCounts).sort((a, b) => b[1] - a[1])[0][0];
+                        }
+                        
+                        tile.biome = newBiome;
+                        tile.isWater = false;
+                        tile.name = newBiome;
+                        // Adjust elevation slightly above water threshold
+                        tile.elevation = Math.max(tile.elevation, 0.45);
+                        removedCount++;
+                    }
+                } else {
+                    keptRegions++;
+                }
+            }
+            
+            console.log(`[WaterCleanup] Found ${waterRegions.length} water regions, kept ${keptRegions} (>= ${minSize} tiles), removed ${removedCount} isolated tiles`);
+            return { removedCount, keptRegions, totalRegions: waterRegions.length };
+        }
+        
+        window.testProceduralEnhanced = async function() {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = '✨ Generating ENHANCED procedural terrain with intentional water bodies...';
+            
+            try {
+                const width = 40, height = 40;
+                const seed = Math.floor(Math.random() * 100000);
+                console.log(`[ProceduralEnhanced] Using seed: ${seed}`);
+                
+                // Generate terrain using V2 generator with ENHANCED WATER BODIES
+                // Uses weighted random water budget (10-40% max) with ponds, lakes, coastlines, rivers
+                const generator = new TerrainGeneratorV2(seed, null, { useEnhancedWater: true });
+                statusEl.textContent = '✨ Generating terrain with intentional water bodies (ponds, lakes, coastlines, rivers)...';
+                
+                // Use the new enhanced water generation method
+                const { map, waterStats } = generator.generateMapWithWaterBodies(width, height);
+                
+                console.log(`[ProceduralEnhanced] Water generation complete:`, waterStats);
+                statusEl.textContent = `✨ Created ${waterStats.total} water tiles (${(waterStats.budgetPercentage * 100).toFixed(0)}% budget): ${waterStats.ocean} ocean, ${waterStats.lakes} lake, ${waterStats.ponds} pond, ${waterStats.rivers} river, ${waterStats.beaches} beach`;
+                
+                // Calculate Z range
+                let minZ = Infinity, maxZ = -Infinity;
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const tile = map[y][x];
+                        tile.name = tile.biome;
+                        tile.x = x;
+                        tile.y = y;
+                        tile.isWater = tile.biome === 'water';
+                        
+                        // Calculate Z from elevation
+                        if (tile.elevation !== undefined) {
+                            if (tile.biome === 'water') {
+                                tile.z = Math.floor(tile.elevation * 10);
+                            } else if (tile.biome === 'sand') {
+                                tile.z = 3 + Math.floor((tile.elevation - 0.42) * 35);
+                            } else if (tile.biome === 'rock') {
+                                tile.z = 25 + Math.floor((tile.elevation - 0.7) * 80);
+                            } else {
+                                tile.z = 6 + Math.floor((tile.elevation - 0.4) * 50);
+                            }
+                        }
+                        
+                        if (tile.z < minZ) minZ = tile.z;
+                        if (tile.z > maxZ) maxZ = tile.z;
+                    }
+                }
+                
+                // Generate corner heights (needed for slope filtering)
+                statusEl.textContent = '✨ Calculating 3D corner heights for slope filtering...';
+                const cornerHeights = [];
+                const zRange = maxZ - minZ || 1;
+                for (let cy = 0; cy <= height; cy++) {
+                    cornerHeights[cy] = [];
+                    for (let cx = 0; cx <= width; cx++) {
+                        const tiles = [];
+                        if (cy > 0 && cx > 0) tiles.push(map[cy-1][cx-1]);
+                        if (cy > 0 && cx < width) tiles.push(map[cy-1][cx]);
+                        if (cy < height && cx > 0) tiles.push(map[cy][cx-1]);
+                        if (cy < height && cx < width) tiles.push(map[cy][cx]);
+                        
+                        const avgZ = tiles.length > 0 
+                            ? tiles.reduce((sum, t) => sum + (t.z || 0), 0) / tiles.length 
+                            : 0;
+                        cornerHeights[cy][cx] = Math.max(0, Math.min(50, Math.round((avgZ - minZ) / zRange * 50)));
+                    }
+                }
+                
+                // Place statics with ENHANCED MODE
+                statusEl.textContent = '✨ Placing statics with ENHANCED mode (slope, spacing, clutter)...';
+                const biomePlacer = new BiomeStaticPlacer();
+                const treePrefabs = await prefabLoader.loadTreePrefabs();
+                if (treePrefabs) {
+                    biomePlacer.setTreePrefabs(treePrefabs);
+                }
+                const placedStatics = biomePlacer.placeStatics(map, {
+                    seed: seed,
+                    densityMultiplier: 1.5,
+                    enableClustering: true,
+                    landTileData,
+                    // ENHANCED MODE OPTIONS
+                    enhancedMode: true,
+                    cornerHeights: cornerHeights  // Required for slope filtering
+                });
+                console.log(`[ProceduralEnhanced] Generated ${placedStatics.length} statics (enhanced mode)`);
+                
+                // Normalize tile IDs to integers
+                for (const row of map) {
+                    for (const tile of row) {
+                        if (tile.id) {
+                            tile.id = typeof tile.id === 'string' ? parseInt(tile.id, 16) : tile.id;
+                        }
+                    }
+                }
+                
+                // Setup WebGL canvas
+                statusEl.textContent = '✨ Initializing WebGL renderer...';
+                const canvasContainer = document.getElementById('canvas').parentElement;
+                const originalCanvas = document.getElementById('canvas');
+                
+                // Remove old WebGL canvas
+                let webglCanvasEl = document.getElementById('webgl-canvas');
+                if (webglCanvasEl && webglCanvasEl.parentElement) {
+                    webglCanvasEl.parentElement.removeChild(webglCanvasEl);
+                }
+                
+                // Create new WebGL canvas
+                webglCanvasEl = document.createElement('canvas');
+                webglCanvasEl.id = 'webgl-canvas';
+                webglCanvasEl.style.display = 'block';
+                webglCanvasEl.style.border = 'none';
+                webglCanvasEl.style.background = '#1a1a2e';
+                
+                originalCanvas.style.display = 'none';
+                canvasContainer.style.overflow = 'hidden';
+                canvasContainer.appendChild(webglCanvasEl);
+                canvasContainer.style.maxHeight = 'none';
+                
+                // Create WebGL renderer
+                try {
+                    webglRenderer = new WebGLTerrainRenderer(webglCanvasEl);
+                    console.log('[ProceduralEnhanced] WebGL renderer initialized');
+                } catch (e) {
+                    statusEl.textContent = `❌ WebGL not supported: ${e.message}`;
+                    return;
+                }
+                
+                // Load tile textures
+                statusEl.textContent = '✨ Loading tile textures...';
+                const uniqueTileIds = new Set();
+                for (const row of map) {
+                    for (const tile of row) {
+                        if (tile.id !== undefined) uniqueTileIds.add(tile.id);
+                    }
+                }
+                
+                let loadedTileCount = 0;
+                for (const tileId of uniqueTileIds) {
+                    const processedImage = await loadTileImage(tileId);
+                    if (processedImage) {
+                        webglRenderer.loadTexture(tileId, processedImage);
+                        loadedTileCount++;
+                    }
+                }
+                console.log(`[ProceduralEnhanced] Loaded ${loadedTileCount}/${uniqueTileIds.size} tile textures`);
+                
+                // Load static art textures
+                statusEl.textContent = '✨ Loading static object graphics...';
+                if (!itemLoader) itemLoader = new UOItemLoader();
+                const artTextures = {};
+                
+                const uniqueGraphics = [...new Set(placedStatics.map(s => s.graphic))];
+                let loadedArtCount = 0;
+                for (const graphicId of uniqueGraphics) {
+                    try {
+                        const texture = await itemLoader.getTexture(graphicId);
+                        if (texture) {
+                            artTextures[graphicId] = texture;
+                            loadedArtCount++;
+                        }
+                    } catch (e) {}
+                }
+                console.log(`[ProceduralEnhanced] Loaded ${loadedArtCount}/${uniqueGraphics.length} static art textures`);
+                
+                // Prepare statics for rendering (including flipH flag for enhanced mode)
+                const regionStatics = placedStatics.map(s => ({
+                    ...s,
+                    relX: s.x,
+                    relY: s.y,
+                    worldX: s.x,
+                    worldY: s.y,
+                    artTexture: artTextures[s.graphic] || null
+                    // flipH is already set by BiomeStaticPlacer in enhanced mode
+                }));
+                
+                // Render!
+                statusEl.textContent = '✨ Rendering ENHANCED 3D terrain with WebGL...';
+                webglRenderer.render(map, cornerHeights, null, regionStatics);
+                
+                // Save state for character rendering
+                updateCurrentMapReference(map);
+                currentCornerHeights = cornerHeights;
+                currentStatics = regionStatics;
+                
+                // Save map data and renderer for terrain transitions
+                window.currentMapData = { map, width, height };
+                window.currentRenderer = webglRenderer;
+                
+                // Reset character if spawned
+                playerCharacter = null;
+                
+                // Count biomes and clutter
+                const biomeCounts = {};
+                for (const row of map) {
+                    for (const tile of row) {
+                        biomeCounts[tile.biome] = (biomeCounts[tile.biome] || 0) + 1;
+                    }
+                }
+                
+                const clutterCount = placedStatics.filter(s => s.isClutter).length;
+                const flippedCount = placedStatics.filter(s => s.flipH).length;
+                const biomeStr = Object.entries(biomeCounts).map(([b, c]) => `${b}: ${c}`).join(', ');
+                
+                // Build water info string
+                const waterPct = ((waterStats.total / (width * height)) * 100).toFixed(0);
+                const waterInfo = `Water: ${waterPct}% (${waterStats.ocean > 0 ? 'ocean+' : ''}${waterStats.lakes > 0 ? 'lakes+' : ''}${waterStats.ponds > 0 ? 'ponds+' : ''}${waterStats.rivers > 0 ? 'rivers' : ''})`.replace(/\+$/, '');
+                
+                statusEl.textContent = `✅ ENHANCED: ${width}×${height} | ${waterInfo} | ${placedStatics.length} statics | ${biomeStr}`;
+                statusEl.style.color = '#9C27B0';  // Purple for enhanced mode
+                
+            } catch (error) {
+                console.error('[ProceduralEnhanced] Error:', error);
+                document.getElementById('status').textContent = `❌ Error: ${error.message}`;
+            }
+        };
+        
         // Load on startup
         loadLandTiles();
+        
+        // ============ TILE TEACHER COMMUNICATION ============
+        
+        // Listen for changes from Tile Teacher
+        const tileChannel = new BroadcastChannel('tile_teacher_channel');
+        // Store live mappings received from Tile Teacher
+        window.liveTileMappings = null;
+        
+        // Create floating notification for live updates
+        const liveNotif = document.createElement('div');
+        liveNotif.id = 'liveUpdateNotif';
+        liveNotif.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #FF9800; color: white; padding: 15px 25px; border-radius: 8px; font-weight: bold; font-size: 16px; z-index: 9999; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+        document.body.appendChild(liveNotif);
+        
+        function showLiveNotif(message, success = false) {
+            liveNotif.style.background = success ? '#4CAF50' : '#FF9800';
+            liveNotif.textContent = message;
+            liveNotif.style.display = 'block';
+            setTimeout(() => { liveNotif.style.display = 'none'; }, 3000);
+        }
+        
+        tileChannel.onmessage = function(event) {
+            if (event.data.type === 'apply_mappings') {
+                const mappings = event.data.mappings;
+                const count = Object.keys(mappings).length;
+                console.log('[TerrainGen] ⚡ LIVE: Received', count, 'mappings from Tile Teacher');
+                
+                // Store live mappings globally (overrides localStorage)
+                window.liveTileMappings = mappings;
+                
+                // Also save to localStorage for persistence
+                localStorage.setItem('terrainTileMappings', JSON.stringify(mappings));
+                localStorage.setItem('waterTileMappings', JSON.stringify(mappings));
+                
+                // Show floating notification
+                showLiveNotif(`⚡ Received ${count} mappings...`);
+                
+                // Show visual feedback
+                const statusEl = document.getElementById('directionModeStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = `<span style="color: #FF9800;">⚡ Received ${count} mappings - applying...</span>`;
+                }
+                
+                // Immediately re-apply transitions with live mappings
+                if (window.currentMapData && window.applyLiveMappings) {
+                    window.applyLiveMappings(mappings);
+                    showLiveNotif(`✅ Applied to current map!`, true);
+                } else {
+                    showLiveNotif(`⚠️ Generate a map first!`);
+                    if (statusEl) {
+                        statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ Generate a map first (Procedural Enhanced) to see changes</span>`;
+                    }
+                }
+            }
+        };
+        
+        // Apply live mappings directly to current map (no localStorage read)
+        window.applyLiveMappings = function(mappings) {
+            const statusEl = document.getElementById('directionModeStatus');
+            if (!window.currentMapData) {
+                if (statusEl) statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ Generate a map first</span>`;
+                return;
+            }
+            
+            const { map, width, height } = window.currentMapData;
+            const mode = window.terrainDirectionMode || 'inverted';
+            
+            // Define biome pairs
+            const BIOME_PAIRS = [
+                { a: 'rock', b: 'grass', prefix: 'rock_grass' },
+                { a: 'sand', b: 'grass', prefix: 'sand_grass' },
+                { a: 'forest', b: 'grass', prefix: 'forest_grass' },
+                { a: 'dirt', b: 'grass', prefix: 'dirt_grass' },
+                { a: 'rock', b: 'sand', prefix: 'rock_sand' },
+            ];
+            
+            // Helper to get direction based on mode
+            const getDir = (hasN, hasS, hasE, hasW) => {
+                let dir = null;
+                if (hasN) dir = 'north';
+                else if (hasS) dir = 'south';
+                else if (hasE) dir = 'east';
+                else if (hasW) dir = 'west';
+                if (!dir) return null;
+                
+                const transforms = {
+                    'normal':     { north: 'north', south: 'south', east: 'east', west: 'west' },
+                    'inverted':   { north: 'south', south: 'north', east: 'west', west: 'east' },
+                    'swap_ns':    { north: 'south', south: 'north', east: 'east', west: 'west' },
+                    'swap_ew':    { north: 'north', south: 'south', east: 'west', west: 'east' },
+                    'rotate_cw':  { north: 'east', east: 'south', south: 'west', west: 'north' },
+                    'rotate_ccw': { north: 'west', west: 'south', south: 'east', east: 'north' },
+                    'flip_h':     { north: 'north', south: 'south', east: 'west', west: 'east' },
+                    'flip_v':     { north: 'south', south: 'north', east: 'east', west: 'west' },
+                };
+                return transforms[mode]?.[dir] || dir;
+            };
+            
+            const getCorner = (hasN, hasS, hasE, hasW) => {
+                let corner = null;
+                if (hasN && hasE) corner = 'ne';
+                else if (hasN && hasW) corner = 'nw';
+                else if (hasS && hasE) corner = 'se';
+                else if (hasS && hasW) corner = 'sw';
+                if (!corner) return null;
+                
+                const cornerTransforms = {
+                    'normal':     { ne: 'ne', nw: 'nw', se: 'se', sw: 'sw' },
+                    'inverted':   { ne: 'sw', nw: 'se', se: 'nw', sw: 'ne' },
+                    'swap_ns':    { ne: 'se', nw: 'sw', se: 'ne', sw: 'nw' },
+                    'swap_ew':    { ne: 'nw', nw: 'ne', se: 'sw', sw: 'se' },
+                    'rotate_cw':  { ne: 'se', se: 'sw', sw: 'nw', nw: 'ne' },
+                    'rotate_ccw': { ne: 'nw', nw: 'sw', sw: 'se', se: 'ne' },
+                    'flip_h':     { ne: 'nw', nw: 'ne', se: 'sw', sw: 'se' },
+                    'flip_v':     { ne: 'se', se: 'ne', nw: 'sw', sw: 'nw' },
+                };
+                return cornerTransforms[mode]?.[corner] || corner;
+            };
+            
+            let applied = 0;
+            let skipped = 0;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const tile = map[y][x];
+                    const tileBiome = tile.biome;
+                    
+                    const north = map[y - 1]?.[x];
+                    const south = map[y + 1]?.[x];
+                    const east = map[y]?.[x + 1];
+                    const west = map[y]?.[x - 1];
+                    
+                    for (const pair of BIOME_PAIRS) {
+                        const isA = tileBiome === pair.a;
+                        const isB = tileBiome === pair.b;
+                        if (!isA && !isB) continue;
+                        
+                        const otherBiome = isA ? pair.b : pair.a;
+                        const hasNorth = north?.biome === otherBiome;
+                        const hasSouth = south?.biome === otherBiome;
+                        const hasEast = east?.biome === otherBiome;
+                        const hasWest = west?.biome === otherBiome;
+                        
+                        const adjCount = [hasNorth, hasSouth, hasEast, hasWest].filter(Boolean).length;
+                        if (adjCount === 0) continue;
+                        
+                        let scenarioKey = null;
+                        
+                        if (adjCount === 1) {
+                            const dir = getDir(hasNorth, hasSouth, hasEast, hasWest);
+                            if (dir) scenarioKey = `${pair.prefix}_${dir}`;
+                        } else if (adjCount === 2) {
+                            const corner = getCorner(hasNorth, hasSouth, hasEast, hasWest);
+                            if (corner) scenarioKey = `${pair.prefix}_corner_${corner}`;
+                        }
+                        
+                        if (scenarioKey && mappings[scenarioKey]) {
+                            const tileIdStr = mappings[scenarioKey];
+                            const tileId = typeof tileIdStr === 'string' 
+                                ? parseInt(tileIdStr.replace('0x', ''), 16) : tileIdStr;
+                            
+                            // Only apply if valid tile ID
+                            if (tileId && !isNaN(tileId) && tileId > 0) {
+                                tile.id = tileId;
+                                applied++;
+                            } else {
+                                skipped++;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Re-render immediately
+            if (window.currentRenderer) {
+                window.currentRenderer.render(map, currentCornerHeights, null, currentStatics);
+            }
+            
+            console.log(`[LIVE] Applied ${applied} transitions (${skipped} skipped invalid)`);
+            if (statusEl) {
+                statusEl.innerHTML = `<span style="color: #4CAF50;">✅ LIVE: Applied ${applied} transitions</span>`;
+            }
+        };
+        
+        // ============ TERRAIN TRANSITIONS ============
+        
+        // Direction mapping mode
+        window.terrainDirectionMode = localStorage.getItem('terrainDirectionMode') || 'inverted';
+        
+        // Re-apply terrain edge transitions with a specific mode on the CURRENT map
+        window.reapplyWithMode = function(mode) {
+            console.log('[ReapplyMode] Starting with mode:', mode);
+            const statusEl = document.getElementById('directionModeStatus');
+            console.log('[ReapplyMode] StatusEl:', statusEl);
+            console.log('[ReapplyMode] currentMapData:', window.currentMapData);
+            if (!window.currentMapData) {
+                statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ Generate a map first</span>`;
+                return;
+            }
+            
+            const { map, width, height } = window.currentMapData;
+            const mappings = getSavedTerrainMappings();
+            
+            if (Object.keys(mappings).length === 0) {
+                statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ No saved mappings - configure in Tile Teacher first</span>`;
+                return;
+            }
+            
+            // Define biome pairs
+            const BIOME_PAIRS = [
+                { a: 'rock', b: 'grass', prefix: 'rock_grass' },
+                { a: 'sand', b: 'grass', prefix: 'sand_grass' },
+                { a: 'forest', b: 'grass', prefix: 'forest_grass' },
+                { a: 'dirt', b: 'grass', prefix: 'dirt_grass' },
+                { a: 'rock', b: 'sand', prefix: 'rock_sand' },
+            ];
+            
+            // Helper to get direction based on mode
+            const getDir = (hasN, hasS, hasE, hasW) => {
+                // Determine which neighbor exists
+                let dir = null;
+                if (hasN) dir = 'north';
+                else if (hasS) dir = 'south';
+                else if (hasE) dir = 'east';
+                else if (hasW) dir = 'west';
+                if (!dir) return null;
+                
+                // Transform based on mode
+                const transforms = {
+                    'normal':     { north: 'north', south: 'south', east: 'east', west: 'west' },
+                    'inverted':   { north: 'south', south: 'north', east: 'west', west: 'east' },
+                    'swap_ns':    { north: 'south', south: 'north', east: 'east', west: 'west' },
+                    'swap_ew':    { north: 'north', south: 'south', east: 'west', west: 'east' },
+                    'rotate_cw':  { north: 'east', east: 'south', south: 'west', west: 'north' },
+                    'rotate_ccw': { north: 'west', west: 'south', south: 'east', east: 'north' },
+                    'flip_h':     { north: 'north', south: 'south', east: 'west', west: 'east' },
+                    'flip_v':     { north: 'south', south: 'north', east: 'east', west: 'west' },
+                };
+                return transforms[mode]?.[dir] || dir;
+            };
+            
+            // Helper to get corner based on mode  
+            const getCorner = (hasN, hasS, hasE, hasW) => {
+                let corner = null;
+                if (hasN && hasE) corner = 'ne';
+                else if (hasN && hasW) corner = 'nw';
+                else if (hasS && hasE) corner = 'se';
+                else if (hasS && hasW) corner = 'sw';
+                if (!corner) return null;
+                
+                const cornerTransforms = {
+                    'normal':     { ne: 'ne', nw: 'nw', se: 'se', sw: 'sw' },
+                    'inverted':   { ne: 'sw', nw: 'se', se: 'nw', sw: 'ne' },
+                    'swap_ns':    { ne: 'se', nw: 'sw', se: 'ne', sw: 'nw' },
+                    'swap_ew':    { ne: 'nw', nw: 'ne', se: 'sw', sw: 'se' },
+                    'rotate_cw':  { ne: 'se', se: 'sw', sw: 'nw', nw: 'ne' },
+                    'rotate_ccw': { ne: 'nw', nw: 'sw', sw: 'se', se: 'ne' },
+                    'flip_h':     { ne: 'nw', nw: 'ne', se: 'sw', sw: 'se' },
+                    'flip_v':     { ne: 'se', se: 'ne', nw: 'sw', sw: 'nw' },
+                };
+                return cornerTransforms[mode]?.[corner] || corner;
+            };
+            
+            let applied = 0;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const tile = map[y][x];
+                    const tileBiome = tile.biome;
+                    
+                    const north = map[y - 1]?.[x];
+                    const south = map[y + 1]?.[x];
+                    const east = map[y]?.[x + 1];
+                    const west = map[y]?.[x - 1];
+                    
+                    for (const pair of BIOME_PAIRS) {
+                        const isA = tileBiome === pair.a;
+                        const isB = tileBiome === pair.b;
+                        if (!isA && !isB) continue;
+                        
+                        const otherBiome = isA ? pair.b : pair.a;
+                        const hasNorth = north?.biome === otherBiome;
+                        const hasSouth = south?.biome === otherBiome;
+                        const hasEast = east?.biome === otherBiome;
+                        const hasWest = west?.biome === otherBiome;
+                        
+                        const adjCount = [hasNorth, hasSouth, hasEast, hasWest].filter(Boolean).length;
+                        if (adjCount === 0) continue;
+                        
+                        let scenarioKey = null;
+                        
+                        if (adjCount === 1) {
+                            const dir = getDir(hasNorth, hasSouth, hasEast, hasWest);
+                            if (dir) scenarioKey = `${pair.prefix}_${dir}`;
+                        } else if (adjCount === 2) {
+                            const corner = getCorner(hasNorth, hasSouth, hasEast, hasWest);
+                            if (corner) scenarioKey = `${pair.prefix}_corner_${corner}`;
+                        }
+                        
+                        if (scenarioKey && mappings[scenarioKey]) {
+                            const tileIdStr = mappings[scenarioKey];
+                            const tileId = typeof tileIdStr === 'string' 
+                                ? parseInt(tileIdStr.replace('0x', ''), 16) : tileIdStr;
+                            
+                            // Only apply if valid tile ID (not 0, not NaN)
+                            if (tileId && !isNaN(tileId) && tileId > 0) {
+                                tile.id = tileId;
+                                applied++;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Re-render
+            if (window.currentRenderer) {
+                window.currentRenderer.render(map, currentCornerHeights, null, currentStatics);
+            }
+            
+            // Save mode for future generations
+            window.terrainDirectionMode = mode;
+            localStorage.setItem('terrainDirectionMode', mode);
+            
+            statusEl.innerHTML = `<span style="color: #4CAF50;">✅ <b>${mode.toUpperCase()}</b>: Applied ${applied} transitions</span>`;
+        };
+        
+        // Load saved terrain tile mappings from localStorage
+        function getSavedTerrainMappings() {
+            try {
+                const stored = localStorage.getItem('terrainTileMappings') || localStorage.getItem('waterTileMappings');
+                return stored ? JSON.parse(stored) : {};
+            } catch (e) {
+                console.warn('Failed to load terrain mappings:', e);
+                return {};
+            }
+        }
+        
+        // Apply terrain transitions for a specific biome pair
+        window.applyTerrainTransition = function(transitionType) {
+            const statusEl = document.getElementById('transitionStatus');
+            const mappings = getSavedTerrainMappings();
+            
+            // Check if we have any saved mappings for this transition type
+            const prefix = transitionType.replace('_', '-') + '-';
+            const relevantKeys = Object.keys(mappings).filter(k => k.includes(transitionType.replace('_', '-')));
+            
+            if (relevantKeys.length === 0) {
+                statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ No saved ${transitionType} transitions. Open Tile Teacher to configure.</span>`;
+                return;
+            }
+            
+            // If we have a current map, apply the transitions
+            if (!window.currentMapData) {
+                statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ Generate a map first (Procedural Enhanced)</span>`;
+                return;
+            }
+            
+            const map = window.currentMapData.map;
+            const width = window.currentMapData.width;
+            const height = window.currentMapData.height;
+            
+            let applied = 0;
+            const [biomeA, biomeB] = transitionType.split('_');
+            
+            // Find edge tiles between these biomes and apply saved transitions
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const tile = map[y][x];
+                    if (tile.biome !== biomeA && tile.biome !== biomeB) continue;
+                    
+                    // Check if this tile borders the other biome
+                    const neighbors = [
+                        { dir: 'n', t: map[y-1]?.[x] },
+                        { dir: 's', t: map[y+1]?.[x] },
+                        { dir: 'e', t: map[y]?.[x+1] },
+                        { dir: 'w', t: map[y]?.[x-1] }
+                    ];
+                    
+                    const otherBiome = tile.biome === biomeA ? biomeB : biomeA;
+                    const borderingDirs = neighbors.filter(n => n.t && n.t.biome === otherBiome).map(n => n.dir);
+                    
+                    if (borderingDirs.length === 0) continue;
+                    
+                    // Determine scenario based on bordering directions
+                    let scenario = null;
+                    if (borderingDirs.length === 1) {
+                        scenario = `${transitionType.replace('_', '-')}-cliff_${borderingDirs[0] === 'n' ? 'north' : borderingDirs[0] === 's' ? 'south' : borderingDirs[0] === 'e' ? 'east' : 'west'}`;
+                    } else if (borderingDirs.length === 2) {
+                        const dirs = borderingDirs.sort().join('');
+                        if (dirs === 'en') scenario = `${transitionType.replace('_', '-')}-corner_ne`;
+                        else if (dirs === 'es') scenario = `${transitionType.replace('_', '-')}-corner_se`;
+                        else if (dirs === 'nw') scenario = `${transitionType.replace('_', '-')}-corner_nw`;
+                        else if (dirs === 'sw') scenario = `${transitionType.replace('_', '-')}-corner_sw`;
+                    }
+                    
+                    if (scenario && mappings[scenario]) {
+                        const tileIdStr = mappings[scenario];
+                        tile.tileId = parseInt(tileIdStr.replace('0x', ''), 16);
+                        applied++;
+                    }
+                }
+            }
+            
+            statusEl.innerHTML = `<span style="color: #4CAF50;">✅ Applied ${applied} ${transitionType} transitions</span>`;
+            
+            // Re-render if we have a renderer
+            if (window.currentRenderer) {
+                window.currentRenderer.render();
+            }
+        };
+        
+        // Apply all saved terrain transitions
+        window.applyAllTerrainTransitions = function() {
+            const statusEl = document.getElementById('transitionStatus');
+            const mappings = getSavedTerrainMappings();
+            
+            if (Object.keys(mappings).length === 0) {
+                statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ No saved transitions. Open Tile Teacher to configure.</span>`;
+                return;
+            }
+            
+            // Get unique transition types from saved mappings
+            const types = new Set();
+            for (const key of Object.keys(mappings)) {
+                // Extract transition type from keys like "rock-grass-cliff_north"
+                const match = key.match(/^([a-z]+-[a-z]+)/);
+                if (match) types.add(match[1].replace('-', '_'));
+            }
+            
+            let totalApplied = 0;
+            for (const type of types) {
+                applyTerrainTransition(type);
+                totalApplied++;
+            }
+            
+            statusEl.innerHTML = `<span style="color: #4CAF50;">✅ Applied ${types.size} transition types (${Object.keys(mappings).length} mappings)</span>`;
+        };
+        
+        // Show current saved mappings count
+        (function() {
+            const mappings = getSavedTerrainMappings();
+            const count = Object.keys(mappings).length;
+            const statusEl = document.getElementById('transitionStatus');
+            if (statusEl && count > 0) {
+                statusEl.innerHTML = `<span style="color: #888;">📦 ${count} saved tile mappings</span>`;
+            }
+        })();
+        
+        // ============ INTEGRATED TILE TEACHER ============
+        
+        // State
+        let currentTransitionType = 'rock_grass';
+        let currentTileDirection = 'north';
+        let selectedTileId = null;
+        let integratedMappings = getSavedTerrainMappings();
+        
+        // Tile ranges for picker
+        const TILE_RANGES = {
+            rock: { start: 0x0200, end: 0x0250, name: 'Rock/Transition' },
+            grass: { start: 0x0003, end: 0x0050, name: 'Grass' },
+            sand: { start: 0x0016, end: 0x0060, name: 'Sand' },
+            cliff: { start: 0x0988, end: 0x09C0, name: 'Embankments' },
+            water: { start: 0x00A8, end: 0x00B8, name: 'Water' },
+            forest: { start: 0x00C4, end: 0x00E0, name: 'Forest' }
+        };
+        
+        // Select transition type
+        window.selectTransitionType = function(type) {
+            currentTransitionType = type;
+            document.getElementById('selectedTileKey').textContent = `${type}_${currentTileDirection}`;
+            
+            // Load existing mapping if any
+            const key = `${type}_${currentTileDirection}`;
+            if (integratedMappings[key]) {
+                selectedTileId = integratedMappings[key];
+                updateTilePreview();
+            }
+        };
+        
+        // Select direction
+        window.selectTileDirection = function(dir) {
+            currentTileDirection = dir;
+            
+            // Update button highlights
+            document.querySelectorAll('.dir-btn').forEach(btn => {
+                btn.style.background = btn.dataset.dir === dir ? '#4CAF50' : '';
+            });
+            
+            const key = `${currentTransitionType}_${dir}`;
+            document.getElementById('selectedTileKey').textContent = key;
+            
+            // Load existing mapping if any
+            if (integratedMappings[key]) {
+                selectedTileId = integratedMappings[key];
+                updateTilePreview();
+            } else {
+                selectedTileId = null;
+                document.getElementById('selectedTileId').textContent = 'Not configured';
+                document.getElementById('selectedTilePreview').style.backgroundImage = '';
+            }
+        };
+        
+        // Load tile range into picker
+        window.loadTileRange = function(rangeKey) {
+            const range = TILE_RANGES[rangeKey];
+            if (!range) return;
+            
+            const picker = document.getElementById('tilePicker');
+            picker.innerHTML = '';
+            
+            for (let id = range.start; id <= range.end; id++) {
+                const hexId = '0x' + id.toString(16).toUpperCase().padStart(4, '0');
+                const tileEl = document.createElement('div');
+                tileEl.style.cssText = 'width: 36px; height: 36px; cursor: pointer; border: 2px solid transparent; border-radius: 4px; background-size: contain; background-position: center; background-repeat: no-repeat;';
+                tileEl.style.backgroundImage = `url('./assets/tiles/${hexId}.png')`;
+                tileEl.title = hexId;
+                tileEl.onclick = () => pickTile(hexId);
+                picker.appendChild(tileEl);
+            }
+        };
+        
+        // Pick a tile from the grid
+        window.pickTile = function(hexId) {
+            selectedTileId = hexId;
+            updateTilePreview();
+            
+            // Auto-save immediately
+            saveTileMapping();
+        };
+        
+        // Update the preview display
+        function updateTilePreview() {
+            if (selectedTileId) {
+                document.getElementById('selectedTileId').textContent = selectedTileId;
+                document.getElementById('selectedTilePreview').style.backgroundImage = `url('./assets/tiles/${selectedTileId}.png')`;
+                document.getElementById('selectedTilePreview').style.backgroundSize = 'contain';
+                document.getElementById('selectedTilePreview').style.backgroundPosition = 'center';
+                document.getElementById('selectedTilePreview').style.backgroundRepeat = 'no-repeat';
+            }
+        }
+        
+        // Save and apply mapping
+        window.saveTileMapping = function() {
+            if (!selectedTileId) {
+                document.getElementById('tileTeacherStatus').innerHTML = '<span style="color: #ff9800;">⚠️ Pick a tile first!</span>';
+                return;
+            }
+            
+            const key = `${currentTransitionType}_${currentTileDirection}`;
+            integratedMappings[key] = selectedTileId;
+            
+            // Save to localStorage
+            localStorage.setItem('terrainTileMappings', JSON.stringify(integratedMappings));
+            localStorage.setItem('waterTileMappings', JSON.stringify(integratedMappings));
+            
+            // Apply to current map immediately
+            if (window.currentMapData && window.currentRenderer) {
+                applyIntegratedMappings();
+                document.getElementById('tileTeacherStatus').innerHTML = `<span style="color: #4CAF50;">✅ ${key} = ${selectedTileId} applied!</span>`;
+            } else {
+                document.getElementById('tileTeacherStatus').innerHTML = `<span style="color: #4CAF50;">✅ Saved ${key}</span><br><span style="color: #888;">Generate a map to see</span>`;
+            }
+            
+            setTimeout(() => {
+                document.getElementById('tileTeacherStatus').innerHTML = '';
+            }, 3000);
+        };
+        
+        // Apply integrated mappings to current map
+        function applyIntegratedMappings() {
+            const { map, width, height } = window.currentMapData;
+            
+            const BIOME_PAIRS = [
+                { a: 'rock', b: 'grass', prefix: 'rock_grass' },
+                { a: 'sand', b: 'grass', prefix: 'sand_grass' },
+                { a: 'forest', b: 'grass', prefix: 'forest_grass' },
+                { a: 'dirt', b: 'grass', prefix: 'dirt_grass' },
+                { a: 'rock', b: 'sand', prefix: 'rock_sand' },
+            ];
+            
+            let applied = 0;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const tile = map[y][x];
+                    const tileBiome = tile.biome;
+                    
+                    const north = map[y - 1]?.[x];
+                    const south = map[y + 1]?.[x];
+                    const east = map[y]?.[x + 1];
+                    const west = map[y]?.[x - 1];
+                    
+                    for (const pair of BIOME_PAIRS) {
+                        const isA = tileBiome === pair.a;
+                        const isB = tileBiome === pair.b;
+                        if (!isA && !isB) continue;
+                        
+                        const otherBiome = isA ? pair.b : pair.a;
+                        const hasNorth = north?.biome === otherBiome;
+                        const hasSouth = south?.biome === otherBiome;
+                        const hasEast = east?.biome === otherBiome;
+                        const hasWest = west?.biome === otherBiome;
+                        
+                        const adjCount = [hasNorth, hasSouth, hasEast, hasWest].filter(Boolean).length;
+                        if (adjCount === 0) continue;
+                        
+                        let scenarioKey = null;
+                        
+                        // Use inverted mapping (neighbor direction -> opposite tile)
+                        if (adjCount === 1) {
+                            if (hasNorth) scenarioKey = `${pair.prefix}_south`;
+                            else if (hasSouth) scenarioKey = `${pair.prefix}_north`;
+                            else if (hasEast) scenarioKey = `${pair.prefix}_west`;
+                            else if (hasWest) scenarioKey = `${pair.prefix}_east`;
+                        } else if (adjCount === 2) {
+                            if (hasNorth && hasEast) scenarioKey = `${pair.prefix}_corner_sw`;
+                            else if (hasNorth && hasWest) scenarioKey = `${pair.prefix}_corner_se`;
+                            else if (hasSouth && hasEast) scenarioKey = `${pair.prefix}_corner_nw`;
+                            else if (hasSouth && hasWest) scenarioKey = `${pair.prefix}_corner_ne`;
+                        }
+                        
+                        if (scenarioKey && integratedMappings[scenarioKey]) {
+                            const tileIdStr = integratedMappings[scenarioKey];
+                            const tileId = parseInt(tileIdStr.replace('0x', ''), 16);
+                            
+                            if (tileId && !isNaN(tileId) && tileId > 0) {
+                                tile.id = tileId;
+                                applied++;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Re-render
+            window.currentRenderer.render(map, currentCornerHeights, null, currentStatics);
+            console.log('[IntegratedTileTeacher] Applied', applied, 'transitions');
+        }
+        
+        // Initialize tile picker with rock tiles by default
+        setTimeout(() => {
+            loadTileRange('rock');
+            selectTileDirection('north');
+        }, 500);
     </script>
 </body>
 </html>

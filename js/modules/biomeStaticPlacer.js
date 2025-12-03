@@ -2,6 +2,13 @@
  * Biome-Based Static Placer
  * Procedurally places trees, rocks, plants, and creatures based on terrain type
  * Mimics how Ultima Online's world was designed
+ * 
+ * Enhanced Mode Features:
+ * - Slope filtering: Skip large statics on steep terrain
+ * - Height-based density: Sparser vegetation at high elevations
+ * - Horizontal flip: Random mirror for variety
+ * - Minimum spacing: Pseudo-Poisson distribution
+ * - Ground clutter: Small decorative items
  */
 
 import { 
@@ -15,6 +22,26 @@ import {
 export class BiomeStaticPlacer {
     constructor() {
         this.treePrefabs = {};
+        
+        // Enhanced mode settings
+        this.enhancedSettings = {
+            slopeThreshold: 4,        // Max Z-diff between corners before skipping large statics
+            highElevationThreshold: 0.7, // Elevation above which density is reduced
+            highElevationDensityMult: 0.4, // Density multiplier at high elevation
+            minSpacing: 2,            // Minimum tiles between statics (pseudo-Poisson)
+            clutterDensity: 0.02,     // 2% chance for ground clutter
+            flipChance: 0.5           // 50% chance to flip horizontally
+        };
+        
+        // Ground clutter items (small decorative objects)
+        this.groundClutter = [
+            { graphic: 0x1363, weight: 30, name: 'tiny rock', zOffset: 0 },
+            { graphic: 0x0C83, weight: 25, name: 'small flowers', zOffset: 0 },
+            { graphic: 0x0C84, weight: 25, name: 'wildflowers', zOffset: 0 },
+            { graphic: 0x0CB9, weight: 10, name: 'pebbles', zOffset: 0 },
+            { graphic: 0x0CBA, weight: 10, name: 'twigs', zOffset: 0 }
+        ];
+        
         // Define static pools for each biome
         // Graphics IDs are from real UO static art
         this.biomeProfiles = {
@@ -351,6 +378,98 @@ export class BiomeStaticPlacer {
     }
     
     /**
+     * Check if terrain is too steep for large statics (trees, boulders)
+     * Uses corner heights to detect slopes
+     */
+    isSteepTerrain(map, x, y, cornerHeights) {
+        if (!cornerHeights) return false;
+        
+        const height = map.length;
+        const width = map[0].length;
+        
+        // Get corner heights for this tile's 4 corners
+        const zTL = (cornerHeights[y] && cornerHeights[y][x]) || 0;
+        const zTR = (cornerHeights[y] && cornerHeights[y][x + 1]) || 0;
+        const zBL = (cornerHeights[y + 1] && cornerHeights[y + 1][x]) || 0;
+        const zBR = (cornerHeights[y + 1] && cornerHeights[y + 1][x + 1]) || 0;
+        
+        // Calculate max Z difference between corners
+        const corners = [zTL, zTR, zBL, zBR];
+        const maxZ = Math.max(...corners);
+        const minZ = Math.min(...corners);
+        const zDiff = maxZ - minZ;
+        
+        return zDiff > this.enhancedSettings.slopeThreshold;
+    }
+    
+    /**
+     * Check minimum spacing between statics (pseudo-Poisson)
+     */
+    hasNearbyStatic(placedPositions, x, y, minDist) {
+        for (const pos of placedPositions) {
+            const dx = pos.x - x;
+            const dy = pos.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < minDist) return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Place ground clutter (small decorative items)
+     */
+    placeGroundClutter(map, statics, seed, placedPositions) {
+        const height = map.length;
+        const width = map[0].length;
+        let clutterCount = 0;
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const tile = map[y][x];
+                if (!tile) continue;
+                
+                // Skip water
+                if (tile.isWater || (tile.biome || '').toLowerCase().includes('water')) continue;
+                
+                // Random chance for clutter
+                const clutterRoll = this.noise2D(x * 0.37 + seed, y * 0.41 + seed, seed + 7777);
+                if (clutterRoll > this.enhancedSettings.clutterDensity) continue;
+                
+                // Don't place too close to existing statics
+                if (this.hasNearbyStatic(placedPositions, x, y, 1)) continue;
+                
+                // Pick a clutter item
+                const clutterDef = this.pickStatic(this.groundClutter);
+                if (!clutterDef) continue;
+                
+                const flipH = Math.random() < this.enhancedSettings.flipChance;
+                
+                statics.push({
+                    x: x,
+                    y: y,
+                    z: (tile.z || 0) + (clutterDef.zOffset || 0),
+                    graphic: clutterDef.graphic,
+                    hexId: `0x${clutterDef.graphic.toString(16).toUpperCase().padStart(4, '0')}`,
+                    name: clutterDef.name,
+                    biome: tile.biome || 'grass',
+                    category: 'clutter',
+                    isClutter: true,
+                    flipH: flipH,
+                    worldX: x,
+                    worldY: y,
+                    relX: x,
+                    relY: y
+                });
+                
+                placedPositions.push({ x, y });
+                clutterCount++;
+            }
+        }
+        
+        return clutterCount;
+    }
+    
+    /**
      * Place statics on a generated map
      * @param {Array<Array>} map - 2D array of tiles with {tileId, name, z}
      * @param {Object} options - Placement options
@@ -362,17 +481,25 @@ export class BiomeStaticPlacer {
             densityMultiplier = 1.0,
             enableClustering = true,
             waterEdgeBonus = true,
-            landTileData = null
+            landTileData = null,
+            // Enhanced mode options
+            enhancedMode = false,
+            cornerHeights = null  // Required for slope filtering in enhanced mode
         } = options;
         
         const statics = [];
+        const placedPositions = []; // Track positions for min spacing
         const height = map.length;
         const width = map[0].length;
         
-        console.log(`[BiomeStaticPlacer] Placing statics on ${width}x${height} map...`);
+        const modeLabel = enhancedMode ? '✨ ENHANCED' : 'Standard';
+        console.log(`[BiomeStaticPlacer] ${modeLabel} mode - Placing statics on ${width}x${height} map...`);
         
         let biomeCounts = {};
         let placedCount = 0;
+        let skippedSlope = 0;
+        let skippedSpacing = 0;
+        let skippedElevation = 0;
         
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -415,6 +542,18 @@ export class BiomeStaticPlacer {
                 // Calculate placement chance
                 let placementChance = profile.density * densityMultiplier;
                 
+                // ENHANCED: Height-based density reduction
+                if (enhancedMode && tile.elevation !== undefined) {
+                    if (tile.elevation > this.enhancedSettings.highElevationThreshold) {
+                        const elevFactor = this.enhancedSettings.highElevationDensityMult;
+                        placementChance *= elevFactor;
+                        // Track for logging
+                        if (Math.random() > placementChance && Math.random() < profile.density * densityMultiplier) {
+                            skippedElevation++;
+                        }
+                    }
+                }
+                
                 // Apply clustering noise
                 if (enableClustering) {
                     const noise = this.smoothNoise(x * this.noiseScale, y * this.noiseScale, seed);
@@ -445,15 +584,36 @@ export class BiomeStaticPlacer {
                     }
                 }
                 
+                // ENHANCED: Slope filtering for large statics (trees, boulders)
+                const isLargeStatic = category === 'trees' || category === 'rocks';
+                if (enhancedMode && isLargeStatic && cornerHeights) {
+                    if (this.isSteepTerrain(map, x, y, cornerHeights)) {
+                        skippedSlope++;
+                        continue; // Skip large statics on steep terrain
+                    }
+                }
+                
+                // ENHANCED: Minimum spacing check (pseudo-Poisson)
+                if (enhancedMode && isLargeStatic) {
+                    if (this.hasNearbyStatic(placedPositions, x, y, this.enhancedSettings.minSpacing)) {
+                        skippedSpacing++;
+                        continue;
+                    }
+                }
+                
                 const staticDef = this.pickStatic(categoryStatics);
 
                 if (staticDef.prefab && this.instantiatePrefab(staticDef.prefab, tile, x, y, statics, biome, category, staticDef)) {
+                    placedPositions.push({ x, y });
                     placedCount++;
                     continue;
                 }
 
                 const finalGraphic = staticDef.graphic ?? staticDef.fallbackGraphic;
                 if (finalGraphic == null) continue;
+
+                // ENHANCED: Random horizontal flip for variety
+                const flipH = enhancedMode && Math.random() < this.enhancedSettings.flipChance;
 
                 // Create static object
                 statics.push({
@@ -465,6 +625,7 @@ export class BiomeStaticPlacer {
                     name: staticDef.name,
                     biome: biome,
                     category: category,
+                    flipH: flipH, // Flag for renderer to flip horizontally
                     // For rendering
                     worldX: x,
                     worldY: y,
@@ -472,13 +633,24 @@ export class BiomeStaticPlacer {
                     relY: y
                 });
                 
+                placedPositions.push({ x, y });
                 placedCount++;
             }
         }
         
-        console.log(`[BiomeStaticPlacer] Placed ${placedCount} statics`);
+        // ENHANCED: Add ground clutter layer
+        let clutterCount = 0;
+        if (enhancedMode) {
+            clutterCount = this.placeGroundClutter(map, statics, seed, placedPositions);
+        }
+        
+        console.log(`[BiomeStaticPlacer] Placed ${placedCount} statics` + (clutterCount > 0 ? ` + ${clutterCount} clutter` : ''));
         console.log(`[BiomeStaticPlacer] Biome distribution:`, biomeCounts);
         console.log(`[BiomeStaticPlacer] Unique graphics:`, new Set(statics.map(s => s.hexId)).size);
+        
+        if (enhancedMode) {
+            console.log(`[BiomeStaticPlacer] ✨ Enhanced skips: slope=${skippedSlope}, spacing=${skippedSpacing}, elevation=${skippedElevation}`);
+        }
         
         return statics;
     }

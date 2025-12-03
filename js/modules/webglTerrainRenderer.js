@@ -620,13 +620,13 @@ export class WebGLTerrainRenderer {
                         // Use the elevation of the land tiles only
                         const landTiles = tiles.filter(t => t.biome !== 'water');
                         const avgElev = landTiles.reduce((sum, t) => sum + (t.elevation || 0), 0) / landTiles.length;
-                        const elevAboveWater = Math.max(0, avgElev - 0.35) / 0.65;
+                        const elevAboveWater = Math.max(0, avgElev - 0.42) / 0.58;
                         // Minimum Z of 5 for visible cliff effect
                         corners[cy][cx] = Math.max(5, Math.floor(elevAboveWater * 25));
                     } else {
                         // All land - normal height calculation
                         const avgElev = tiles.reduce((sum, t) => sum + (t.elevation || 0), 0) / tiles.length;
-                        const elevAboveWater = Math.max(0, avgElev - 0.35) / 0.65;
+                        const elevAboveWater = Math.max(0, avgElev - 0.42) / 0.58;
                         corners[cy][cx] = Math.floor(elevAboveWater * 25);
                     }
                 }

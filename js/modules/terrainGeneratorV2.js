@@ -28,6 +28,13 @@ import {
     calculateTransitionBitmask, 
     getTransitionTile 
 } from '../data/transitionTiles.js';
+import {
+    getWaterTileMappings,
+    getWaterTileForScenario,
+    determineWaterScenario,
+    shouldBeShallowEdge,
+    WATER_EDGE_CONFIG
+} from '../data/waterTileMappings.js?v=20251203_normalDir';
 // Note: If you're not seeing updated tile mappings, try hard refresh (Ctrl+Shift+R)
 import { 
     apply8BitTransitions,
@@ -127,11 +134,21 @@ export class TerrainGeneratorV2 {
         this.seed = seed;
         this.noise = new SimplexNoise(seed);
         this.tileSetNoise = new SimplexNoise(seed + 1000); // For tile set variation
+        this.waterNoise = new SimplexNoise(seed + 2000); // For water body shapes
+        this.coastNoise = new SimplexNoise(seed + 3000); // For coastline jaggedness
         // ALL transition mappings from Tile Teacher (grass_sand, grass_dirt, jungle_sand, etc.)
         this.allTransitionMappings = allTransitionMappings;
 
         // Store generator options (allows overrides from UI/tests)
         this.options = options || {};
+
+        // Water threshold - controls how much water is generated
+        // Default 0.35 = smaller water bodies (original)
+        // Enhanced mode uses 0.42 = larger lakes/rivers
+        this.waterThreshold = this.options.waterThreshold ?? 0.35;
+        
+        // Enhanced water generation options
+        this.useEnhancedWater = this.options.useEnhancedWater ?? false;
 
         // Procedural regioning is effectively enabled when we have explicit transition mappings
         // or when the caller opts in via options.
@@ -151,20 +168,837 @@ export class TerrainGeneratorV2 {
             : fallbackChance;
     }
     
+    // =========================================================================
+    // ENHANCED WATER GENERATION SYSTEM
+    // Creates intentional water bodies (ponds, lakes, coastlines, rivers)
+    // with weighted random percentage caps
+    // =========================================================================
+    
+    /**
+     * Generate water budget using weighted random selection
+     * Returns { percentage, tileCount, distribution }
+     * 
+     * Weights:
+     * - 50% chance: 10% water coverage (most common)
+     * - 30% chance: 20% water coverage
+     * - 15% chance: 30% water coverage
+     * - 5% chance: 40% water coverage (max, rare)
+     */
+    generateWaterBudget(totalTiles) {
+        // Use seed-based random for consistency
+        const roll = ((this.seed * 17) % 100) / 100;
+        
+        let percentage;
+        if (roll < 0.50) {
+            percentage = 0.10; // 10% - most common
+        } else if (roll < 0.80) {
+            percentage = 0.20; // 20% - more often
+        } else if (roll < 0.95) {
+            percentage = 0.30; // 30% - rarely
+        } else {
+            percentage = 0.40; // 40% - very rare (max)
+        }
+        
+        const tileCount = Math.floor(totalTiles * percentage);
+        
+        console.log(`[WaterBudget] Roll: ${(roll * 100).toFixed(1)}% -> ${(percentage * 100)}% water = ${tileCount} tiles max`);
+        
+        return {
+            percentage,
+            tileCount,
+            remaining: tileCount,
+            distribution: roll < 0.50 ? 'minimal' : roll < 0.80 ? 'moderate' : roll < 0.95 ? 'substantial' : 'large'
+        };
+    }
+    
+    /**
+     * Generate ocean coastline on one edge of the map
+     * Uses noise for organic jagged edges
+     * 
+     * @param {Array} map - The terrain map
+     * @param {number} width - Map width
+     * @param {number} height - Map height
+     * @param {Object} budget - Water budget tracker
+     * @returns {number} Number of water tiles created
+     */
+    generateOceanCoastline(map, width, height, budget) {
+        if (budget.remaining <= 0) return 0;
+        
+        // Pick a random edge based on seed
+        const edgeRoll = ((this.seed * 23) % 4);
+        const edges = ['west', 'south', 'east', 'north'];
+        const edge = edges[edgeRoll];
+        
+        // Base depth of coastline (how far it extends into map)
+        // Scale based on budget - larger budget = deeper coastline
+        const maxDepth = Math.min(Math.floor(width * 0.25), Math.floor(budget.remaining / height));
+        if (maxDepth < 3) return 0; // Not enough budget for meaningful coastline
+        
+        const baseDepth = Math.floor(maxDepth * 0.6);
+        let tilesCreated = 0;
+        
+        console.log(`[Ocean] Generating ${edge} coastline, base depth: ${baseDepth}, max: ${maxDepth}`);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (budget.remaining <= 0) break;
+                
+                let isOcean = false;
+                let noiseVal = 0;
+                
+                switch (edge) {
+                    case 'west':
+                        noiseVal = this.coastNoise.noise2D(0, y * 0.08) * (maxDepth - baseDepth);
+                        isOcean = x < baseDepth + noiseVal;
+                        break;
+                    case 'east':
+                        noiseVal = this.coastNoise.noise2D(0, y * 0.08) * (maxDepth - baseDepth);
+                        isOcean = x >= width - baseDepth - noiseVal;
+                        break;
+                    case 'south':
+                        noiseVal = this.coastNoise.noise2D(x * 0.08, 0) * (maxDepth - baseDepth);
+                        isOcean = y >= height - baseDepth - noiseVal;
+                        break;
+                    case 'north':
+                        noiseVal = this.coastNoise.noise2D(x * 0.08, 0) * (maxDepth - baseDepth);
+                        isOcean = y < baseDepth + noiseVal;
+                        break;
+                }
+                
+                if (isOcean && map[y][x].biome !== 'water') {
+                    map[y][x].biome = 'water';
+                    map[y][x].waterType = 'ocean';
+                    map[y][x].elevation = 0.15;
+                    tilesCreated++;
+                    budget.remaining--;
+                }
+            }
+            if (budget.remaining <= 0) break;
+        }
+        
+        console.log(`[Ocean] Created ${tilesCreated} ocean tiles on ${edge} edge`);
+        return tilesCreated;
+    }
+    
+    /**
+     * Generate lakes - larger organic water bodies with SMOOTH edges
+     * 
+     * @param {Array} map - The terrain map
+     * @param {number} width - Map width
+     * @param {number} height - Map height
+     * @param {Object} budget - Water budget tracker
+     * @param {number} count - Number of lakes to attempt
+     * @returns {number} Number of water tiles created
+     */
+    generateLakes(map, width, height, budget, count = 2) {
+        if (budget.remaining <= 0) return 0;
+        
+        let totalCreated = 0;
+        
+        for (let i = 0; i < count; i++) {
+            if (budget.remaining < 20) break; // Need at least 20 tiles for a lake
+            
+            // Pick lake center - avoid edges
+            const margin = 8;
+            const cx = margin + ((this.seed * (13 + i * 7)) % (width - margin * 2));
+            const cy = margin + ((this.seed * (17 + i * 11)) % (height - margin * 2));
+            
+            // Lake radius: 6-12 tiles
+            const baseRadius = 6 + ((this.seed * (19 + i * 5)) % 7);
+            const maxRadius = Math.min(baseRadius, Math.sqrt(budget.remaining / Math.PI));
+            
+            if (maxRadius < 4) continue;
+            
+            let lakeTiles = 0;
+            const lakePositions = [];
+            
+            // First pass: Carve lake with SMOOTH circular shape
+            // Use very low noise influence for cleaner edges
+            for (let dy = -maxRadius - 1; dy <= maxRadius + 1; dy++) {
+                for (let dx = -maxRadius - 1; dx <= maxRadius + 1; dx++) {
+                    const tx = Math.floor(cx + dx);
+                    const ty = Math.floor(cy + dy);
+                    
+                    if (tx < 1 || tx >= width - 1 || ty < 1 || ty >= height - 1) continue;
+                    if (budget.remaining <= 0) break;
+                    if (map[ty][tx].biome === 'water') continue;
+                    
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // SMOOTH: Very subtle noise for slight organic variation (reduced from 2.5 to 0.8)
+                    const edgeNoise = this.waterNoise.noise2D(tx * 0.15 + i * 100, ty * 0.15) * 0.8;
+                    
+                    // Use smooth falloff at edges
+                    const effectiveRadius = maxRadius + edgeNoise;
+                    
+                    if (dist < effectiveRadius) {
+                        lakePositions.push({ tx, ty, dist });
+                    }
+                }
+                if (budget.remaining <= 0) break;
+            }
+            
+            // Second pass: Apply lake tiles with budget check
+            for (const pos of lakePositions) {
+                if (budget.remaining <= 0) break;
+                if (map[pos.ty][pos.tx].biome === 'water') continue;
+                
+                map[pos.ty][pos.tx].biome = 'water';
+                map[pos.ty][pos.tx].waterType = 'lake';
+                map[pos.ty][pos.tx].elevation = 0.1 + (pos.dist / maxRadius) * 0.15;
+                lakeTiles++;
+                budget.remaining--;
+            }
+            
+            // Third pass: Smooth lake edges - fill in single-tile gaps
+            if (lakeTiles > 0) {
+                lakeTiles += this.smoothWaterEdges(map, width, height, budget, cx, cy, maxRadius + 2);
+            }
+            
+            console.log(`[Lake ${i + 1}] Created at (${Math.floor(cx)}, ${Math.floor(cy)}) with ${lakeTiles} tiles, radius ~${Math.floor(maxRadius)}`);
+            totalCreated += lakeTiles;
+        }
+        
+        return totalCreated;
+    }
+    
+    /**
+     * Smooth water body edges - fill gaps and remove single-tile protrusions
+     * Creates cleaner, more natural-looking coastlines
+     */
+    smoothWaterEdges(map, width, height, budget, centerX, centerY, radius) {
+        let added = 0;
+        const checkRadius = Math.ceil(radius);
+        
+        // Fill in tiles that are surrounded by water on 3+ sides
+        for (let dy = -checkRadius; dy <= checkRadius; dy++) {
+            for (let dx = -checkRadius; dx <= checkRadius; dx++) {
+                const tx = Math.floor(centerX + dx);
+                const ty = Math.floor(centerY + dy);
+                
+                if (tx < 1 || tx >= width - 1 || ty < 1 || ty >= height - 1) continue;
+                if (map[ty][tx].biome === 'water') continue;
+                if (budget.remaining <= 0) break;
+                
+                // Count water neighbors (cardinal directions)
+                let waterNeighbors = 0;
+                if (map[ty - 1][tx].biome === 'water') waterNeighbors++;
+                if (map[ty + 1][tx].biome === 'water') waterNeighbors++;
+                if (map[ty][tx - 1].biome === 'water') waterNeighbors++;
+                if (map[ty][tx + 1].biome === 'water') waterNeighbors++;
+                
+                // If surrounded by 3+ water tiles, fill it in (removes "staircase" edges)
+                if (waterNeighbors >= 3) {
+                    map[ty][tx].biome = 'water';
+                    map[ty][tx].waterType = 'lake';
+                    map[ty][tx].elevation = 0.15;
+                    added++;
+                    budget.remaining--;
+                }
+            }
+        }
+        
+        return added;
+    }
+    
+    /**
+     * Fill holes inside water bodies - finds enclosed land and converts to water
+     * This ensures water bodies are solid without internal gaps
+     * 
+     * Algorithm: Any land tile that cannot reach the map edge without crossing water
+     * is considered "enclosed" and should be filled with water.
+     */
+    fillWaterHoles(map, width, height) {
+        let filled = 0;
+        
+        // Step 1: Mark all land tiles that CAN reach the edge (not enclosed)
+        const canReachEdge = [];
+        for (let y = 0; y < height; y++) {
+            canReachEdge[y] = [];
+            for (let x = 0; x < width; x++) {
+                canReachEdge[y][x] = false;
+            }
+        }
+        
+        // Flood fill from all edge land tiles
+        const queue = [];
+        
+        // Add all edge tiles that are land
+        for (let x = 0; x < width; x++) {
+            if (map[0][x].biome !== 'water') queue.push({ x, y: 0 });
+            if (map[height - 1][x].biome !== 'water') queue.push({ x, y: height - 1 });
+        }
+        for (let y = 0; y < height; y++) {
+            if (map[y][0].biome !== 'water') queue.push({ x: 0, y });
+            if (map[y][width - 1].biome !== 'water') queue.push({ x: width - 1, y });
+        }
+        
+        // Flood fill to find all land connected to edges
+        while (queue.length > 0) {
+            const { x, y } = queue.shift();
+            
+            if (x < 0 || x >= width || y < 0 || y >= height) continue;
+            if (canReachEdge[y][x]) continue;
+            if (map[y][x].biome === 'water') continue;
+            
+            canReachEdge[y][x] = true;
+            
+            // Add neighbors (cardinal directions)
+            queue.push({ x: x + 1, y });
+            queue.push({ x: x - 1, y });
+            queue.push({ x, y: y + 1 });
+            queue.push({ x, y: y - 1 });
+        }
+        
+        // Step 2: Any land tile that cannot reach edge is enclosed - fill with water
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                if (map[y][x].biome !== 'water' && !canReachEdge[y][x]) {
+                    // This land is enclosed by water - fill it
+                    map[y][x].biome = 'water';
+                    map[y][x].waterType = 'lake';
+                    map[y][x].elevation = 0.15;
+                    filled++;
+                }
+            }
+        }
+        
+        console.log(`[FillHoles] Filled ${filled} enclosed land tiles with water`);
+        return filled;
+    }
+    
+    /**
+     * Additional pass to fill small gaps - tiles surrounded by water on ALL 4 cardinal sides
+     * or tiles surrounded on 3+ sides that are also diagonally surrounded
+     */
+    fillSmallGaps(map, width, height) {
+        let filled = 0;
+        let passes = 0;
+        const maxPasses = 5; // Limit iterations
+        
+        do {
+            filled = 0;
+            passes++;
+            
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    if (map[y][x].biome === 'water') continue;
+                    
+                    // Count water neighbors (cardinal)
+                    let cardinalWater = 0;
+                    if (map[y - 1][x].biome === 'water') cardinalWater++;
+                    if (map[y + 1][x].biome === 'water') cardinalWater++;
+                    if (map[y][x - 1].biome === 'water') cardinalWater++;
+                    if (map[y][x + 1].biome === 'water') cardinalWater++;
+                    
+                    // Count water neighbors (diagonal)
+                    let diagonalWater = 0;
+                    if (map[y - 1][x - 1].biome === 'water') diagonalWater++;
+                    if (map[y - 1][x + 1].biome === 'water') diagonalWater++;
+                    if (map[y + 1][x - 1].biome === 'water') diagonalWater++;
+                    if (map[y + 1][x + 1].biome === 'water') diagonalWater++;
+                    
+                    // Fill if surrounded on all 4 cardinal sides
+                    // OR surrounded on 3 cardinal + 2+ diagonal (almost enclosed)
+                    if (cardinalWater === 4 || (cardinalWater >= 3 && diagonalWater >= 2)) {
+                        map[y][x].biome = 'water';
+                        map[y][x].waterType = 'lake';
+                        map[y][x].elevation = 0.15;
+                        filled++;
+                    }
+                }
+            }
+        } while (filled > 0 && passes < maxPasses);
+        
+        console.log(`[FillGaps] Filled gaps in ${passes} passes`);
+        return filled;
+    }
+    
+    /**
+     * Generate ponds - small SMOOTH circular water bodies
+     * 
+     * @param {Array} map - The terrain map
+     * @param {number} width - Map width
+     * @param {number} height - Map height
+     * @param {Object} budget - Water budget tracker
+     * @param {number} count - Number of ponds to attempt
+     * @returns {number} Number of water tiles created
+     */
+    generatePonds(map, width, height, budget, count = 5) {
+        if (budget.remaining <= 0) return 0;
+        
+        let totalCreated = 0;
+        
+        for (let i = 0; i < count; i++) {
+            if (budget.remaining < 5) break; // Need at least 5 tiles for a pond
+            
+            // Pick pond center - can be anywhere but avoid very edges
+            const margin = 3;
+            const cx = margin + ((this.seed * (29 + i * 13)) % (width - margin * 2));
+            const cy = margin + ((this.seed * (31 + i * 17)) % (height - margin * 2));
+            
+            // Check if center is already water (skip if so)
+            if (map[Math.floor(cy)][Math.floor(cx)].biome === 'water') continue;
+            
+            // Pond radius: 2-5 tiles
+            const baseRadius = 2 + ((this.seed * (37 + i * 3)) % 4);
+            const maxRadius = Math.min(baseRadius, Math.sqrt(budget.remaining / Math.PI));
+            
+            if (maxRadius < 2) continue;
+            
+            let pondTiles = 0;
+            const pondPositions = [];
+            
+            // First pass: Create SMOOTH circular pond with minimal noise
+            for (let dy = -maxRadius; dy <= maxRadius; dy++) {
+                for (let dx = -maxRadius; dx <= maxRadius; dx++) {
+                    const tx = Math.floor(cx + dx);
+                    const ty = Math.floor(cy + dy);
+                    
+                    if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
+                    if (map[ty][tx].biome === 'water') continue;
+                    
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // SMOOTH: Almost no noise for clean circular ponds (reduced from 0.8 to 0.3)
+                    const edgeNoise = this.waterNoise.noise2D(tx * 0.3 + i * 50, ty * 0.3) * 0.3;
+                    
+                    if (dist < maxRadius + edgeNoise) {
+                        pondPositions.push({ tx, ty });
+                    }
+                }
+            }
+            
+            // Second pass: Apply pond tiles with budget check
+            for (const pos of pondPositions) {
+                if (budget.remaining <= 0) break;
+                if (map[pos.ty][pos.tx].biome === 'water') continue;
+                
+                map[pos.ty][pos.tx].biome = 'water';
+                map[pos.ty][pos.tx].waterType = 'pond';
+                map[pos.ty][pos.tx].elevation = 0.2;
+                pondTiles++;
+                budget.remaining--;
+            }
+            
+            if (pondTiles > 0) {
+                console.log(`[Pond ${i + 1}] Created at (${Math.floor(cx)}, ${Math.floor(cy)}) with ${pondTiles} tiles`);
+                totalCreated += pondTiles;
+            }
+        }
+        
+        return totalCreated;
+    }
+    
+    /**
+     * Generate rivers - thin water paths flowing toward water bodies
+     * 
+     * @param {Array} map - The terrain map
+     * @param {number} width - Map width
+     * @param {number} height - Map height
+     * @param {Object} budget - Water budget tracker
+     * @param {number} count - Number of rivers to attempt
+     * @returns {number} Number of water tiles created
+     */
+    generateRivers(map, width, height, budget, count = 1) {
+        if (budget.remaining < 10) return 0;
+        
+        let totalCreated = 0;
+        
+        for (let i = 0; i < count; i++) {
+            if (budget.remaining < 8) break;
+            
+            // Find a starting point at higher elevation (not water, not at edge)
+            let startX, startY;
+            let attempts = 0;
+            
+            do {
+                startX = 5 + ((this.seed * (41 + i * 19)) % (width - 10));
+                startY = 5 + ((this.seed * (43 + i * 23)) % (height - 10));
+                attempts++;
+            } while (attempts < 20 && (
+                map[startY][startX].biome === 'water' ||
+                map[startY][startX].elevation < 0.5
+            ));
+            
+            if (attempts >= 20) continue;
+            
+            // Flow downhill toward water or edge
+            let x = startX;
+            let y = startY;
+            let riverTiles = 0;
+            const riverPath = [];
+            const maxSteps = 50;
+            
+            for (let step = 0; step < maxSteps; step++) {
+                if (budget.remaining <= 0) break;
+                if (x < 1 || x >= width - 1 || y < 1 || y >= height - 1) break;
+                
+                // Check if we hit existing water
+                if (map[y][x].biome === 'water' && map[y][x].waterType !== 'river') {
+                    console.log(`[River ${i + 1}] Connected to ${map[y][x].waterType || 'water'} at (${x}, ${y})`);
+                    break;
+                }
+                
+                // Make this tile water
+                if (map[y][x].biome !== 'water') {
+                    map[y][x].biome = 'water';
+                    map[y][x].waterType = 'river';
+                    map[y][x].elevation = 0.25;
+                    riverPath.push({ x, y });
+                    riverTiles++;
+                    budget.remaining--;
+                }
+                
+                // Find lowest neighbor (prefer cardinal directions)
+                let lowestElev = map[y][x].elevation;
+                let nextX = x;
+                let nextY = y;
+                
+                const directions = [
+                    [0, -1], [0, 1], [-1, 0], [1, 0],  // Cardinal
+                    [-1, -1], [1, -1], [-1, 1], [1, 1]  // Diagonal
+                ];
+                
+                // Add some randomness to direction choice
+                const dirNoise = this.waterNoise.noise2D(x * 0.5 + i * 30, y * 0.5);
+                
+                for (const [dx, dy] of directions) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    
+                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+                    
+                    const neighborElev = map[ny][nx].elevation + dirNoise * 0.1;
+                    
+                    // Prefer lower elevation or existing water
+                    if (map[ny][nx].biome === 'water' || neighborElev < lowestElev) {
+                        lowestElev = neighborElev;
+                        nextX = nx;
+                        nextY = ny;
+                    }
+                }
+                
+                // If stuck (no lower point), try to continue in general downhill direction
+                if (nextX === x && nextY === y) {
+                    // Pick a random direction biased toward map edges
+                    const edgeBias = [
+                        x < width / 2 ? -1 : 1,
+                        y < height / 2 ? -1 : 1
+                    ];
+                    nextX = x + edgeBias[0];
+                    nextY = y + edgeBias[1];
+                    
+                    if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) break;
+                }
+                
+                x = nextX;
+                y = nextY;
+            }
+            
+            // Widen river slightly at some points (1-2 tiles wide)
+            if (riverPath.length > 5 && budget.remaining > 0) {
+                for (let j = 0; j < riverPath.length; j += 3) {
+                    const pos = riverPath[j];
+                    const widthNoise = this.waterNoise.noise2D(pos.x * 0.3, pos.y * 0.3);
+                    
+                    if (widthNoise > 0.2 && budget.remaining > 0) {
+                        // Add adjacent tile
+                        const adjDir = widthNoise > 0.5 ? [[1, 0], [0, 1]] : [[-1, 0], [0, -1]];
+                        for (const [dx, dy] of adjDir) {
+                            const ax = pos.x + dx;
+                            const ay = pos.y + dy;
+                            if (ax >= 0 && ax < width && ay >= 0 && ay < height) {
+                                if (map[ay][ax].biome !== 'water' && budget.remaining > 0) {
+                                    map[ay][ax].biome = 'water';
+                                    map[ay][ax].waterType = 'river';
+                                    map[ay][ax].elevation = 0.25;
+                                    riverTiles++;
+                                    budget.remaining--;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            console.log(`[River ${i + 1}] Created from (${startX}, ${startY}) with ${riverTiles} tiles`);
+            totalCreated += riverTiles;
+        }
+        
+        return totalCreated;
+    }
+    
+    /**
+     * Apply sand beaches around water bodies
+     * Creates natural beach transitions
+     */
+    applyBeachTransitions(map, width, height) {
+        const beachTiles = [];
+        
+        // Find all land tiles adjacent to water
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const tile = map[y][x];
+                if (tile.biome === 'water') continue;
+                
+                // Check if adjacent to water
+                const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                let adjacentToWater = false;
+                
+                for (const [dx, dy] of dirs) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        if (map[ny][nx].biome === 'water') {
+                            adjacentToWater = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (adjacentToWater) {
+                    // Chance to become sand beach (higher for ocean/lake, lower for river/pond)
+                    const waterType = this.getAdjacentWaterType(map, x, y, width, height);
+                    let beachChance = 0.6;
+                    
+                    if (waterType === 'river') beachChance = 0.2;
+                    else if (waterType === 'pond') beachChance = 0.4;
+                    else if (waterType === 'ocean') beachChance = 0.75;
+                    
+                    // Use position-based randomness
+                    const roll = ((x * 13 + y * 7) % 100) / 100;
+                    
+                    if (roll < beachChance && tile.biome !== 'rock' && tile.biome !== 'dirt') {
+                        beachTiles.push({ x, y });
+                    }
+                }
+            }
+        }
+        
+        // Apply beach tiles
+        for (const { x, y } of beachTiles) {
+            map[y][x].biome = 'sand';
+            map[y][x].elevation = Math.max(map[y][x].elevation, 0.35);
+        }
+        
+        console.log(`[Beach] Created ${beachTiles.length} beach/sand tiles around water`);
+        return beachTiles.length;
+    }
+    
+    /**
+     * Get the type of water adjacent to a tile
+     */
+    getAdjacentWaterType(map, x, y, width, height) {
+        const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+        
+        for (const [dx, dy] of dirs) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                if (map[ny][nx].biome === 'water') {
+                    return map[ny][nx].waterType || 'water';
+                }
+            }
+        }
+        return 'water';
+    }
+    
+    /**
+     * Generate a map with intentional water bodies using the enhanced water system
+     * 
+     * This method:
+     * 1. Generates base terrain WITHOUT water
+     * 2. Calculates water budget (weighted random 10-40%)
+     * 3. Generates water bodies: Ocean (30% chance) -> Lakes -> Ponds -> Rivers
+     * 4. Applies beach transitions
+     * 5. Assigns tiles and applies normal terrain processing
+     * 
+     * @param {number} width - Map width
+     * @param {number} height - Map height
+     * @returns {Object} { map, waterStats }
+     */
+    generateMapWithWaterBodies(width, height) {
+        console.log(`[EnhancedWater] Generating ${width}x${height} map with intentional water bodies`);
+        
+        const map = [];
+        const totalTiles = width * height;
+        
+        // Step 1: Generate base terrain WITHOUT water
+        for (let y = 0; y < height; y++) {
+            map[y] = [];
+            for (let x = 0; x < width; x++) {
+                const scale1 = 0.02;
+                const scale2 = 0.05;
+                const scale3 = 0.1;
+                
+                const e1 = this.noise.noise2D(x * scale1, y * scale1);
+                const e2 = this.noise.noise2D(x * scale2 + 100, y * scale2 + 100) * 0.5;
+                const e3 = this.noise.noise2D(x * scale3 + 200, y * scale3 + 200) * 0.25;
+                
+                // Normalize to 0.3-1.0 range (no water from elevation)
+                const elevation = 0.3 + ((e1 + e2 + e3 + 1.75) / 3.5) * 0.7;
+                
+                const m1 = this.noise.noise2D(x * scale1 + 500, y * scale1 + 500);
+                const m2 = this.noise.noise2D(x * scale2 + 600, y * scale2 + 600) * 0.5;
+                const moisture = (m1 + m2 + 1.5) / 3;
+                
+                // Get biome WITHOUT water check
+                const biome = this.getBiomeLand(elevation, moisture, x, y);
+                
+                map[y][x] = {
+                    id: null,
+                    biome: biome,
+                    elevation: elevation,
+                    moisture: moisture,
+                    z: 0,
+                    surfaceClass: determineSurfaceClass({ biome })
+                };
+            }
+        }
+        
+        // Step 2: Calculate water budget
+        const budget = this.generateWaterBudget(totalTiles);
+        
+        // Step 3: Generate water bodies in order
+        const waterStats = {
+            budget: budget.tileCount,
+            budgetPercentage: budget.percentage,
+            distribution: budget.distribution,
+            ocean: 0,
+            lakes: 0,
+            ponds: 0,
+            rivers: 0,
+            beaches: 0,
+            total: 0
+        };
+        
+        // Ocean coastline (30% chance, uses large portion of budget)
+        const hasOcean = ((this.seed * 29) % 100) < 30;
+        if (hasOcean && budget.remaining > totalTiles * 0.05) {
+            waterStats.ocean = this.generateOceanCoastline(map, width, height, budget);
+        }
+        
+        // Lakes (1-3 depending on budget)
+        const lakeCount = budget.distribution === 'minimal' ? 1 : 
+                          budget.distribution === 'moderate' ? 2 : 
+                          budget.distribution === 'substantial' ? 2 : 3;
+        if (budget.remaining > 20) {
+            waterStats.lakes = this.generateLakes(map, width, height, budget, lakeCount);
+        }
+        
+        // Ponds (3-8 depending on budget)
+        const pondCount = budget.distribution === 'minimal' ? 3 : 
+                          budget.distribution === 'moderate' ? 5 : 
+                          budget.distribution === 'substantial' ? 6 : 8;
+        if (budget.remaining > 5) {
+            waterStats.ponds = this.generatePonds(map, width, height, budget, pondCount);
+        }
+        
+        // Rivers (1-2 to connect features)
+        const riverCount = budget.remaining > 30 ? 2 : budget.remaining > 15 ? 1 : 0;
+        if (riverCount > 0) {
+            waterStats.rivers = this.generateRivers(map, width, height, budget, riverCount);
+        }
+        
+        // Step 4a: Fill holes inside water bodies (enclosed land -> water)
+        const holesFilled = this.fillWaterHoles(map, width, height);
+        
+        // Step 4b: Fill small gaps (tiles mostly surrounded by water)
+        const gapsFilled = this.fillSmallGaps(map, width, height);
+        
+        waterStats.holesFilled = holesFilled + gapsFilled;
+        
+        // Step 4c: Apply beach transitions
+        waterStats.beaches = this.applyBeachTransitions(map, width, height);
+        
+        // Calculate total water
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (map[y][x].biome === 'water') {
+                    waterStats.total++;
+                }
+            }
+        }
+        
+        console.log(`[EnhancedWater] Water stats: ${JSON.stringify(waterStats)}`);
+        console.log(`[EnhancedWater] Actual water: ${waterStats.total}/${totalTiles} = ${((waterStats.total / totalTiles) * 100).toFixed(1)}%`);
+        
+        // Step 5: Assign tiles with context
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const tile = map[y][x];
+                const biome = tile.biome;
+                
+                const context = this.getTerrainContext(map, x, y, width, height);
+                const setIndex = this.getTileSetIndex(biome, x, y);
+                
+                tile.id = this.getTileFromSetAtPosition(biome, x, y, setIndex, context);
+                tile.setIndex = setIndex;
+                const numericTileId = normalizeTileId(tile.id);
+                tile.surfaceClass = determineSurfaceClass({ tileId: numericTileId, biome });
+            }
+        }
+        
+        // Step 6: Calculate Z-heights
+        this.calculateZHeights(map, width, height);
+        
+        // Step 7: Apply transitions using MAP-BASED corners (not noise-based)
+        // This is important because water was placed intentionally, not from elevation noise
+        this.applyTransitionsFromMap(map, width, height);
+        
+        return { map, waterStats };
+    }
+    
+    /**
+     * Get biome for LAND only (no water check)
+     * Used by enhanced water generation to create base terrain
+     */
+    getBiomeLand(elevation, moisture, x = 0, y = 0) {
+        // RARE desert patches - only in VERY dry, low areas
+        if (elevation < 0.50 && moisture < 0.20) {
+            const desertChance = ((x * 17 + y * 23) % 100) / 100;
+            if (desertChance < 0.12) return 'sand';
+        }
+        
+        // Low elevation
+        if (elevation < 0.55) {
+            if (moisture > 0.6) return 'jungle';
+            if (moisture > 0.4) return 'forest';
+            return 'grass';
+        }
+        
+        // Medium elevation
+        if (elevation < 0.70) {
+            if (moisture > 0.5) return 'forest';
+            if (moisture < 0.3) return 'dirt';
+            return 'grass';
+        }
+        
+        // High elevation
+        if (elevation < 0.85) {
+            return 'rock';
+        }
+        
+        // Very high = rock
+        return 'rock';
+    }
+    
     /**
      * Get biome based on elevation and moisture
      * 
      * Sand Logic: Sand appears PRIMARILY near water (beaches).
-     * - Primary: Narrow band just above water level (elevation 0.35-0.39)
+     * - Primary: Narrow band just above water level (elevation 0.42-0.48)
      * - Secondary: RARE desert patches in very dry, low areas (10% chance)
      */
     getBiome(elevation, moisture, x = 0, y = 0) {
-        // Water
-        if (elevation < 0.35) return 'water';
+        // Water threshold is configurable (default 0.35, Enhanced mode uses 0.42)
+        if (elevation < this.waterThreshold) return 'water';
         
         // Beach/Sand zone - MORE LIKELY near water but not guaranteed
         // This creates varied coastlines: beaches, cliffs, rocky shores, jungle coasts
-        const coastZone = elevation < 0.42; // Near water
+        const coastZone = elevation < (this.waterThreshold + 0.08); // Near water
         if (coastZone) {
             // Use position-based pseudo-random to decide if this coast tile is sandy
             // ~60% chance of sand near water (was 100% before)
@@ -396,9 +1230,9 @@ export class TerrainGeneratorV2 {
                 if (tile.biome === 'water') {
                     tile.z = 0; // Water at sea level
                 } else {
-                    // Scale elevation above water (0.35-1.0) to Z (0-15)
+                    // Scale elevation above water (0.42-1.0) to Z (0-15)
                     // Using smaller range (0-15) for gentler slopes
-                    const elevAboveWater = Math.max(0, tile.elevation - 0.35) / 0.65;
+                    const elevAboveWater = Math.max(0, tile.elevation - 0.42) / 0.58;
                     tile.z = Math.floor(elevAboveWater * 15);
                 }
             }
@@ -414,9 +1248,21 @@ export class TerrainGeneratorV2 {
                 const isAdjacentToWater = this.isAdjacentToWater(map, x, y, width, height);
                 tile.isWaterEdge = isAdjacentToWater;
                 
-                // Tiles adjacent to water should have minimum Z height for cliff effect
+                // Tiles adjacent to water - randomly decide shallow vs cliff
                 if (isAdjacentToWater) {
-                    tile.z = Math.max(tile.z, 3); // Minimum Z=3 for visible cliff
+                    // Use position-based randomness for consistency
+                    const randomSeed = ((x * 13 + y * 29) % 1000) / 1000;
+                    const isShallow = randomSeed < WATER_EDGE_CONFIG.shallowChance;
+                    
+                    tile.isShallowWaterEdge = isShallow;
+                    
+                    if (isShallow) {
+                        // Shallow edge - minimal Z difference (smooth transition)
+                        tile.z = Math.max(tile.z, WATER_EDGE_CONFIG.shallowZHeight);
+                    } else {
+                        // Cliff edge - higher Z for dramatic cliff effect
+                        tile.z = Math.max(tile.z, WATER_EDGE_CONFIG.cliffZHeight);
+                    }
                 }
             }
         }
@@ -516,6 +1362,9 @@ export class TerrainGeneratorV2 {
         // Apply water edge tiles (embankment/cliff tiles) - UO Style
         this.applyWaterEdgeTiles(map, width, height);
         
+        // Apply terrain edge tiles (rock-grass, sand-grass, etc.) from Tile Teacher
+        this.applyTerrainEdgeTiles(map, width, height);
+        
         // Debug: Log some transition info
         let transitionCount = 0;
         let waterEdgeCount = 0;
@@ -534,6 +1383,45 @@ export class TerrainGeneratorV2 {
     }
     
     /**
+     * Apply transitions using MAP-BASED corner detection
+     * 
+     * Used when water bodies are placed intentionally (not from elevation noise).
+     * Detects biome corners directly from the map tiles instead of noise.
+     * This ensures water-to-land transitions work properly for lakes/ponds/rivers.
+     */
+    applyTransitionsFromMap(map, width, height) {
+        // Pass null for corners - apply8BitTransitions will generate from map
+        // This uses the enhanced generateCornerBiomesFromMap which detects water
+        apply8BitTransitions(map, width, height, null, this.allTransitionMappings);
+        
+        // Apply water edge tiles (embankment/cliff tiles) - UO Style  
+        this.applyWaterEdgeTiles(map, width, height);
+        
+        // Apply terrain edge tiles (rock-grass, sand-grass, etc.) from Tile Teacher
+        this.applyTerrainEdgeTiles(map, width, height);
+        
+        // Debug: Log transition info
+        let transitionCount = 0;
+        let waterEdgeCount = 0;
+        let waterTransitions = 0;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (map[y][x].isTransition) {
+                    transitionCount++;
+                    if (map[y][x].transitionType && map[y][x].transitionType.includes('water')) {
+                        waterTransitions++;
+                    }
+                }
+                if (map[y][x].isWaterEdge) {
+                    waterEdgeCount++;
+                }
+            }
+        }
+        console.log(`Applied ${transitionCount} transition tiles (${waterTransitions} water transitions)`);
+        console.log(`Applied ${waterEdgeCount} water edge tiles (embankment/cliff)`);
+    }
+    
+    /**
      * Apply embankment/cliff tiles at water edges
      * 
      * Based on UO analysis:
@@ -548,10 +1436,13 @@ export class TerrainGeneratorV2 {
      * 3. NOT every water edge - use probability for natural variation
      */
     applyWaterEdgeTiles(map, width, height) {
+        // Load user's tile mappings from Water Tile Teacher
+        const userMappings = getWaterTileMappings();
+        
         // Configuration - how often to apply embankment tiles
         // When procedural regioning (tile teacher data) is unavailable we lower this automatically.
         const EMBANKMENT_CHANCE = Math.min(1, Math.max(0, this.embankmentChance ?? 0.7));
-        const MIN_Z_FOR_EMBANKMENT = 3; // Minimum Z-height difference to show cliff
+        const MIN_Z_FOR_CLIFF = WATER_EDGE_CONFIG.cliffZHeight; // Minimum Z for cliff effect
         // GRASS/DIRT EMBANKMENT TILES (0x098C-0x09BF)
         // These show grass on top with a darker cliff face below
         // Organized by which direction the cliff DROPS toward (water direction)
@@ -632,8 +1523,42 @@ export class TerrainGeneratorV2 {
                 // Skip water tiles and non-water-edge tiles
                 if (tile.biome === 'water' || !tile.isWaterEdge) continue;
                 
+                const waterDir = this.getWaterDirection(map, x, y, width, height);
+                const isShallow = tile.isShallowWaterEdge;
+                
+                // Determine water neighbors for scenario lookup
+                const waterNeighbors = {
+                    north: waterDir.north,
+                    south: waterDir.south,
+                    east: waterDir.east,
+                    west: waterDir.west
+                };
+                
+                // Get scenario ID and check for user-configured tile
+                const scenarioId = determineWaterScenario(isShallow, waterNeighbors);
+                const userTile = scenarioId ? getWaterTileForScenario(scenarioId, userMappings) : null;
+                
+                // If user has configured this scenario, use their tile
+                if (userTile) {
+                    const parsedTileId = parseInt(userTile, 16);
+                    // Only apply if valid tile ID (not 0, not NaN)
+                    if (parsedTileId && !isNaN(parsedTileId) && parsedTileId > 0) {
+                        tile.id = parsedTileId;
+                        tile.isWaterEdgeTile = true;
+                        tile.waterEdgeScenario = scenarioId;
+                        appliedCount++;
+                    }
+                    continue;
+                }
+                
+                // For shallow edges without user mapping, skip embankment
+                if (isShallow) {
+                    skippedLowZ++;
+                    continue;
+                }
+                
                 // Only apply embankment if Z-height is significant (cliff effect)
-                if (tile.z < MIN_Z_FOR_EMBANKMENT) {
+                if (tile.z < MIN_Z_FOR_CLIFF) {
                     skippedLowZ++;
                     continue;
                 }
@@ -647,7 +1572,6 @@ export class TerrainGeneratorV2 {
                 }
                 
                 const EMBANKMENT = getEmbankmentTiles(tile.biome);
-                const waterDir = this.getWaterDirection(map, x, y, width, height);
                 
                 // Count cardinal and diagonal water neighbors
                 const cardinalWater = [waterDir.north, waterDir.south, waterDir.east, waterDir.west]
@@ -737,6 +1661,169 @@ export class TerrainGeneratorV2 {
         }
         
         console.log(`Embankment tiles: ${appliedCount} applied, ${skippedLowZ} skipped (low Z), ${skippedRandom} skipped (random)`);
+    }
+    
+    /**
+     * Apply terrain edge tiles for non-water biome transitions (rock-grass, sand-grass, etc.)
+     * Uses user-configured tiles from the Tile Teacher tool
+     * 
+     * @param {Array} map - The map array
+     * @param {number} width - Map width
+     * @param {number} height - Map height
+     */
+    applyTerrainEdgeTiles(map, width, height) {
+        // Load user's tile mappings from Tile Teacher
+        const userMappings = getWaterTileMappings();
+        
+        // Debug: Log what terrain transition mappings we have
+        const terrainKeys = Object.keys(userMappings).filter(k => 
+            k.startsWith('rock_grass') || k.startsWith('sand_grass') || 
+            k.startsWith('forest_grass') || k.startsWith('dirt_grass')
+        );
+        if (terrainKeys.length > 0) {
+            console.log(`[TerrainEdgeTiles] Found ${terrainKeys.length} terrain transition mappings:`, terrainKeys);
+        } else {
+            console.log('[TerrainEdgeTiles] No terrain transition mappings found in Tile Teacher. Configure via water_tile_teacher.html');
+        }
+        
+        // Define which biome pairs we support
+        const BIOME_PAIRS = [
+            { a: 'rock', b: 'grass', prefix: 'rock_grass' },
+            { a: 'sand', b: 'grass', prefix: 'sand_grass' },
+            { a: 'forest', b: 'grass', prefix: 'forest_grass' },
+            { a: 'dirt', b: 'grass', prefix: 'dirt_grass' },
+            { a: 'rock', b: 'sand', prefix: 'rock_sand' },
+            { a: 'sand', b: 'water', prefix: 'sand_water' },
+        ];
+        
+        let appliedCount = 0;
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const tile = map[y][x];
+                const tileBiome = tile.biome;
+                
+                // Check neighbors
+                const north = map[y - 1]?.[x];
+                const south = map[y + 1]?.[x];
+                const east = map[y]?.[x + 1];
+                const west = map[y]?.[x - 1];
+                
+                // For each biome pair, check if this tile is on an edge
+                for (const pair of BIOME_PAIRS) {
+                    // Check if this tile is biome A bordering biome B
+                    const isA = tileBiome === pair.a;
+                    const isB = tileBiome === pair.b;
+                    
+                    if (!isA && !isB) continue;
+                    
+                    const otherBiome = isA ? pair.b : pair.a;
+                    
+                    // Check which directions border the other biome
+                    const hasNorth = north?.biome === otherBiome;
+                    const hasSouth = south?.biome === otherBiome;
+                    const hasEast = east?.biome === otherBiome;
+                    const hasWest = west?.biome === otherBiome;
+                    
+                    const adjacentCount = [hasNorth, hasSouth, hasEast, hasWest].filter(Boolean).length;
+                    if (adjacentCount === 0) continue;
+                    
+                    // Determine scenario key based on direction mapping mode
+                    // Mode can be: 'normal', 'inverted', 'swap_ns', 'swap_ew'
+                    // Changed to 'normal' so Tile Teacher directions match terrain generation
+                    const dirMode = (typeof window !== 'undefined' && window.terrainDirectionMode) || 'normal';
+                    let scenarioKey = null;
+                    
+                    // Helper to get direction based on mode
+                    const getDir = (hasN, hasS, hasE, hasW) => {
+                        if (dirMode === 'normal') {
+                            // Normal: hasNorth → north
+                            if (hasN) return 'north';
+                            if (hasS) return 'south';
+                            if (hasE) return 'east';
+                            if (hasW) return 'west';
+                        } else if (dirMode === 'inverted') {
+                            // Inverted: hasNorth → south
+                            if (hasN) return 'south';
+                            if (hasS) return 'north';
+                            if (hasE) return 'west';
+                            if (hasW) return 'east';
+                        } else if (dirMode === 'swap_ns') {
+                            // Swap N/S only
+                            if (hasN) return 'south';
+                            if (hasS) return 'north';
+                            if (hasE) return 'east';
+                            if (hasW) return 'west';
+                        } else if (dirMode === 'swap_ew') {
+                            // Swap E/W only
+                            if (hasN) return 'north';
+                            if (hasS) return 'south';
+                            if (hasE) return 'west';
+                            if (hasW) return 'east';
+                        }
+                        return null;
+                    };
+                    
+                    // Single edge
+                    if (adjacentCount === 1) {
+                        const dir = getDir(hasNorth, hasSouth, hasEast, hasWest);
+                        if (dir) scenarioKey = `${pair.prefix}_${dir}`;
+                    }
+                    // Corner (two adjacent edges)
+                    else if (adjacentCount === 2) {
+                        if (dirMode === 'normal') {
+                            if (hasNorth && hasEast) scenarioKey = `${pair.prefix}_corner_ne`;
+                            else if (hasNorth && hasWest) scenarioKey = `${pair.prefix}_corner_nw`;
+                            else if (hasSouth && hasEast) scenarioKey = `${pair.prefix}_corner_se`;
+                            else if (hasSouth && hasWest) scenarioKey = `${pair.prefix}_corner_sw`;
+                        } else {
+                            // Inverted or swapped - flip corners
+                            if (hasNorth && hasEast) scenarioKey = `${pair.prefix}_corner_sw`;
+                            else if (hasNorth && hasWest) scenarioKey = `${pair.prefix}_corner_se`;
+                            else if (hasSouth && hasEast) scenarioKey = `${pair.prefix}_corner_nw`;
+                            else if (hasSouth && hasWest) scenarioKey = `${pair.prefix}_corner_ne`;
+                        }
+                    }
+                    // Inner corner (three edges = peninsula into other biome)
+                    else if (adjacentCount === 3) {
+                        if (dirMode === 'normal') {
+                            if (!hasNorth) scenarioKey = `${pair.prefix}_inner_sw`;
+                            else if (!hasSouth) scenarioKey = `${pair.prefix}_inner_ne`;
+                            else if (!hasEast) scenarioKey = `${pair.prefix}_inner_nw`;
+                            else if (!hasWest) scenarioKey = `${pair.prefix}_inner_se`;
+                        } else {
+                            // Inverted
+                            if (!hasNorth) scenarioKey = `${pair.prefix}_inner_ne`;
+                            else if (!hasSouth) scenarioKey = `${pair.prefix}_inner_sw`;
+                            else if (!hasEast) scenarioKey = `${pair.prefix}_inner_se`;
+                            else if (!hasWest) scenarioKey = `${pair.prefix}_inner_nw`;
+                        }
+                    }
+                    
+                    // Apply the user's saved tile if available
+                    if (scenarioKey && userMappings[scenarioKey]) {
+                        const tileIdStr = userMappings[scenarioKey];
+                        // Convert hex string to integer
+                        const tileId = typeof tileIdStr === 'string' 
+                            ? parseInt(tileIdStr.replace('0x', ''), 16)
+                            : tileIdStr;
+                        
+                        // Only apply if valid tile ID (not 0, not NaN)
+                        if (tileId && !isNaN(tileId) && tileId > 0) {
+                            tile.id = tileId;
+                            tile.isTerrainEdge = true;
+                            tile.terrainEdgeScenario = scenarioKey;
+                            appliedCount++;
+                        }
+                        break; // Only apply one transition per tile
+                    }
+                }
+            }
+        }
+        
+        if (appliedCount > 0) {
+            console.log(`[TerrainEdgeTiles] Applied ${appliedCount} user-configured terrain transitions`);
+        }
     }
     
     /**

@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain Tile Teacher - UO Terrain</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #0a1628;
+            color: #e0e0e0;
+        }
+        h1 { color: #00bcd4; text-align: center; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 20px; }
+        
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        /* Left panel - Scenario Builder */
+        .builder-panel {
+            width: 450px;
+            background: #152238;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .builder-panel h2 {
+            color: #00bcd4;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        
+        /* Scenario selector */
+        .scenario-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        .scenario-btn {
+            padding: 6px 10px;
+            font-size: 11px;
+            background: #2a3f5f;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+        }
+        .scenario-btn:hover { background: #3a5f8f; }
+        .scenario-btn.active { border-color: #ff9800; background: #3a5f8f; }
+        .scenario-btn.saved { 
+            border-left: 4px solid #4CAF50; 
+            background: #1a3f2f;
+        }
+        .scenario-btn.saved::after {
+            content: ' ✓';
+            color: #4CAF50;
+        }
+        .set-btn {
+            font-weight: bold;
+            padding: 8px 16px;
+        }
+        .set-btn.active {
+            background: #00bcd4;
+            color: #000;
+            border-color: #00bcd4;
+        }
+        .set-btn .emoji {
+            margin-right: 4px;
+            font-style: normal;
+        }
+        
+        /* 3x3 Grid Builder */
+        .grid-builder {
+            background: #0a1628;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .grid-label {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .grid-3x3 {
+            display: grid;
+            grid-template-columns: repeat(3, 80px);
+            gap: 4px;
+            justify-content: center;
+        }
+        .grid-cell {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #2a3f5f;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #1a2f4a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .grid-cell:hover { border-color: #00bcd4; }
+        .grid-cell.active { border-color: #ff9800; box-shadow: 0 0 10px rgba(255, 152, 0, 0.3); }
+        .grid-cell.water { background: #1565C0; }
+        .grid-cell.land { background: #2e7d32; }
+        .grid-cell.edge { background: linear-gradient(135deg, #2e7d32 50%, #1565C0 50%); }
+        .grid-cell img {
+            max-width: 48px;
+            max-height: 48px;
+            image-rendering: pixelated;
+        }
+        .grid-cell .cell-label {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 9px;
+            color: rgba(255,255,255,0.7);
+        }
+        .grid-cell .cell-id {
+            position: absolute;
+            bottom: 2px;
+            left: 0;
+            right: 0;
+            font-size: 8px;
+            color: #ff0;
+            text-align: center;
+            background: rgba(0,0,0,0.7);
+            padding: 1px;
+        }
+        .grid-cell .cell-type {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            font-size: 8px;
+            padding: 1px 3px;
+            border-radius: 2px;
+        }
+        .grid-cell .cell-type.water-type { background: #1565C0; }
+        .grid-cell .cell-type.land-type { background: #2e7d32; }
+        .grid-cell .cell-type.edge-type { background: #ff9800; }
+        
+        /* Isometric Preview */
+        .iso-preview {
+            background: #000;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .iso-preview canvas {
+            image-rendering: pixelated;
+        }
+        .iso-preview .preview-label {
+            color: #888;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+        
+        /* Actions */
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .btn-save { background: #4CAF50; color: white; flex: 1; }
+        .btn-clear { background: #f44336; color: white; }
+        .btn-preset { background: #9c27b0; color: white; }
+        button:hover { opacity: 0.9; }
+        
+        /* Middle panel - Tile Browser */
+        .tile-browser {
+            flex: 1;
+            background: #152238;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .browser-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .browser-header input, .browser-header select {
+            padding: 8px 12px;
+            border: 1px solid #2a3f5f;
+            border-radius: 4px;
+            background: #0a1628;
+            color: #fff;
+        }
+        .browser-header input { width: 100px; }
+        
+        .quick-ranges {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .quick-range {
+            padding: 4px 8px;
+            font-size: 10px;
+            background: #2a3f5f;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+        }
+        .quick-range:hover { background: #3a5f8f; }
+        .quick-range.active { background: #00bcd4; color: #000; }
+        
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            gap: 3px;
+        }
+        .tile-item {
+            width: 50px;
+            height: 50px;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #0a1628;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .tile-item:hover { border-color: #00bcd4; }
+        .tile-item.selected { border-color: #ff9800; box-shadow: 0 0 8px rgba(255, 152, 0, 0.5); }
+        .tile-item img {
+            max-width: 44px;
+            max-height: 44px;
+            image-rendering: pixelated;
+        }
+        .tile-item .tile-id {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            font-size: 7px;
+            background: rgba(0,0,0,0.85);
+            color: #ff0;
+            text-align: center;
+            padding: 1px;
+        }
+        
+        /* Right panel - Saved Patterns */
+        .saved-panel {
+            width: 300px;
+            background: #152238;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .saved-panel h2 {
+            color: #00bcd4;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        
+        .stats {
+            background: #0a1628;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .stat-row .label { color: #888; }
+        .stat-row .value { color: #4CAF50; font-weight: bold; }
+        
+        .saved-pattern {
+            background: #0a1628;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 3px solid #4CAF50;
+        }
+        .saved-pattern .pattern-name {
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .saved-pattern canvas {
+            image-rendering: pixelated;
+            margin-bottom: 5px;
+        }
+        .saved-pattern .pattern-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .saved-pattern button {
+            padding: 4px 8px;
+            font-size: 10px;
+        }
+        
+        .export-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #2a3f5f;
+        }
+        
+        .range-info {
+            font-size: 10px;
+            color: #888;
+        }
+        
+        .instructions {
+            background: #1a2f4a;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 11px;
+            color: #aaa;
+            line-height: 1.4;
+            margin-bottom: 15px;
+        }
+        .instructions strong { color: #00bcd4; }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Terrain Tile Teacher</h1>
+    <p class="subtitle">Build terrain transition patterns - configure tiles for all biome edges</p>
+    
+    <div class="main-container">
+        <!-- Left: Pattern Builder -->
+        <div class="builder-panel">
+            <h2>📐 Pattern Builder</h2>
+            
+            <div class="instructions">
+                <strong>How to use:</strong><br>
+                1. Select a scenario preset (or start fresh)<br>
+                2. Click a cell in the 3x3 grid<br>
+                3. Click a tile from the browser to place it<br>
+                4. See the isometric preview update live<br>
+                5. Save when it looks correct!
+            </div>
+            
+            <!-- Tile Set Mode Selector -->
+            <div style="margin-bottom: 15px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 8px;">Select a tile set to configure:</div>
+                <div class="scenario-selector">
+                    <button class="scenario-btn set-btn active" data-set="cliff" onclick="selectTileSet('cliff')"><span class="emoji">&#x1F3D4;</span> Water Cliff</button>
+                    <button class="scenario-btn set-btn" data-set="shallow" onclick="selectTileSet('shallow')"><span class="emoji">&#x1F30A;</span> Water Shallow</button>
+                </div>
+                <div class="scenario-selector" style="margin-top: 5px;">
+                    <button class="scenario-btn set-btn" data-set="sand_grass" onclick="selectTileSet('sand_grass')"><span class="emoji">&#x1F3D6;</span> Sand-Grass</button>
+                    <button class="scenario-btn set-btn" data-set="sand_water" onclick="selectTileSet('sand_water')"><span class="emoji">&#x1F3DD;</span> Sand-Water</button>
+                </div>
+                <div class="scenario-selector" style="margin-top: 5px;">
+                    <button class="scenario-btn set-btn" data-set="rock_grass" onclick="selectTileSet('rock_grass')"><span class="emoji">&#x26F0;</span> Rock-Grass</button>
+                    <button class="scenario-btn set-btn" data-set="rock_sand" onclick="selectTileSet('rock_sand')"><span class="emoji">&#x1F5FB;</span> Rock-Sand</button>
+                </div>
+                <div class="scenario-selector" style="margin-top: 5px;">
+                    <button class="scenario-btn set-btn" data-set="forest_grass" onclick="selectTileSet('forest_grass')"><span class="emoji">&#x1F332;</span> Forest-Grass</button>
+                    <button class="scenario-btn set-btn" data-set="dirt_grass" onclick="selectTileSet('dirt_grass')"><span class="emoji">&#x1F7EB;</span> Dirt-Grass</button>
+                </div>
+            </div>
+            
+            <!-- Direction selector within the set -->
+            <div id="directionSelector" style="margin-bottom: 15px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 5px;">Configure each direction:</div>
+                <div class="scenario-selector" id="directionButtons">
+                    <!-- Filled by JS based on selected set -->
+                </div>
+            </div>
+            
+            <!-- Quick utility presets -->
+            <div style="margin-bottom: 10px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 5px;">🔧 Utility:</div>
+                <div class="scenario-selector">
+                    <button class="scenario-btn" data-preset="all_water">All Water</button>
+                    <button class="scenario-btn" data-preset="all_grass">All Grass</button>
+                </div>
+            </div>
+            
+            <!-- 3x3 Grid -->
+            <div class="grid-builder">
+                <div class="grid-label">Click a cell, then select a tile from the browser</div>
+                <div class="grid-3x3" id="gridBuilder"></div>
+            </div>
+            
+            <!-- Isometric Preview -->
+            <div class="iso-preview">
+                <canvas id="isoCanvas" width="180" height="150"></canvas>
+                <div class="preview-label">Isometric Preview (how it looks in-game)</div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="btn-row">
+                <button class="btn-save" onclick="saveCurrentDirection()">💾 Save This Direction</button>
+                <button class="btn-save" onclick="saveEntireSet()" style="background: #9c27b0;">💾 Save Entire Set</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn-clear" onclick="clearGrid()">🗑️ Clear Grid</button>
+            </div>
+            
+            <div id="setProgress" style="background: #0a1628; border-radius: 6px; padding: 10px; margin-top: 10px; font-size: 11px;">
+                <div style="color: #888; margin-bottom: 5px;">Set Progress:</div>
+                <div id="progressIndicator">Select a tile set above</div>
+            </div>
+        </div>
+        
+        <!-- Middle: Tile Browser -->
+        <div class="tile-browser">
+            <div class="browser-header">
+                <input type="text" id="searchTile" placeholder="Search...">
+                <select id="rangeSelect">
+                    <option value="0x0000-0x00FF">0x0000-0x00FF (Water/Sand/Grass)</option>
+                    <option value="0x0100-0x01FF">0x0100-0x01FF (Transitions)</option>
+                    <option value="0x0300-0x03FF">0x0300-0x03FF (Curves)</option>
+                    <option value="0x0900-0x09FF" selected>0x0900-0x09FF (Embankments)</option>
+                </select>
+                <span class="range-info" id="rangeInfo">Loading...</span>
+            </div>
+            <div class="quick-ranges">
+                <button class="quick-range" data-range="0x0003-0x0006">Grass</button>
+                <button class="quick-range" data-range="0x0016-0x004B">Sand+Edges</button>
+                <button class="quick-range" data-range="0x0044-0x00AB">Sand-Water</button>
+                <button class="quick-range" data-range="0x0071-0x00A7">Dirt-Range</button>
+                <button class="quick-range" data-range="0x00A8-0x00AB">Water</button>
+                <button class="quick-range active" data-range="0x098C-0x09BF">Embankments</button>
+                <button class="quick-range" data-range="0x0033-0x003E">Grass-Sand</button>
+                <button class="quick-range" data-range="0x00D0-0x00DB">Forest</button>
+            </div>
+            <div class="quick-ranges" style="margin-top: 5px;">
+                <button class="quick-range" data-range="0x0000-0x00FF">ALL 0x00xx</button>
+                <button class="quick-range" data-range="0x0100-0x01FF">ALL 0x01xx</button>
+                <button class="quick-range" data-range="0x0200-0x02FF">ALL 0x02xx</button>
+                <button class="quick-range" data-range="0x0300-0x03FF">ALL 0x03xx</button>
+            </div>
+            <div class="tile-grid" id="tileGrid"></div>
+        </div>
+        
+        <!-- Right: Saved Patterns -->
+        <div class="saved-panel">
+            <h2>📁 Saved Patterns</h2>
+            
+            <div class="stats">
+                <div class="stat-row">
+                    <span class="label">Total Saved:</span>
+                    <span class="value" id="statTotal">0</span>
+                </div>
+            </div>
+            
+            <div id="savedPatterns"></div>
+            
+            <div class="export-section">
+                <div class="btn-row">
+                    <button class="btn-save" onclick="exportAll()" style="background: #2196F3;">📤 Export</button>
+                    <button class="btn-save" onclick="importPatterns()" style="background: #4CAF50;">📥 Import</button>
+                    <button class="btn-clear" onclick="clearAll()">🗑️ Clear</button>
+                </div>
+                <div class="btn-row" style="margin-top: 10px;">
+                    <button onclick="window.open('terrain_generator_demo.html', '_blank')" style="background: linear-gradient(135deg, #4CAF50, #2E7D32); width: 100%; font-weight: bold;">
+                        🗺️ Open Terrain Generator Demo
+                    </button>
+                </div>
+                <div class="btn-row" style="margin-top: 10px;">
+                    <button onclick="applyToOpenMap()" style="background: linear-gradient(135deg, #FF9800, #F57C00); width: 100%; font-weight: bold;">
+                        ⚡ Apply Changes to Open Map
+                    </button>
+                </div>
+                <div id="applyStatus" style="font-size: 11px; color: #888; margin-top: 5px; text-align: center;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Grid state - 3x3 array of {tileId, type}
+        // Types: 'water', 'land', 'edge'
+        let grid = [
+            [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+            [{ tileId: '0x0003', type: 'land' }, { tileId: '0x098C', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+            [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+        ];
+        
+        let activeCell = null;
+        let tiles = {};
+        
+        // Built-in default patterns (always available)
+        const BUILTIN_PATTERNS = {
+            'cliff_north': '0x098C',
+            'cliff_south': '0x0994',
+            'cliff_east': '0x0990',
+            'cliff_west': '0x0988',
+            'cliff_corner_ne': '0x099C',
+            'cliff_corner_nw': '0x0998',
+            'cliff_corner_se': '0x09A0',
+            'cliff_corner_sw': '0x099C',
+            'shallow_north': '0x00A8',
+            'shallow_south': '0x00A8',
+            'shallow_east': '0x00A8',
+            'shallow_west': '0x00A8',
+            'rock_grass_north': '0x021F',
+            'rock_grass_south': '0x021F',
+            'rock_grass_east': '0x021F',
+            'rock_grass_west': '0x021F',
+            'sand_grass_north': '0x0033',
+            'sand_grass_south': '0x0033',
+            'sand_grass_east': '0x0033',
+            'sand_grass_west': '0x0033',
+            'forest_grass_north': '0x00C4',
+            'forest_grass_south': '0x00C4',
+            'dirt_grass_north': '0x0071',
+            'dirt_grass_south': '0x0071',
+        };
+        
+        // Load saved patterns - merge with built-ins
+        let savedPatterns = JSON.parse(localStorage.getItem('waterTilePatterns') || '[]');
+        
+        // If no saved patterns, create defaults from built-ins
+        if (savedPatterns.length === 0) {
+            console.log('No saved patterns found, loading built-in defaults...');
+            // The built-in mappings are stored separately - patterns will show when configured
+        }
+        
+        // Also ensure terrainTileMappings has the defaults
+        (function ensureDefaultMappings() {
+            const existing = JSON.parse(localStorage.getItem('terrainTileMappings') || '{}');
+            const merged = { ...BUILTIN_PATTERNS, ...existing };
+            localStorage.setItem('terrainTileMappings', JSON.stringify(merged));
+            localStorage.setItem('waterTileMappings', JSON.stringify(merged));
+            console.log('Ensured default mappings:', Object.keys(merged).length, 'entries');
+        })();
+        
+        // Tile Set Management
+        let currentSet = 'cliff'; // 'cliff' or 'shallow'
+        let currentDirection = null;
+        
+        // Store configurations for each direction within a set
+        let setConfigurations = {
+            cliff: {},
+            shallow: {},
+            sand_grass: {},
+            sand_water: {},
+            rock_grass: {},
+            rock_sand: {},
+            forest_grass: {},
+            dirt_grass: {}
+        };
+        
+        // Load saved set configurations from localStorage
+        try {
+            const savedSets = JSON.parse(localStorage.getItem('waterTileSetConfigs') || '{}');
+            Object.keys(setConfigurations).forEach(key => {
+                if (savedSets[key]) setConfigurations[key] = savedSets[key];
+            });
+        } catch(e) { console.warn('Could not load set configs:', e); }
+        
+        // Standard directions template (most terrain transitions use these)
+        const STANDARD_DIRECTIONS = (prefix) => [
+            { id: `${prefix}_north`, label: 'North', preset: `${prefix}_north` },
+            { id: `${prefix}_south`, label: 'South', preset: `${prefix}_south` },
+            { id: `${prefix}_east`, label: 'East', preset: `${prefix}_east` },
+            { id: `${prefix}_west`, label: 'West', preset: `${prefix}_west` },
+            { id: `${prefix}_corner_ne`, label: 'Corner NE', preset: `${prefix}_corner_ne` },
+            { id: `${prefix}_corner_nw`, label: 'Corner NW', preset: `${prefix}_corner_nw` },
+            { id: `${prefix}_corner_se`, label: 'Corner SE', preset: `${prefix}_corner_se` },
+            { id: `${prefix}_corner_sw`, label: 'Corner SW', preset: `${prefix}_corner_sw` },
+            { id: `${prefix}_inner_ne`, label: 'Inner NE', preset: `${prefix}_inner_ne` },
+            { id: `${prefix}_inner_nw`, label: 'Inner NW', preset: `${prefix}_inner_nw` },
+            { id: `${prefix}_inner_se`, label: 'Inner SE', preset: `${prefix}_inner_se` },
+            { id: `${prefix}_inner_sw`, label: 'Inner SW', preset: `${prefix}_inner_sw` },
+        ];
+        
+        // Direction definitions for each set
+        const SET_DIRECTIONS = {
+            cliff: [
+                ...STANDARD_DIRECTIONS('cliff'),
+                { id: 'peninsula_n', label: 'Peninsula N' },
+                { id: 'peninsula_s', label: 'Peninsula S' },
+                { id: 'peninsula_e', label: 'Peninsula E' },
+                { id: 'peninsula_w', label: 'Peninsula W' },
+            ],
+            shallow: STANDARD_DIRECTIONS('shallow'),
+            sand_grass: STANDARD_DIRECTIONS('sand_grass'),
+            sand_water: STANDARD_DIRECTIONS('sand_water'),
+            rock_grass: STANDARD_DIRECTIONS('rock_grass'),
+            rock_sand: STANDARD_DIRECTIONS('rock_sand'),
+            forest_grass: STANDARD_DIRECTIONS('forest_grass'),
+            dirt_grass: STANDARD_DIRECTIONS('dirt_grass'),
+        };
+        
+        // Friendly names for each set
+        const SET_NAMES = {
+            cliff: 'Water Cliff Edges',
+            shallow: 'Water Shallow Edges',
+            sand_grass: 'Sand to Grass',
+            sand_water: 'Sand to Water',
+            rock_grass: 'Rock to Grass',
+            rock_sand: 'Rock to Sand',
+            forest_grass: 'Forest to Grass',
+            dirt_grass: 'Dirt to Grass'
+        };
+        
+        // Presets for common scenarios
+        // Names MUST match terrain generator's scenario IDs for auto-application!
+        const PRESETS = {
+            // CLIFF scenarios (85% of water edges) - these get applied automatically
+            cliff_north: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x098C', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            cliff_south: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0990', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            cliff_east: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x099A', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            cliff_west: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x099C', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            cliff_corner_ne: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0998', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            cliff_corner_nw: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x099D', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            cliff_corner_se: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x099B', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            cliff_corner_sw: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x099F', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            // Peninsulas (land strip extending into water - water on 3 sides)
+            peninsula_n: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x098C', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            peninsula_s: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0990', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            peninsula_e: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x099A', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            peninsula_w: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x099C', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            // Inner corners (land corner pokes into water)
+            cliff_inner_ne: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0997', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            cliff_inner_nw: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0996', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            cliff_inner_se: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x098D', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            cliff_inner_sw: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x098E', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            // SHALLOW scenarios (15% of water edges) - smooth transitions
+            shallow_north: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            shallow_south: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            shallow_east: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            shallow_west: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'edge' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            // Utility presets
+            all_water: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            all_grass: [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ],
+            
+            // ============ SAND-GRASS TRANSITIONS ============
+            // Sand (0x0016) to Grass (0x0003) - Beach edges
+            sand_grass_north: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            sand_grass_south: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_grass_east: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_grass_west: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            sand_grass_corner_ne: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            sand_grass_corner_nw: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            sand_grass_corner_se: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_grass_corner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            sand_grass_inner_ne: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            sand_grass_inner_nw: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_grass_inner_se: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_grass_inner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0033', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            
+            // ============ SAND-WATER TRANSITIONS ============
+            // Sand (0x0016) to Water (0x00A8)
+            sand_water_north: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_water_south: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            sand_water_east: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            sand_water_west: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_water_corner_ne: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_water_corner_nw: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_water_corner_se: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            sand_water_corner_sw: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_water_inner_ne: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            sand_water_inner_nw: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            sand_water_inner_se: [
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            sand_water_inner_sw: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0015', type: 'edge' }, { tileId: '0x00A8', type: 'water' }],
+                [{ tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }, { tileId: '0x00A8', type: 'water' }]
+            ],
+            
+            // ============ ROCK-GRASS TRANSITIONS ============
+            // Rock (0x021F) to Grass (0x0003)
+            rock_grass_north: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            rock_grass_south: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_grass_east: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_grass_west: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            rock_grass_corner_ne: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            rock_grass_corner_nw: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            rock_grass_corner_se: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_grass_corner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            rock_grass_inner_ne: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            rock_grass_inner_nw: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_grass_inner_se: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_grass_inner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            
+            // ============ ROCK-SAND TRANSITIONS ============
+            // Rock (0x021F) to Sand (0x0016)
+            rock_sand_north: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            rock_sand_south: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_sand_east: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_sand_west: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            rock_sand_corner_ne: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            rock_sand_corner_nw: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            rock_sand_corner_se: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_sand_corner_sw: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            rock_sand_inner_ne: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }]
+            ],
+            rock_sand_inner_nw: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_sand_inner_se: [
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x0016', type: 'sand' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            rock_sand_inner_sw: [
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0016', type: 'sand' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x0016', type: 'sand' }, { tileId: '0x0220', type: 'edge' }, { tileId: '0x021F', type: 'rock' }],
+                [{ tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }, { tileId: '0x021F', type: 'rock' }]
+            ],
+            
+            // ============ FOREST-GRASS TRANSITIONS ============
+            // Forest (0x00C4) to Grass (0x0003)
+            forest_grass_north: [
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            forest_grass_south: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }]
+            ],
+            forest_grass_east: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x00C4', type: 'forest' }]
+            ],
+            forest_grass_west: [
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            forest_grass_corner_ne: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            forest_grass_corner_nw: [
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            forest_grass_corner_se: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }]
+            ],
+            forest_grass_corner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            forest_grass_inner_ne: [
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            forest_grass_inner_nw: [
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x00C4', type: 'forest' }]
+            ],
+            forest_grass_inner_se: [
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }]
+            ],
+            forest_grass_inner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x00C5', type: 'edge' }, { tileId: '0x00C4', type: 'forest' }],
+                [{ tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }, { tileId: '0x00C4', type: 'forest' }]
+            ],
+            
+            // ============ DIRT-GRASS TRANSITIONS ============
+            // Dirt (0x0071) to Grass (0x0003)
+            dirt_grass_north: [
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            dirt_grass_south: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }]
+            ],
+            dirt_grass_east: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0071', type: 'dirt' }]
+            ],
+            dirt_grass_west: [
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            dirt_grass_corner_ne: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            dirt_grass_corner_nw: [
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            dirt_grass_corner_se: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }]
+            ],
+            dirt_grass_corner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            dirt_grass_inner_ne: [
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }]
+            ],
+            dirt_grass_inner_nw: [
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0071', type: 'dirt' }]
+            ],
+            dirt_grass_inner_se: [
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0003', type: 'grass' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }]
+            ],
+            dirt_grass_inner_sw: [
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0003', type: 'grass' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0003', type: 'grass' }, { tileId: '0x0072', type: 'edge' }, { tileId: '0x0071', type: 'dirt' }],
+                [{ tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }, { tileId: '0x0071', type: 'dirt' }]
+            ]
+        };
+        
+        // Process black to transparent
+        function processBlackToTransparent(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width || 44;
+            canvas.height = img.height || 44;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i] <= 5 && data[i+1] <= 5 && data[i+2] <= 5) {
+                    data[i + 3] = 0;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+            return canvas;
+        }
+        
+        // Load tile image
+        async function loadTile(tileId) {
+            if (tiles[tileId]) return tiles[tileId];
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    const processed = processBlackToTransparent(img);
+                    tiles[tileId] = processed;
+                    resolve(processed);
+                };
+                img.onerror = () => resolve(null);
+                img.src = `assets/tiles/${tileId}.bmp`;
+            });
+        }
+        
+        // Load tile range
+        async function loadTileRange(start, end) {
+            const gridEl = document.getElementById('tileGrid');
+            gridEl.innerHTML = '<p style="color: #888;">Loading tiles...</p>';
+            
+            let loaded = 0;
+            let html = '';
+            
+            for (let i = start; i <= end; i++) {
+                const tileId = `0x${i.toString(16).toUpperCase().padStart(4, '0')}`;
+                const tile = await loadTile(tileId);
+                
+                if (tile) {
+                    loaded++;
+                    html += `
+                        <div class="tile-item" data-id="${tileId}" onclick="selectTile('${tileId}')">
+                            <img src="${tile.toDataURL()}" alt="${tileId}">
+                            <span class="tile-id">${tileId.slice(-4)}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            gridEl.innerHTML = html || '<p style="color: #888;">No tiles found</p>';
+            document.getElementById('rangeInfo').textContent = `${loaded} tiles`;
+        }
+        
+        // Build 3x3 grid UI
+        async function buildGridUI() {
+            const container = document.getElementById('gridBuilder');
+            container.innerHTML = '';
+            
+            const labels = [
+                ['NW', 'N', 'NE'],
+                ['W', 'CENTER', 'E'],
+                ['SW', 'S', 'SE']
+            ];
+            
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const cell = document.createElement('div');
+                    const cellData = grid[row][col];
+                    
+                    cell.className = `grid-cell ${cellData.type}`;
+                    if (activeCell && activeCell[0] === row && activeCell[1] === col) {
+                        cell.classList.add('active');
+                    }
+                    
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    cell.onclick = () => setActiveCell(row, col);
+                    
+                    // Load and show tile image
+                    const tile = await loadTile(cellData.tileId);
+                    
+                    cell.innerHTML = `
+                        <span class="cell-label">${labels[row][col]}</span>
+                        ${tile ? `<img src="${tile.toDataURL()}" alt="${cellData.tileId}">` : ''}
+                        <span class="cell-id">${cellData.tileId.slice(-4)}</span>
+                        <span class="cell-type ${cellData.type}-type">${cellData.type[0].toUpperCase()}</span>
+                    `;
+                    
+                    container.appendChild(cell);
+                }
+            }
+            
+            updateIsoPreview();
+        }
+        
+        // Set active cell
+        function setActiveCell(row, col) {
+            activeCell = [row, col];
+            document.querySelectorAll('.grid-cell').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.grid-cell[data-row="${row}"][data-col="${col}"]`)?.classList.add('active');
+        }
+        
+        // Select tile from browser
+        async function selectTile(tileId) {
+            document.querySelectorAll('.tile-item.selected').forEach(el => el.classList.remove('selected'));
+            document.querySelector(`.tile-item[data-id="${tileId}"]`)?.classList.add('selected');
+            
+            if (activeCell) {
+                const [row, col] = activeCell;
+                
+                // Determine tile type based on ID
+                let type = 'land';
+                const id = parseInt(tileId, 16);
+                if (id >= 0x00A8 && id <= 0x00AB) {
+                    type = 'water';
+                } else if ((id >= 0x098C && id <= 0x09BF) || (id >= 0x001C && id <= 0x004B)) {
+                    type = 'edge';
+                }
+                
+                grid[row][col] = { tileId, type };
+                await buildGridUI();
+            }
+        }
+        
+        // Update isometric preview
+        async function updateIsoPreview() {
+            const canvas = document.getElementById('isoCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const tileWidth = 44;
+            const halfWidth = 22;
+            const halfHeight = 22;
+            
+            // Dark water background
+            ctx.fillStyle = '#1565C0';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw tiles back to front (painter's algorithm)
+            for (let row = 0; row < 6; row++) {
+                for (let x = 0; x < 3; x++) {
+                    const y = row - x;
+                    if (y < 0 || y >= 3) continue;
+                    
+                    const cellData = grid[y][x];
+                    const tile = await loadTile(cellData.tileId);
+                    
+                    const screenX = (x - y) * halfWidth + 90 - halfWidth;
+                    const screenY = (x + y) * halfHeight + 10;
+                    
+                    if (tile) {
+                        ctx.drawImage(tile, screenX, screenY, tileWidth, tileWidth);
+                    }
+                }
+            }
+        }
+        
+        // Load preset - checks for saved version first!
+        function loadPreset(presetName) {
+            // First check if we have a SAVED version of this preset
+            const savedVersion = savedPatterns.find(p => p.name === presetName);
+            
+            if (savedVersion) {
+                // Load the saved version
+                grid = JSON.parse(JSON.stringify(savedVersion.grid));
+                console.log(`Loaded SAVED version of: ${presetName}`);
+            } else if (PRESETS[presetName]) {
+                // Fall back to default preset
+                grid = JSON.parse(JSON.stringify(PRESETS[presetName]));
+                console.log(`Loaded DEFAULT preset: ${presetName}`);
+            } else {
+                return;
+            }
+            
+            document.getElementById('patternName').value = presetName;
+            buildGridUI();
+            
+            // Update preset buttons
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.preset === presetName);
+            });
+        }
+        
+        // Update preset button styles to show which are saved
+        function updatePresetButtons() {
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                const presetName = btn.dataset.preset;
+                const isSaved = savedPatterns.some(p => p.name === presetName);
+                btn.classList.toggle('saved', isSaved);
+            });
+        }
+        
+        // Clear grid
+        function clearGrid() {
+            grid = [
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+            ];
+            document.getElementById('patternName').value = '';
+            activeCell = null;
+            buildGridUI();
+        }
+        
+        // Save pattern
+        function savePattern() {
+            const name = document.getElementById('patternName').value.trim() || `pattern_${Date.now()}`;
+            
+            const pattern = {
+                id: name,
+                name: name,
+                grid: JSON.parse(JSON.stringify(grid)),
+                timestamp: new Date().toISOString()
+            };
+            
+            // Check if pattern with this name exists
+            const existingIndex = savedPatterns.findIndex(p => p.name === name);
+            if (existingIndex >= 0) {
+                savedPatterns[existingIndex] = pattern;
+            } else {
+                savedPatterns.push(pattern);
+            }
+            
+            localStorage.setItem('waterTilePatterns', JSON.stringify(savedPatterns));
+            
+            // Also save to simple mappings format for terrain generator
+            updateSimpleMappings();
+            
+            // Update UI
+            renderSavedPatterns();
+            updatePresetButtons();
+            
+            // Visual feedback
+            const saveBtn = document.querySelector('.btn-save');
+            saveBtn.textContent = '✓ Saved!';
+            saveBtn.style.background = '#2e7d32';
+            setTimeout(() => {
+                saveBtn.textContent = '💾 Save This Pattern';
+                saveBtn.style.background = '#4CAF50';
+            }, 1500);
+        }
+        
+        // Update simple mappings (for terrain generator)
+        // Terrain generator expects: { 'cliff_north': '0x098C', 'cliff_south': '0x0990', ... }
+        function updateSimpleMappings() {
+            const mappings = {};
+            
+            savedPatterns.forEach(pattern => {
+                // Extract center tile as the "edge" tile for this scenario
+                // The terrain generator looks up by scenario name and expects just the tile ID string
+                const centerTile = pattern.grid[1][1];
+                mappings[pattern.name] = centerTile.tileId;
+            });
+            
+            localStorage.setItem('waterTileMappings', JSON.stringify(mappings));
+            console.log('Updated terrain generator mappings:', mappings);
+        }
+        
+        // Render saved patterns
+        async function renderSavedPatterns() {
+            const container = document.getElementById('savedPatterns');
+            document.getElementById('statTotal').textContent = savedPatterns.length;
+            
+            if (savedPatterns.length === 0) {
+                container.innerHTML = '<p style="color: #888; font-size: 12px;">No saved patterns yet</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            for (const pattern of savedPatterns) {
+                const div = document.createElement('div');
+                div.className = 'saved-pattern';
+                
+                // Create mini preview
+                const miniCanvas = document.createElement('canvas');
+                miniCanvas.width = 90;
+                miniCanvas.height = 75;
+                const ctx = miniCanvas.getContext('2d');
+                ctx.fillStyle = '#1565C0';
+                ctx.fillRect(0, 0, 90, 75);
+                
+                // Draw mini iso preview
+                for (let row = 0; row < 6; row++) {
+                    for (let x = 0; x < 3; x++) {
+                        const y = row - x;
+                        if (y < 0 || y >= 3) continue;
+                        
+                        const cellData = pattern.grid[y][x];
+                        const tile = await loadTile(cellData.tileId);
+                        
+                        const screenX = (x - y) * 11 + 45 - 11;
+                        const screenY = (x + y) * 11 + 5;
+                        
+                        if (tile) {
+                            ctx.drawImage(tile, screenX, screenY, 22, 22);
+                        }
+                    }
+                }
+                
+                div.innerHTML = `
+                    <div class="pattern-name">${pattern.name}</div>
+                    <div class="pattern-actions">
+                        <button onclick="loadPattern('${pattern.name}')" style="background: #2196F3;">Load</button>
+                        <button onclick="deletePattern('${pattern.name}')" class="btn-clear">Delete</button>
+                    </div>
+                `;
+                div.insertBefore(miniCanvas, div.querySelector('.pattern-actions'));
+                container.appendChild(div);
+            }
+        }
+        
+        // Load saved pattern
+        function loadPattern(name) {
+            const pattern = savedPatterns.find(p => p.name === name);
+            if (pattern) {
+                grid = JSON.parse(JSON.stringify(pattern.grid));
+                document.getElementById('patternName').value = pattern.name;
+                buildGridUI();
+            }
+        }
+        
+        // Delete pattern
+        function deletePattern(name) {
+            if (confirm(`Delete pattern "${name}"?`)) {
+                savedPatterns = savedPatterns.filter(p => p.name !== name);
+                localStorage.setItem('waterTilePatterns', JSON.stringify(savedPatterns));
+                updateSimpleMappings();
+                renderSavedPatterns();
+                updatePresetButtons();
+            }
+        }
+        
+        // Export all
+        function exportAll() {
+            const output = {
+                _generated: new Date().toISOString(),
+                _description: 'Terrain tile patterns for UO terrain generator',
+                patterns: savedPatterns,
+                mappings: JSON.parse(localStorage.getItem('terrainTileMappings') || '{}'),
+                setConfigurations: setConfigurations
+            };
+            
+            const json = JSON.stringify(output, null, 2);
+            
+            // Download as file
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tile_patterns_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            alert(`Exported ${savedPatterns.length} patterns + mappings to file!`);
+            console.log('Exported:', output);
+        }
+        
+        // Import patterns from file
+        function importPatterns() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    
+                    if (data.patterns) {
+                        savedPatterns = data.patterns;
+                        localStorage.setItem('waterTilePatterns', JSON.stringify(savedPatterns));
+                    }
+                    if (data.mappings) {
+                        localStorage.setItem('terrainTileMappings', JSON.stringify(data.mappings));
+                        localStorage.setItem('waterTileMappings', JSON.stringify(data.mappings));
+                    }
+                    if (data.setConfigurations) {
+                        Object.assign(setConfigurations, data.setConfigurations);
+                        localStorage.setItem('waterTileSetConfigs', JSON.stringify(setConfigurations));
+                    }
+                    
+                    await renderSavedPatterns();
+                    updatePresetButtons();
+                    alert(`Imported ${savedPatterns.length} patterns successfully!`);
+                } catch (err) {
+                    alert('Error importing file: ' + err.message);
+                }
+            };
+            input.click();
+        }
+        
+        // Clear all
+        function clearAll() {
+            if (confirm('Delete ALL saved patterns? This cannot be undone.')) {
+                savedPatterns = [];
+                localStorage.setItem('waterTilePatterns', JSON.stringify(savedPatterns));
+                localStorage.setItem('waterTileMappings', JSON.stringify({}));
+                renderSavedPatterns();
+                updatePresetButtons();
+            }
+        }
+        
+        // Select a tile set (cliff or shallow)
+        function selectTileSet(setName) {
+            currentSet = setName;
+            currentDirection = null;
+            
+            // Update set buttons
+            document.querySelectorAll('.set-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.set === setName);
+            });
+            
+            // Build direction buttons for this set
+            const container = document.getElementById('directionButtons');
+            const directions = SET_DIRECTIONS[setName];
+            
+            container.innerHTML = directions.map(dir => {
+                const isConfigured = setConfigurations[setName] && setConfigurations[setName][dir.id];
+                const savedClass = isConfigured ? 'saved' : '';
+                return `<button class="scenario-btn ${savedClass}" data-direction="${dir.id}" onclick="selectDirection('${dir.id}')">${dir.label}</button>`;
+            }).join('');
+            
+            updateSetProgress();
+            
+            // Auto-select the first direction (North) to show preview
+            if (directions.length > 0) {
+                selectDirection(directions[0].id);
+            }
+        }
+        
+        // Select a direction within the current set
+        function selectDirection(directionId) {
+            currentDirection = directionId;
+            
+            // Update button states
+            document.querySelectorAll('#directionButtons .scenario-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.direction === directionId);
+            });
+            
+            // Load saved configuration or default preset
+            const savedConfig = setConfigurations[currentSet] && setConfigurations[currentSet][directionId];
+            if (savedConfig) {
+                grid = JSON.parse(JSON.stringify(savedConfig));
+            } else {
+                // Load default preset - ALWAYS use the direction ID directly since it matches preset name
+                if (PRESETS[directionId]) {
+                    grid = JSON.parse(JSON.stringify(PRESETS[directionId]));
+                } else {
+                    // Fallback - try via SET_DIRECTIONS lookup
+                    const dirInfo = SET_DIRECTIONS[currentSet].find(d => d.id === directionId);
+                    if (dirInfo && dirInfo.preset && PRESETS[dirInfo.preset]) {
+                        grid = JSON.parse(JSON.stringify(PRESETS[dirInfo.preset]));
+                    } else {
+                        // Ultimate fallback - create empty grass grid
+                        console.warn('No preset found for:', directionId, '- using default grass grid');
+                        grid = [
+                            [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                            [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
+                            [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
+                        ];
+                    }
+                }
+            }
+            
+            buildGridUI();
+        }
+        
+        // Save current direction configuration
+        function saveCurrentDirection() {
+            if (!currentDirection) {
+                alert('Please select a direction first!');
+                return;
+            }
+            
+            // Save to set configurations
+            setConfigurations[currentSet][currentDirection] = JSON.parse(JSON.stringify(grid));
+            
+            // Persist to localStorage
+            localStorage.setItem('waterTileSetConfigs', JSON.stringify(setConfigurations));
+            
+            // Also update the terrain generator mappings
+            const mappings = updateTerrainGeneratorMappings();
+            
+            // ⚡ AUTO-APPLY: Broadcast to terrain generator immediately!
+            tileChannel.postMessage({
+                type: 'apply_mappings',
+                mappings: mappings,
+                timestamp: Date.now()
+            });
+            console.log('[TileTeacher] ⚡ AUTO-APPLIED: Saved & broadcasted', currentDirection);
+            
+            // Update UI
+            selectTileSet(currentSet); // Refresh to show saved state
+            selectDirection(currentDirection); // Re-select current direction
+            
+            // Visual feedback - show it was saved AND applied
+            const btn = document.querySelector('.btn-save');
+            btn.textContent = '✓ Saved & Applied!';
+            btn.style.background = '#2e7d32';
+            
+            // Also show status
+            const statusEl = document.getElementById('applyStatus');
+            if (statusEl) {
+                statusEl.innerHTML = `<span style="color: #4CAF50;">⚡ LIVE: ${currentDirection} applied to map!</span>`;
+            }
+            
+            setTimeout(() => {
+                btn.textContent = '💾 Save This Direction';
+                btn.style.background = '#4CAF50';
+                if (statusEl) statusEl.innerHTML = '';
+            }, 2000);
+        }
+        
+        // Save entire set at once
+        function saveEntireSet() {
+            const directions = SET_DIRECTIONS[currentSet];
+            const unconfigured = directions.filter(d => !setConfigurations[currentSet][d.id]);
+            
+            if (unconfigured.length > 0) {
+                const proceed = confirm(`${unconfigured.length} directions are not configured yet:\n${unconfigured.map(d => d.label).join(', ')}\n\nSave anyway?`);
+                if (!proceed) return;
+            }
+            
+            // Persist to localStorage
+            localStorage.setItem('waterTileSetConfigs', JSON.stringify(setConfigurations));
+            
+            // Update terrain generator mappings
+            const mappings = updateTerrainGeneratorMappings();
+            
+            // ⚡ AUTO-APPLY: Broadcast to terrain generator immediately!
+            tileChannel.postMessage({
+                type: 'apply_mappings',
+                mappings: mappings,
+                timestamp: Date.now()
+            });
+            
+            const configuredCount = directions.length - unconfigured.length;
+            console.log('[TileTeacher] ⚡ AUTO-APPLIED:', currentSet, 'set with', configuredCount, 'directions');
+            
+            // Show status instead of alert
+            const statusEl = document.getElementById('applyStatus');
+            if (statusEl) {
+                statusEl.innerHTML = `<span style="color: #4CAF50;">⚡ LIVE: Saved & applied ${currentSet} (${configuredCount} directions)!</span>`;
+                setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+            }
+            
+            // Update UI
+            selectTileSet(currentSet);
+        }
+        
+        // Update terrain generator mappings from set configurations
+        function updateTerrainGeneratorMappings() {
+            const mappings = {};
+            
+            // Add configurations from ALL sets
+            for (const [setName, setConfig] of Object.entries(setConfigurations)) {
+                for (const [dirId, gridConfig] of Object.entries(setConfig)) {
+                    const centerTile = gridConfig[1][1];
+                    mappings[dirId] = centerTile.tileId;
+                }
+            }
+            
+            // Save to BOTH keys for compatibility
+            localStorage.setItem('terrainTileMappings', JSON.stringify(mappings));
+            localStorage.setItem('waterTileMappings', JSON.stringify(mappings));
+            
+            console.log('✅ Updated terrain generator mappings:', Object.keys(mappings).length, 'entries');
+            console.log('Saved to: terrainTileMappings & waterTileMappings');
+            
+            return mappings;
+        }
+        
+        // BroadcastChannel for cross-tab communication
+        const tileChannel = new BroadcastChannel('tile_teacher_channel');
+        
+        // Apply changes to any open terrain generator map
+        function applyToOpenMap() {
+            const statusEl = document.getElementById('applyStatus');
+            
+            // First, save all current mappings
+            const mappings = updateTerrainGeneratorMappings();
+            const count = Object.keys(mappings).length;
+            const validCount = Object.values(mappings).filter(v => v && v !== '0x0000').length;
+            
+            // Broadcast to any listening terrain generator tabs
+            tileChannel.postMessage({
+                type: 'apply_mappings',
+                mappings: mappings,
+                timestamp: Date.now()
+            });
+            
+            statusEl.innerHTML = `<span style="color: #4CAF50;">⚡ LIVE: Sent ${validCount} valid mappings!</span><br>
+                <span style="color: #888; font-size: 10px;">Open terrain_generator_demo.html and click Procedural Enhanced to see changes</span>`;
+            console.log('[TileTeacher] ⚡ LIVE: Broadcasted', validCount, 'mappings to terrain generator');
+            
+            // Clear status after 5 seconds
+            setTimeout(() => {
+                statusEl.innerHTML = '';
+            }, 5000);
+        }
+        
+        // Update set progress indicator
+        function updateSetProgress() {
+            const directions = SET_DIRECTIONS[currentSet];
+            const configured = directions.filter(d => setConfigurations[currentSet][d.id]).length;
+            const total = directions.length;
+            
+            const progressDiv = document.getElementById('progressIndicator');
+            const percentage = Math.round((configured / total) * 100);
+            const setName = SET_NAMES[currentSet] || currentSet;
+            
+            progressDiv.innerHTML = `
+                <div style="color: ${configured === total ? '#4CAF50' : '#ff9800'}; font-weight: bold;">
+                    ${setName}: ${configured}/${total} (${percentage}%)
+                </div>
+                <div style="background: #2a3f5f; border-radius: 4px; height: 8px; margin-top: 5px;">
+                    <div style="background: ${configured === total ? '#4CAF50' : '#ff9800'}; width: ${percentage}%; height: 100%; border-radius: 4px;"></div>
+                </div>
+                <div style="margin-top: 8px; color: #666; font-size: 10px;">
+                    ${getOverallProgress()}
+                </div>
+            `;
+        }
+        
+        // Get overall progress across all sets
+        function getOverallProgress() {
+            let totalConfigured = 0;
+            let totalDirections = 0;
+            const setStats = [];
+            
+            for (const [setName, directions] of Object.entries(SET_DIRECTIONS)) {
+                const configured = directions.filter(d => setConfigurations[setName][d.id]).length;
+                totalConfigured += configured;
+                totalDirections += directions.length;
+                if (configured > 0) {
+                    setStats.push(`${SET_NAMES[setName]?.split(' ')[0] || setName}: ${configured}/${directions.length}`);
+                }
+            }
+            
+            if (setStats.length === 0) return 'No sets configured yet';
+            return `Overall: ${totalConfigured}/${totalDirections} | ` + setStats.join(' | ');
+        }
+        
+        // Event listeners
+        document.querySelectorAll('.scenario-btn[data-preset]').forEach(btn => {
+            btn.addEventListener('click', () => loadPreset(btn.dataset.preset));
+        });
+        
+        document.querySelectorAll('.quick-range').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const range = btn.dataset.range;
+                const [start, end] = range.split('-').map(v => parseInt(v, 16));
+                loadTileRange(start, end);
+                document.querySelectorAll('.quick-range').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+        
+        document.getElementById('rangeSelect').addEventListener('change', (e) => {
+            const [start, end] = e.target.value.split('-').map(v => parseInt(v, 16));
+            loadTileRange(start, end);
+            document.querySelectorAll('.quick-range').forEach(b => b.classList.remove('active'));
+        });
+        
+        document.getElementById('searchTile').addEventListener('input', (e) => {
+            const search = e.target.value.toUpperCase();
+            document.querySelectorAll('.tile-item').forEach(el => {
+                el.style.display = el.dataset.id.toUpperCase().includes(search) ? '' : 'none';
+            });
+        });
+        
+        // Generate saved patterns from built-in mappings
+        function generateBuiltinPatternEntries() {
+            // Only generate if no patterns exist
+            if (savedPatterns.length > 0) return;
+            
+            // Group built-ins by category
+            const categories = {
+                'Water Cliff': ['cliff_north', 'cliff_south', 'cliff_east', 'cliff_west'],
+                'Rock-Grass': ['rock_grass_north', 'rock_grass_south', 'rock_grass_east', 'rock_grass_west'],
+                'Sand-Grass': ['sand_grass_north', 'sand_grass_south', 'sand_grass_east', 'sand_grass_west'],
+            };
+            
+            for (const [catName, keys] of Object.entries(categories)) {
+                for (const key of keys) {
+                    if (BUILTIN_PATTERNS[key]) {
+                        const direction = key.split('_').pop();
+                        savedPatterns.push({
+                            name: key,
+                            displayName: `${catName} - ${direction}`,
+                            tileId: BUILTIN_PATTERNS[key],
+                            isBuiltin: true,
+                            grid: createDefaultGrid(BUILTIN_PATTERNS[key], key)
+                        });
+                    }
+                }
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('waterTilePatterns', JSON.stringify(savedPatterns));
+            console.log('Generated', savedPatterns.length, 'built-in pattern entries');
+        }
+        
+        // Create a default 3x3 grid for a built-in pattern
+        function createDefaultGrid(tileId, scenarioKey) {
+            const grassTile = '0x0003';
+            const waterTile = '0x00A8';
+            const rockTile = '0x021F';
+            
+            // Determine surrounding tiles based on scenario
+            let surrounding = grassTile;
+            if (scenarioKey.includes('cliff') || scenarioKey.includes('shallow')) {
+                surrounding = waterTile;
+            }
+            
+            // Create basic grid with center as the transition tile
+            return [
+                [{ tileId: grassTile, type: 'land' }, { tileId: grassTile, type: 'land' }, { tileId: grassTile, type: 'land' }],
+                [{ tileId: grassTile, type: 'land' }, { tileId: tileId, type: 'edge' }, { tileId: grassTile, type: 'land' }],
+                [{ tileId: surrounding, type: 'other' }, { tileId: surrounding, type: 'other' }, { tileId: surrounding, type: 'other' }]
+            ];
+        }
+        
+        // Initialize
+        async function init() {
+            await loadTileRange(0x098C, 0x09BF);
+            
+            // Generate built-in patterns if needed
+            generateBuiltinPatternEntries();
+            
+            await buildGridUI();
+            await renderSavedPatterns();
+            updatePresetButtons(); // Show which presets are already saved
+            
+            // Initialize tile set selector
+            selectTileSet('cliff');
+        }
+        
+        init();
+    </script>
+</body>
+</html>
