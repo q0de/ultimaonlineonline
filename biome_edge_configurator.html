@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terrain Tile Teacher - UO Terrain</title>
+    <title>Biome Edge Configurator - UO Terrain</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -343,7 +343,7 @@
     </style>
 </head>
 <body>
-    <h1>🗺️ Terrain Tile Teacher</h1>
+    <h1>🗺️ Biome Edge Configurator</h1>
     <p class="subtitle">Build terrain transition patterns - configure tiles for all biome edges</p>
     
     <div class="main-container">
@@ -1678,23 +1678,104 @@
         }
         
         // Update terrain generator mappings from set configurations
+        // Now saves full 3x3 binary patterns for pattern matching
         function updateTerrainGeneratorMappings() {
-            const mappings = {};
+            const mappings = {};      // Legacy simple format: dirId -> tileId
+            const patterns = [];       // New format: array of pattern objects
             
             // Add configurations from ALL sets
             for (const [setName, setConfig] of Object.entries(setConfigurations)) {
                 for (const [dirId, gridConfig] of Object.entries(setConfig)) {
                     const centerTile = gridConfig[1][1];
+                    
+                    // Legacy mapping (just center tile ID)
                     mappings[dirId] = centerTile.tileId;
+                    
+                    // New pattern format with full 3x3 shape
+                    // Convert grid types to binary: 1 = same as center context, 0 = different
+                    // For edge transitions, center type IS the edge, so we use the biome pair
+                    const centerType = centerTile.type; // 'edge', 'land', 'water', etc.
+                    
+                    // Extract the biome pair from the set name (e.g., 'sand_grass' -> ['sand', 'grass'])
+                    const biomePair = setName.split('_');
+                    const primaryBiome = biomePair[0];
+                    const secondaryBiome = biomePair[1] || 'grass'; // Default if single biome
+                    
+                    // Build binary pattern: 1 = primary biome, 0 = secondary/other
+                    const binaryShape = gridConfig.map(row => 
+                        row.map(cell => {
+                            // Map cell types to binary based on biome relationship
+                            // 'land' or primary biome type = 1, 'water' or secondary = 0
+                            if (cell.type === 'edge') return 'E'; // Edge marker
+                            if (cell.type === 'land' || cell.type === primaryBiome) return 1;
+                            if (cell.type === 'water' || cell.type === secondaryBiome) return 0;
+                            return cell.type === 'land' ? 1 : 0;
+                        })
+                    );
+                    
+                    // Create a pattern key from the binary shape (for fast lookup)
+                    const patternKey = binaryShape.map(row => row.join('')).join('_');
+                    
+                    // Create position-keyed tiles for easy lookup
+                    // Grid layout: [row][col] where row 0 is top, col 0 is left
+                    // Position names: NW=0,0  N=0,1  NE=0,2
+                    //                 W=1,0   C=1,1  E=1,2
+                    //                 SW=2,0  S=2,1  SE=2,2
+                    const positionTiles = {
+                        'NW': gridConfig[0][0].tileId,
+                        'N':  gridConfig[0][1].tileId,
+                        'NE': gridConfig[0][2].tileId,
+                        'W':  gridConfig[1][0].tileId,
+                        'CENTER': gridConfig[1][1].tileId,
+                        'E':  gridConfig[1][2].tileId,
+                        'SW': gridConfig[2][0].tileId,
+                        'S':  gridConfig[2][1].tileId,
+                        'SE': gridConfig[2][2].tileId
+                    };
+                    
+                    // Also store biome types for each position
+                    const positionTypes = {
+                        'NW': gridConfig[0][0].type,
+                        'N':  gridConfig[0][1].type,
+                        'NE': gridConfig[0][2].type,
+                        'W':  gridConfig[1][0].type,
+                        'CENTER': gridConfig[1][1].type,
+                        'E':  gridConfig[1][2].type,
+                        'SW': gridConfig[2][0].type,
+                        'S':  gridConfig[2][1].type,
+                        'SE': gridConfig[2][2].type
+                    };
+                    
+                    patterns.push({
+                        setName: setName,
+                        directionId: dirId,
+                        centerTileId: centerTile.tileId,
+                        shape: binaryShape,
+                        patternKey: patternKey,
+                        // NEW: Position-keyed tiles for easy lookup
+                        positionTiles: positionTiles,
+                        positionTypes: positionTypes,
+                        // Store the full grid for reference
+                        fullGrid: gridConfig.map(row => 
+                            row.map(cell => ({
+                                tileId: cell.tileId,
+                                type: cell.type
+                            }))
+                        )
+                    });
                 }
             }
             
-            // Save to BOTH keys for compatibility
+            // Save to BOTH keys for compatibility (legacy format)
             localStorage.setItem('terrainTileMappings', JSON.stringify(mappings));
             localStorage.setItem('waterTileMappings', JSON.stringify(mappings));
             
+            // Save new pattern format for 3x3 matching
+            localStorage.setItem('biomeEdgePatterns', JSON.stringify(patterns));
+            
             console.log('✅ Updated terrain generator mappings:', Object.keys(mappings).length, 'entries');
-            console.log('Saved to: terrainTileMappings & waterTileMappings');
+            console.log('✅ Saved', patterns.length, 'full 3x3 patterns to biomeEdgePatterns');
+            console.log('Saved to: terrainTileMappings, waterTileMappings, biomeEdgePatterns');
             
             return mappings;
         }

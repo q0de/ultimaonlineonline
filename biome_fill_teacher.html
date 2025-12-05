@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biome Fill Tile Teacher - UO Terrain</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #0a1628;
+            color: #e0e0e0;
+        }
+        h1 { color: #4CAF50; text-align: center; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 20px; }
+        
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* Left panel - Biome selector */
+        .biome-panel {
+            width: 300px;
+            background: #152238;
+            border-radius: 8px;
+            padding: 15px;
+            flex-shrink: 0;
+        }
+        .biome-panel h2 {
+            color: #4CAF50;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        
+        .biome-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .biome-btn {
+            padding: 12px 15px;
+            font-size: 14px;
+            background: #2a3f5f;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+        .biome-btn:hover { background: #3a5f8f; }
+        .biome-btn.active { 
+            border-color: #4CAF50; 
+            background: #1a4f3f; 
+        }
+        .biome-btn .emoji {
+            font-size: 20px;
+        }
+        .biome-btn .count {
+            margin-left: auto;
+            background: #4CAF50;
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .biome-btn .count.empty {
+            background: #555;
+            color: #aaa;
+        }
+        
+        /* Middle panel - Tile browser */
+        .browser-panel {
+            flex: 1;
+            background: #152238;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 500px;
+        }
+        .browser-panel h2 {
+            color: #4CAF50;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        
+        .browser-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .browser-controls input {
+            flex: 1;
+            padding: 8px 12px;
+            background: #0a1628;
+            border: 1px solid #3a5f8f;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+            min-width: 200px;
+        }
+        .browser-controls select {
+            padding: 8px 12px;
+            background: #0a1628;
+            border: 1px solid #3a5f8f;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #0a1628;
+            border-radius: 8px;
+        }
+        
+        .tile-item {
+            width: 60px;
+            height: 60px;
+            background: #1a2a4a;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .tile-item:hover {
+            border-color: #4CAF50;
+            transform: scale(1.05);
+        }
+        .tile-item.selected {
+            border-color: #4CAF50;
+            background: #1a4f3f;
+        }
+        .tile-item.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #4CAF50;
+            color: #000;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .tile-item img {
+            max-width: 44px;
+            max-height: 44px;
+            image-rendering: pixelated;
+        }
+        .tile-item .tile-id {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: #aaa;
+            font-size: 8px;
+            text-align: center;
+            padding: 1px;
+        }
+        
+        /* Right panel - Selected tiles preview */
+        .preview-panel {
+            width: 280px;
+            background: #152238;
+            border-radius: 8px;
+            padding: 15px;
+            flex-shrink: 0;
+        }
+        .preview-panel h2 {
+            color: #4CAF50;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        
+        .selected-tiles {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+            min-height: 200px;
+            background: #0a1628;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .selected-tile {
+            width: 70px;
+            height: 70px;
+            background: #1a2a4a;
+            border: 2px solid #3a5f8f;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .selected-tile img {
+            max-width: 44px;
+            max-height: 44px;
+            image-rendering: pixelated;
+        }
+        .selected-tile .remove-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #f44336;
+            color: #fff;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .selected-tile .remove-btn:hover {
+            background: #d32f2f;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .action-btn {
+            padding: 12px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .action-btn.save {
+            background: #4CAF50;
+            color: #fff;
+        }
+        .action-btn.save:hover {
+            background: #45a049;
+        }
+        .action-btn.clear {
+            background: #f44336;
+            color: #fff;
+        }
+        .action-btn.clear:hover {
+            background: #d32f2f;
+        }
+        .action-btn.export {
+            background: #2196F3;
+            color: #fff;
+        }
+        .action-btn.export:hover {
+            background: #1976D2;
+        }
+        
+        /* Status message */
+        .status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: #4CAF50;
+            color: #fff;
+            border-radius: 6px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .status.show {
+            opacity: 1;
+        }
+        .status.error {
+            background: #f44336;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        /* Info text */
+        .info-text {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏔️ Biome Fill Tile Teacher</h1>
+    <p class="subtitle">Select which tiles to use for filling the INSIDE of each biome type</p>
+    
+    <div class="main-container">
+        <!-- Left Panel: Biome Selector -->
+        <div class="biome-panel">
+            <h2>📋 Biome Types</h2>
+            <div class="biome-list" id="biome-list">
+                <!-- Populated by JS -->
+            </div>
+            <p class="info-text">
+                Click a biome to select tiles for filling its interior.
+                Edge/transition tiles are configured in the <a href="biome_edge_configurator.html" style="color: #4CAF50;">Biome Edge Configurator</a>.
+            </p>
+        </div>
+        
+        <!-- Middle Panel: Tile Browser -->
+        <div class="browser-panel">
+            <h2>🎨 Available Tiles</h2>
+            <div class="browser-controls">
+                <input type="text" id="search-input" placeholder="Search by ID or name (e.g., 0x0201, grass)">
+                <select id="type-filter">
+                    <option value="">All Types</option>
+                    <option value="grass">Grass</option>
+                    <option value="dirt">Dirt</option>
+                    <option value="rock">Rock</option>
+                    <option value="sand">Sand</option>
+                    <option value="water">Water</option>
+                    <option value="forest">Forest</option>
+                    <option value="jungle">Jungle</option>
+                    <option value="snow">Snow</option>
+                    <option value="cave">Cave</option>
+                    <option value="flagstone">Flagstone</option>
+                    <option value="cobblestone">Cobblestone</option>
+                </select>
+            </div>
+            <div class="tile-grid" id="tile-grid">
+                <div class="loading">Loading tiles...</div>
+            </div>
+        </div>
+        
+        <!-- Right Panel: Selected Tiles Preview -->
+        <div class="preview-panel">
+            <h2 id="preview-title">Selected Tiles</h2>
+            <div class="selected-tiles" id="selected-tiles">
+                <p style="grid-column: 1/-1; text-align: center; color: #666; font-size: 12px;">
+                    Click tiles to select them
+                </p>
+            </div>
+            <div class="action-buttons">
+                <button class="action-btn save" onclick="saveCurrentBiome()">💾 Save This Biome</button>
+                <button class="action-btn clear" onclick="clearCurrentBiome()">🗑️ Clear Selection</button>
+                <button class="action-btn export" onclick="exportAllBiomes()">📤 Export All</button>
+            </div>
+            <p class="info-text">
+                Selected tiles will be used randomly when filling this biome type.
+                More tiles = more variety!
+            </p>
+        </div>
+    </div>
+    
+    <div class="status" id="status"></div>
+    
+    <script type="module">
+        // Biome configuration
+        const BIOMES = [
+            { id: 'rock', name: 'Rock/Mountain', emoji: '🏔️', defaultTiles: ['0x00E4', '0x00E5', '0x00E6', '0x00E7'] },
+            { id: 'dirt', name: 'Dirt', emoji: '🟤', defaultTiles: ['0x0071', '0x0072', '0x0073', '0x0074'] },
+            { id: 'grass', name: 'Grass', emoji: '🌿', defaultTiles: ['0x0003', '0x0004', '0x0005', '0x0006'] },
+            { id: 'sand', name: 'Sand', emoji: '🏖️', defaultTiles: ['0x0016', '0x0017', '0x0018', '0x0019'] },
+            { id: 'water', name: 'Water', emoji: '💧', defaultTiles: ['0x00A8', '0x00A9', '0x00AA', '0x00AB'] },
+            { id: 'forest', name: 'Forest', emoji: '🌲', defaultTiles: ['0x00C4', '0x00C5', '0x00C6', '0x00C7'] },
+            { id: 'jungle', name: 'Jungle', emoji: '🌴', defaultTiles: ['0x00AC', '0x00AD', '0x00AE', '0x00AF'] },
+            { id: 'snow', name: 'Snow', emoji: '❄️', defaultTiles: ['0x011A', '0x011B', '0x011C', '0x011D'] },
+            { id: 'cave', name: 'Cave/Dungeon', emoji: '🕳️', defaultTiles: ['0x0245', '0x0246', '0x0247', '0x0248'] },
+            { id: 'swamp', name: 'Swamp', emoji: '🐊', defaultTiles: ['0x00D2', '0x00D3', '0x00D4', '0x00D5'] }
+        ];
+        
+        // State
+        let allTiles = [];
+        let currentBiome = null;
+        let biomeSelections = {};  // { biomeId: [tileId1, tileId2, ...] }
+        
+        // Storage key
+        const STORAGE_KEY = 'biomeFillTiles';
+        
+        // Initialize
+        async function init() {
+            loadSavedSelections();
+            renderBiomeList();
+            await loadTiles();
+            
+            // Select first biome by default
+            selectBiome(BIOMES[0].id);
+            
+            // Setup event listeners
+            document.getElementById('search-input').addEventListener('input', filterTiles);
+            document.getElementById('type-filter').addEventListener('change', filterTiles);
+        }
+        
+        // Load saved selections from localStorage
+        function loadSavedSelections() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    biomeSelections = JSON.parse(saved);
+                    console.log('Loaded saved biome fill tiles:', biomeSelections);
+                }
+            } catch (e) {
+                console.error('Error loading saved selections:', e);
+            }
+            
+            // Initialize empty biomes with defaults
+            BIOMES.forEach(biome => {
+                if (!biomeSelections[biome.id]) {
+                    biomeSelections[biome.id] = [...biome.defaultTiles];
+                }
+            });
+        }
+        
+        // Render biome list
+        function renderBiomeList() {
+            const container = document.getElementById('biome-list');
+            container.innerHTML = BIOMES.map(biome => {
+                const count = (biomeSelections[biome.id] || []).length;
+                return `
+                    <button class="biome-btn" data-biome="${biome.id}" onclick="selectBiome('${biome.id}')">
+                        <span class="emoji">${biome.emoji}</span>
+                        <span>${biome.name}</span>
+                        <span class="count ${count === 0 ? 'empty' : ''}">${count}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+        
+        // Select a biome
+        window.selectBiome = function(biomeId) {
+            currentBiome = biomeId;
+            
+            // Update UI
+            document.querySelectorAll('.biome-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.biome === biomeId);
+            });
+            
+            const biome = BIOMES.find(b => b.id === biomeId);
+            document.getElementById('preview-title').textContent = `${biome.emoji} ${biome.name} Tiles`;
+            
+            // Update tile selection states
+            updateTileSelectionStates();
+            renderSelectedTiles();
+        };
+        
+        // Load tiles from CSV
+        async function loadTiles() {
+            try {
+                const response = await fetch('./assets/tiles/LandData.csv');
+                const csvText = await response.text();
+                
+                const lines = csvText.split('\n');
+                allTiles = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const parts = line.split(';');
+                    if (parts.length >= 2) {
+                        const id = parts[0].trim();
+                        const name = parts[1].trim();
+                        
+                        allTiles.push({
+                            id: id,
+                            name: name,
+                            type: name.toLowerCase()
+                        });
+                    }
+                }
+                
+                console.log(`Loaded ${allTiles.length} tiles`);
+                renderTileGrid();
+            } catch (e) {
+                console.error('Error loading tiles:', e);
+                document.getElementById('tile-grid').innerHTML = '<p style="color: #f44336;">Error loading tiles</p>';
+            }
+        }
+        
+        // Render tile grid
+        function renderTileGrid(tiles = allTiles) {
+            const container = document.getElementById('tile-grid');
+            
+            if (tiles.length === 0) {
+                container.innerHTML = '<p style="color: #888; text-align: center;">No tiles match your search</p>';
+                return;
+            }
+            
+            // Limit to first 500 for performance
+            const displayTiles = tiles.slice(0, 500);
+            
+            container.innerHTML = displayTiles.map(tile => {
+                const isSelected = currentBiome && (biomeSelections[currentBiome] || []).includes(tile.id);
+                return `
+                    <div class="tile-item ${isSelected ? 'selected' : ''}" 
+                         data-tile-id="${tile.id}" 
+                         onclick="toggleTile('${tile.id}')"
+                         title="${tile.id} - ${tile.name}">
+                        <img src="./assets/tiles/land/${tile.id}.png" 
+                             onerror="this.style.display='none'" 
+                             alt="${tile.name}">
+                        <span class="tile-id">${tile.id}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            if (tiles.length > 500) {
+                container.innerHTML += `<p style="grid-column: 1/-1; text-align: center; color: #888; font-size: 11px;">
+                    Showing 500 of ${tiles.length} tiles. Use search to find more.
+                </p>`;
+            }
+        }
+        
+        // Filter tiles
+        function filterTiles() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const typeFilter = document.getElementById('type-filter').value.toLowerCase();
+            
+            let filtered = allTiles;
+            
+            if (searchTerm) {
+                filtered = filtered.filter(tile => 
+                    tile.id.toLowerCase().includes(searchTerm) ||
+                    tile.name.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (typeFilter) {
+                filtered = filtered.filter(tile => 
+                    tile.type.includes(typeFilter)
+                );
+            }
+            
+            renderTileGrid(filtered);
+            updateTileSelectionStates();
+        }
+        
+        // Toggle tile selection
+        window.toggleTile = function(tileId) {
+            if (!currentBiome) {
+                showStatus('Please select a biome first!', true);
+                return;
+            }
+            
+            if (!biomeSelections[currentBiome]) {
+                biomeSelections[currentBiome] = [];
+            }
+            
+            const index = biomeSelections[currentBiome].indexOf(tileId);
+            if (index === -1) {
+                biomeSelections[currentBiome].push(tileId);
+            } else {
+                biomeSelections[currentBiome].splice(index, 1);
+            }
+            
+            updateTileSelectionStates();
+            renderSelectedTiles();
+            renderBiomeList();  // Update counts
+        };
+        
+        // Update tile selection states in grid
+        function updateTileSelectionStates() {
+            const selectedTiles = currentBiome ? (biomeSelections[currentBiome] || []) : [];
+            
+            document.querySelectorAll('.tile-item').forEach(item => {
+                const tileId = item.dataset.tileId;
+                item.classList.toggle('selected', selectedTiles.includes(tileId));
+            });
+        }
+        
+        // Render selected tiles preview
+        function renderSelectedTiles() {
+            const container = document.getElementById('selected-tiles');
+            const selectedTiles = currentBiome ? (biomeSelections[currentBiome] || []) : [];
+            
+            if (selectedTiles.length === 0) {
+                container.innerHTML = `
+                    <p style="grid-column: 1/-1; text-align: center; color: #666; font-size: 12px;">
+                        No tiles selected. Click tiles to add them.
+                    </p>
+                `;
+                return;
+            }
+            
+            container.innerHTML = selectedTiles.map(tileId => `
+                <div class="selected-tile" title="${tileId}">
+                    <img src="./assets/tiles/land/${tileId}.png" 
+                         onerror="this.parentElement.innerHTML='<span style=\\'color:#666;font-size:10px;\\'>${tileId}</span>'" 
+                         alt="${tileId}">
+                    <button class="remove-btn" onclick="removeTile('${tileId}')">×</button>
+                </div>
+            `).join('');
+        }
+        
+        // Remove tile from selection
+        window.removeTile = function(tileId) {
+            if (!currentBiome) return;
+            
+            const index = biomeSelections[currentBiome].indexOf(tileId);
+            if (index !== -1) {
+                biomeSelections[currentBiome].splice(index, 1);
+            }
+            
+            updateTileSelectionStates();
+            renderSelectedTiles();
+            renderBiomeList();
+        };
+        
+        // Save current biome
+        window.saveCurrentBiome = function() {
+            if (!currentBiome) {
+                showStatus('Please select a biome first!', true);
+                return;
+            }
+            
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(biomeSelections));
+                showStatus(`✅ Saved ${biomeSelections[currentBiome].length} tiles for ${currentBiome}!`);
+            } catch (e) {
+                console.error('Error saving:', e);
+                showStatus('Error saving!', true);
+            }
+        };
+        
+        // Clear current biome selection
+        window.clearCurrentBiome = function() {
+            if (!currentBiome) return;
+            
+            if (confirm(`Clear all tiles for ${currentBiome}?`)) {
+                biomeSelections[currentBiome] = [];
+                updateTileSelectionStates();
+                renderSelectedTiles();
+                renderBiomeList();
+                showStatus(`Cleared ${currentBiome} tiles`);
+            }
+        };
+        
+        // Export all biomes
+        window.exportAllBiomes = function() {
+            const exportData = JSON.stringify(biomeSelections, null, 2);
+            
+            const blob = new Blob([exportData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'biome_fill_tiles.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showStatus('Exported biome fill tiles!');
+        };
+        
+        // Show status message
+        function showStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.classList.toggle('error', isError);
+            status.classList.add('show');
+            
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
+

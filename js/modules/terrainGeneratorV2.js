@@ -33,8 +33,11 @@ import {
     getWaterTileForScenario,
     determineWaterScenario,
     shouldBeShallowEdge,
-    WATER_EDGE_CONFIG
-} from '../data/waterTileMappings.js?v=20251203_normalDir';
+    WATER_EDGE_CONFIG,
+    getBiomeEdgePatterns,
+    matchTilePattern,
+    applyStampBasedTransitions
+} from '../data/waterTileMappings.js?v=20251205_bothbiomes';
 // Note: If you're not seeing updated tile mappings, try hard refresh (Ctrl+Shift+R)
 import { 
     apply8BitTransitions,
@@ -1672,19 +1675,57 @@ export class TerrainGeneratorV2 {
      * @param {number} height - Map height
      */
     applyTerrainEdgeTiles(map, width, height) {
-        // Load user's tile mappings from Tile Teacher
+        // Load user's tile mappings from Tile Teacher (legacy format)
         const userMappings = getWaterTileMappings();
         
-        // Debug: Log what terrain transition mappings we have
+        // Load 3x3 patterns for full pattern matching (new format)
+        const savedPatterns = getBiomeEdgePatterns();
+        
+        // Debug: Log what mappings we have
         const terrainKeys = Object.keys(userMappings).filter(k => 
             k.startsWith('rock_grass') || k.startsWith('sand_grass') || 
             k.startsWith('forest_grass') || k.startsWith('dirt_grass')
         );
-        if (terrainKeys.length > 0) {
-            console.log(`[TerrainEdgeTiles] Found ${terrainKeys.length} terrain transition mappings:`, terrainKeys);
-        } else {
-            console.log('[TerrainEdgeTiles] No terrain transition mappings found in Tile Teacher. Configure via water_tile_teacher.html');
+        
+        // ============ STAMP-BASED APPROACH ============
+        // Place complete 3x3 stamps as coherent units along edges
+        if (savedPatterns.length > 0) {
+            const hasPositionTiles = savedPatterns.some(p => p.positionTiles);
+            
+            // DEBUG: Show what's in the patterns
+            console.log(`[TerrainEdgeTiles] Checking ${savedPatterns.length} patterns for positionTiles...`);
+            if (savedPatterns.length > 0) {
+                const sample = savedPatterns[0];
+                console.log(`[TerrainEdgeTiles] Sample pattern keys:`, Object.keys(sample));
+                console.log(`[TerrainEdgeTiles] Has positionTiles:`, !!sample.positionTiles);
+                if (sample.positionTiles) {
+                    console.log(`[TerrainEdgeTiles] positionTiles:`, sample.positionTiles);
+                }
+            }
+            
+            if (hasPositionTiles) {
+                console.log(`[TerrainEdgeTiles] ✅ Using STAMP-BASED 3x3 pattern placement with ${savedPatterns.length} patterns`);
+                console.log(`[TerrainEdgeTiles] Stamps will be placed as complete 3x3 units along biome edges`);
+                
+                // Use the new stamp-based approach
+                const stampCount = applyStampBasedTransitions(map, savedPatterns);
+                console.log(`[TerrainEdgeTiles] Stamp-based transitions applied: ${stampCount} stamps placed`);
+                return; // Done with stamp-based approach
+            } else {
+                console.log(`[TerrainEdgeTiles] ⚠️ Patterns don't have positionTiles!`);
+                console.log(`[TerrainEdgeTiles] Please re-save patterns in Edge Configurator to enable stamp-based mode`);
+            }
         }
+        
+        if (terrainKeys.length > 0) {
+            console.log(`[TerrainEdgeTiles] Fallback to direction matching with ${terrainKeys.length} mappings`);
+        } else {
+            console.log('[TerrainEdgeTiles] No patterns found. Configure via biome_edge_configurator.html');
+            return;
+        }
+        
+        // ============ LEGACY FALLBACK: Direction-based matching ============
+        // Only used if no stamp patterns are available
         
         // Define which biome pairs we support
         const BIOME_PAIRS = [
@@ -1696,7 +1737,7 @@ export class TerrainGeneratorV2 {
             { a: 'sand', b: 'water', prefix: 'sand_water' },
         ];
         
-        let appliedCount = 0;
+        let fallbackMatchCount = 0;
         
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -1729,33 +1770,27 @@ export class TerrainGeneratorV2 {
                     if (adjacentCount === 0) continue;
                     
                     // Determine scenario key based on direction mapping mode
-                    // Mode can be: 'normal', 'inverted', 'swap_ns', 'swap_ew'
-                    // Changed to 'normal' so Tile Teacher directions match terrain generation
                     const dirMode = (typeof window !== 'undefined' && window.terrainDirectionMode) || 'normal';
                     let scenarioKey = null;
                     
                     // Helper to get direction based on mode
                     const getDir = (hasN, hasS, hasE, hasW) => {
                         if (dirMode === 'normal') {
-                            // Normal: hasNorth → north
                             if (hasN) return 'north';
                             if (hasS) return 'south';
                             if (hasE) return 'east';
                             if (hasW) return 'west';
                         } else if (dirMode === 'inverted') {
-                            // Inverted: hasNorth → south
                             if (hasN) return 'south';
                             if (hasS) return 'north';
                             if (hasE) return 'west';
                             if (hasW) return 'east';
                         } else if (dirMode === 'swap_ns') {
-                            // Swap N/S only
                             if (hasN) return 'south';
                             if (hasS) return 'north';
                             if (hasE) return 'east';
                             if (hasW) return 'west';
                         } else if (dirMode === 'swap_ew') {
-                            // Swap E/W only
                             if (hasN) return 'north';
                             if (hasS) return 'south';
                             if (hasE) return 'west';
@@ -1777,7 +1812,6 @@ export class TerrainGeneratorV2 {
                             else if (hasSouth && hasEast) scenarioKey = `${pair.prefix}_corner_se`;
                             else if (hasSouth && hasWest) scenarioKey = `${pair.prefix}_corner_sw`;
                         } else {
-                            // Inverted or swapped - flip corners
                             if (hasNorth && hasEast) scenarioKey = `${pair.prefix}_corner_sw`;
                             else if (hasNorth && hasWest) scenarioKey = `${pair.prefix}_corner_se`;
                             else if (hasSouth && hasEast) scenarioKey = `${pair.prefix}_corner_nw`;
@@ -1792,7 +1826,6 @@ export class TerrainGeneratorV2 {
                             else if (!hasEast) scenarioKey = `${pair.prefix}_inner_nw`;
                             else if (!hasWest) scenarioKey = `${pair.prefix}_inner_se`;
                         } else {
-                            // Inverted
                             if (!hasNorth) scenarioKey = `${pair.prefix}_inner_ne`;
                             else if (!hasSouth) scenarioKey = `${pair.prefix}_inner_sw`;
                             else if (!hasEast) scenarioKey = `${pair.prefix}_inner_se`;
@@ -1800,29 +1833,36 @@ export class TerrainGeneratorV2 {
                         }
                     }
                     
-                    // Apply the user's saved tile if available
-                    if (scenarioKey && userMappings[scenarioKey]) {
-                        const tileIdStr = userMappings[scenarioKey];
-                        // Convert hex string to integer
-                        const tileId = typeof tileIdStr === 'string' 
-                            ? parseInt(tileIdStr.replace('0x', ''), 16)
-                            : tileIdStr;
+                    // ALWAYS mark as terrain edge if we found a valid scenario
+                    // This ensures labels show even if no tile mapping exists
+                    if (scenarioKey) {
+                        tile.isTerrainEdge = true;
+                        tile.terrainEdgeScenario = scenarioKey;
+                        tile.patternSetName = pair.prefix; // e.g., 'rock_grass' for debug labels
+                        // Extract position from scenarioKey for fallback (e.g., 'rock_grass_north' -> 'N')
+                        const dirPart = scenarioKey.replace(pair.prefix + '_', '');
+                        tile.terrainEdgePosition = dirPart.toUpperCase().replace('CORNER_', '').replace('INNER_', 'I-');
                         
-                        // Only apply if valid tile ID (not 0, not NaN)
-                        if (tileId && !isNaN(tileId) && tileId > 0) {
-                            tile.id = tileId;
-                            tile.isTerrainEdge = true;
-                            tile.terrainEdgeScenario = scenarioKey;
-                            appliedCount++;
+                        // Apply the user's saved tile if available
+                        if (userMappings[scenarioKey]) {
+                            const tileIdStr = userMappings[scenarioKey];
+                            const tileId = typeof tileIdStr === 'string' 
+                                ? parseInt(tileIdStr.replace('0x', ''), 16)
+                                : tileIdStr;
+                            
+                            if (tileId && !isNaN(tileId) && tileId > 0) {
+                                tile.id = tileId;
+                            }
                         }
-                        break; // Only apply one transition per tile
+                        fallbackMatchCount++;
+                        break;
                     }
                 }
             }
         }
         
-        if (appliedCount > 0) {
-            console.log(`[TerrainEdgeTiles] Applied ${appliedCount} user-configured terrain transitions`);
+        if (fallbackMatchCount > 0) {
+            console.log(`[TerrainEdgeTiles] Applied ${fallbackMatchCount} transitions via legacy direction matching`);
         }
     }
     

@@ -308,6 +308,8 @@
         .btn-orange:hover { background: linear-gradient(135deg, #FF7043, #F4511E) !important; }
         .btn-deep-orange { background: linear-gradient(135deg, #E65100, #BF360C) !important; }
         .btn-teal { background: linear-gradient(135deg, #00897B, #00695C) !important; }
+        .btn-teal:hover { background: linear-gradient(135deg, #26A69A, #00897B) !important; }
+        .btn-teal.active { background: linear-gradient(135deg, #4DB6AC, #26A69A) !important; box-shadow: 0 0 10px #4DB6AC; }
         .btn-purple { background: linear-gradient(135deg, #9C27B0, #7B1FA2) !important; }
         .btn-purple:hover { background: linear-gradient(135deg, #AB47BC, #8E24AA) !important; }
         .btn-gray { background: linear-gradient(135deg, #607D8B, #455A64) !important; }
@@ -570,6 +572,13 @@
                         <span class="btn-icon">🧱</span>
                         <span class="btn-text">Stitch Designer</span>
                     </button>
+                    <button id="toggleLabelsBtn" onclick="togglePatternLabels()" class="btn-teal">
+                        <span class="btn-icon">🏷️</span>
+                        <span class="btn-text">Show Labels</span>
+                    </button>
+                    <a href="biome_edge_configurator.html" target="_blank" class="btn-link" style="display: inline-block; margin-top: 8px; color: #4CAF50; text-decoration: none; font-size: 12px;">
+                        🔧 Open Edge Configurator →
+                    </a>
                 </div>
             </div>
 
@@ -794,7 +803,7 @@
     <script type="module">
         import { LandTileLoader } from './js/modules/landTileLoader.js';
         import { TerrainGenerator } from './js/modules/terrainGenerator.js';
-        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=20251203_normalDir'; // Bump version - fixed direction mode to 'normal'
+        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=20251205_bothbiomes'; // Bump version - fixed patternMatchCount error
         import { WebGLTerrainRenderer } from './js/modules/webglTerrainRenderer.js?v=camerafollow1';
         import { initializeDynamicSets } from './js/data/uoTileSetsClean.js';
         import { UOMapLoader } from './js/modules/uoMapLoader.js';
@@ -4774,6 +4783,193 @@
                 renderMap(currentMap);
             }
         };
+        
+        // ============ PATTERN DEBUG LABELS ============
+        let patternLabelsEnabled = false;
+        let labelOverlayCanvas = null;
+        
+        // Toggle pattern debug labels
+        window.togglePatternLabels = function() {
+            patternLabelsEnabled = !patternLabelsEnabled;
+            const btn = document.getElementById('toggleLabelsBtn');
+            
+            if (patternLabelsEnabled) {
+                btn.classList.add('active');
+                btn.querySelector('.btn-text').textContent = 'Hide Labels';
+                renderPatternLabels();
+            } else {
+                btn.classList.remove('active');
+                btn.querySelector('.btn-text').textContent = 'Show Labels';
+                clearPatternLabels();
+            }
+        };
+        
+        // Render pattern labels and outlines on overlay canvas
+        function renderPatternLabels() {
+            if (!currentMap) {
+                console.warn('[PatternLabels] No map data');
+                return;
+            }
+            
+            // Find the WebGL canvas (dynamically created) or fall back to original
+            const canvasContainer = document.getElementById('canvasContainer');
+            const mainCanvas = canvasContainer?.querySelector('canvas[style*="display: block"]') 
+                            || canvasContainer?.querySelector('canvas:last-child')
+                            || document.getElementById('canvas');
+            if (!mainCanvas) {
+                console.warn('[PatternLabels] Canvas not found');
+                return;
+            }
+            
+            console.log('[PatternLabels] Using canvas:', mainCanvas.width, 'x', mainCanvas.height);
+            
+            // Create overlay canvas if not exists
+            if (!labelOverlayCanvas) {
+                labelOverlayCanvas = document.createElement('canvas');
+                labelOverlayCanvas.id = 'labelOverlay';
+                labelOverlayCanvas.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    pointer-events: none;
+                    z-index: 100;
+                `;
+                mainCanvas.parentElement.style.position = 'relative';
+                mainCanvas.parentElement.appendChild(labelOverlayCanvas);
+            }
+            
+            // Match overlay size to main canvas
+            labelOverlayCanvas.width = mainCanvas.width;
+            labelOverlayCanvas.height = mainCanvas.height;
+            labelOverlayCanvas.style.width = mainCanvas.style.width;
+            labelOverlayCanvas.style.height = mainCanvas.style.height;
+            
+            const ctx = labelOverlayCanvas.getContext('2d');
+            ctx.clearRect(0, 0, labelOverlayCanvas.width, labelOverlayCanvas.height);
+            
+            // Colors for different pattern sets
+            const setColors = {
+                'rock_grass': '#FF5722',
+                'sand_grass': '#FFC107',
+                'forest_grass': '#4CAF50',
+                'dirt_grass': '#795548',
+                'water_cliff': '#2196F3',
+                'water_shallow': '#03A9F4',
+                'sand_water': '#00BCD4',
+                'rock_sand': '#9E9E9E'
+            };
+            
+            // Get renderer offset for positioning
+            const offsetX = webglRenderer?.offsetX || 100;
+            const offsetY = webglRenderer?.offsetY || 100;
+            console.log('[PatternLabels] Offset:', offsetX, offsetY);
+            
+            // Iterate through map tiles
+            const width = currentMap.length > 0 ? currentMap[0].length : 0;
+            const height = currentMap.length;
+            
+            // ========== TRANSITION TILE OUTLINE VISUALIZATION ==========
+            // Draw diamond outlines around ALL transition tiles so you can see what's being applied
+            const outlineColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080'];
+            let transitionCount = 0;
+            
+            // First pass: draw outlines for all terrain edge tiles
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const tile = currentMap[y][x];
+                    
+                    // Check if this is a terrain edge tile (transition)
+                    if (!tile.isTerrainEdge && !tile.terrainEdgePosition) continue;
+                    
+                    transitionCount++;
+                    
+                    // Calculate isometric screen position
+                    const isoX = (x - y) * 22;
+                    const isoY = (x + y) * 22;
+                    const screenX = offsetX + isoX;
+                    const screenY = offsetY + isoY - (tile.z || 0) * 4;
+                    
+                    // Get color based on pattern set name
+                    const setName = tile.patternSetName || 'unknown';
+                    const color = setColors[setName] || '#FFFFFF';
+                    
+                    // Draw a solid diamond outline for this transition tile
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]); // Solid line
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(screenX, screenY - 22);      // Top
+                    ctx.lineTo(screenX + 22, screenY);      // Right
+                    ctx.lineTo(screenX, screenY + 22);      // Bottom
+                    ctx.lineTo(screenX - 22, screenY);      // Left
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            }
+            
+            console.log(`[PatternLabels] Drew outlines for ${transitionCount} transition tiles`);
+            
+            // ========== INDIVIDUAL TILE LABELS ==========
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const tile = currentMap[y][x];
+                    
+                    // Only draw labels for terrain edge tiles
+                    if (!tile.isTerrainEdge && !tile.terrainEdgePosition) continue;
+                    
+                    const position = tile.terrainEdgePosition || tile.patternPosition || '?';
+                    const setName = tile.patternSetName || 'unknown';
+                    
+                    // Determine what label to show:
+                    // - CENTER tiles show the DIRECTION (N, S, E, W, NE, NW, SE, SW)
+                    // - Other tiles show their position (NW, N, NE, etc.)
+                    let label = position;
+                    let isCenter = (position === 'CENTER');
+                    if (isCenter && tile.stampConfigName) {
+                        // Show the calculated stamp direction: N, S, E, W, NE, NW, SE, SW
+                        label = tile.stampConfigName;
+                    }
+                    
+                    // Calculate isometric screen position (same as WebGL renderer)
+                    const isoX = (x - y) * 22;
+                    const isoY = (x + y) * 22;
+                    const screenX = offsetX + isoX;
+                    const screenY = offsetY + isoY - (tile.z || 0) * 4;
+                    
+                    // Get color for this set
+                    const color = setColors[setName] || '#FFFFFF';
+                    
+                    // Draw outline/background - make it wider for CENTER tiles with config names
+                    const labelWidth = isCenter ? Math.max(24, label.length * 6 + 8) : 24;
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(screenX - labelWidth/2, screenY - 7, labelWidth, 14);
+                    
+                    // Draw colored border based on set
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(screenX - labelWidth/2, screenY - 7, labelWidth, 14);
+                    
+                    // Draw position/config text
+                    ctx.fillStyle = isCenter ? '#FFFF00' : color;  // Yellow for CENTER to highlight
+                    ctx.fillText(label, screenX, screenY);
+                }
+            }
+            
+            console.log('[PatternLabels] Rendered labels for terrain edge tiles');
+        }
+        
+        // Clear the label overlay
+        function clearPatternLabels() {
+            if (labelOverlayCanvas) {
+                const ctx = labelOverlayCanvas.getContext('2d');
+                ctx.clearRect(0, 0, labelOverlayCanvas.width, labelOverlayCanvas.height);
+            }
+        }
         
         // Toggle Z-height (3D) rendering
         window.toggleZHeight = function() {
