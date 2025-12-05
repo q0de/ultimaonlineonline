@@ -3522,8 +3522,20 @@
         window.initPatternDesigner = function() {
             const biome = document.getElementById('blobPatternBiome').value;
             populateBlobPalette(biome);
+            
+            // Auto-load saved pattern for this biome (silently)
+            const patterns = JSON.parse(localStorage.getItem('blobPatterns') || '{}');
+            if (patterns[biome]) {
+                stitchGridState = [...patterns[biome]];
+                console.log(`[BlobPattern] Auto-loaded ${biome} pattern`);
+            } else {
+                // No saved pattern - start with empty grid
+                stitchGridState = new Array(16).fill(null);
+            }
+            
             updateSavedIndicator(biome);
             renderStitchGrid();
+            renderPatternPreview();
             
             // Load saved rock type preference and show toggle if rock biome
             loadRockTypePreference();
@@ -3537,7 +3549,21 @@
         window.onBlobBiomeChange = function() {
             const biome = document.getElementById('blobPatternBiome').value;
             populateBlobPalette(biome);
+            
+            // Auto-load saved pattern for the new biome (silently)
+            const patterns = JSON.parse(localStorage.getItem('blobPatterns') || '{}');
+            if (patterns[biome]) {
+                stitchGridState = [...patterns[biome]];
+                console.log(`[BlobPattern] Auto-loaded ${biome} pattern on biome change`);
+            } else {
+                // No saved pattern - start with empty grid
+                stitchGridState = new Array(16).fill(null);
+            }
+            
             updateSavedIndicator(biome);
+            renderStitchGrid();
+            renderPatternPreview();
+            
             // Clear current selection when biome changes
             currentStitchTile = null;
             document.getElementById('currentStitchTileDisplay').innerText = 'None';
