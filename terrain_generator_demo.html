@@ -803,7 +803,7 @@
     <script type="module">
         import { LandTileLoader } from './js/modules/landTileLoader.js';
         import { TerrainGenerator } from './js/modules/terrainGenerator.js';
-        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=20251205_bothbiomes'; // Bump version - fixed patternMatchCount error
+        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=20251205_debug'; // Debug direction matching
         import { WebGLTerrainRenderer } from './js/modules/webglTerrainRenderer.js?v=camerafollow1';
         import { initializeDynamicSets } from './js/data/uoTileSetsClean.js';
         import { UOMapLoader } from './js/modules/uoMapLoader.js';
@@ -4926,13 +4926,19 @@
                     const setName = tile.patternSetName || 'unknown';
                     
                     // Determine what label to show:
-                    // - CENTER tiles show the DIRECTION (N, S, E, W, NE, NW, SE, SW)
+                    // - CENTER tiles show DEBUG INFO: detectedDirection → matchedPattern
                     // - Other tiles show their position (NW, N, NE, etc.)
                     let label = position;
                     let isCenter = (position === 'CENTER');
-                    if (isCenter && tile.stampConfigName) {
-                        // Show the calculated stamp direction: N, S, E, W, NE, NW, SE, SW
-                        label = tile.stampConfigName;
+                    if (isCenter) {
+                        // Show both detected direction AND matched pattern for debugging
+                        const detected = tile.detectedDirection || tile.stampConfigName || '?';
+                        const matched = tile.matchedPattern || 'none';
+                        // Format: extract just the direction part from matched pattern
+                        // e.g., "rock_grass_north" -> "north", or "FALLBACK"
+                        const matchedShort = matched === 'FALLBACK' ? 'FB' : 
+                            matched.split('_').slice(-1)[0].toUpperCase();
+                        label = `${detected}→${matchedShort}`;
                     }
                     
                     // Calculate isometric screen position (same as WebGL renderer)

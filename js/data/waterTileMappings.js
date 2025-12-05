@@ -560,6 +560,9 @@ export function applyStampBasedTransitions(map, savedPatterns) {
                 // Determine primary edge direction (pass all 8 directions)
                 const direction = getStampDirection(hasN, hasS, hasE, hasW, hasNE, hasNW, hasSE, hasSW);
                 
+                // DEBUG: Log direction detection
+                console.log(`[Stamp Debug] Tile (${x},${y}): neighbors=[N:${hasN}, S:${hasS}, E:${hasE}, W:${hasW}, NE:${hasNE}, NW:${hasNW}, SE:${hasSE}, SW:${hasSW}] -> direction=${direction}`);
+                
                 // Find the pattern that matches this direction
                 // Patterns have directionId like "rock_grass_north", "rock_grass_east", etc.
                 // Direction can be N, S, E, W, NE, NW, SE, SW
@@ -580,14 +583,20 @@ export function applyStampBasedTransitions(map, savedPatterns) {
                     return false;
                 });
                 
+                // DEBUG: Log pattern matching
+                const availablePatterns = patterns.map(p => p.directionId).join(', ');
+                const matchResult = matchingPattern ? matchingPattern.directionId : 'FALLBACK';
+                console.log(`[Stamp Debug] Looking for "${fullDirection}" in [${availablePatterns}] -> matched: ${matchResult}`);
+                
                 // If no exact match, try to find any pattern (fallback)
                 if (!matchingPattern) {
                     matchingPattern = patterns[0];
                     console.log(`[Stamp] No pattern match for ${pair.setName} direction ${direction}, using default`);
                 }
                 
-                // Place the 3x3 stamp
-                const placed = placeStamp(map, x, y, direction, matchingPattern, pair, stamped, stampCenters);
+                // Place the 3x3 stamp - pass both detected direction and matched pattern name
+                const matchedPatternName = matchingPattern?.directionId || 'FALLBACK';
+                const placed = placeStamp(map, x, y, direction, matchingPattern, pair, stamped, stampCenters, matchedPatternName);
                 
                 if (placed) {
                     stampCount++;
@@ -654,7 +663,7 @@ function getStampDirection(hasN, hasS, hasE, hasW, hasNE = false, hasNW = false,
  * 
  * @returns {boolean} true if stamp was placed
  */
-function placeStamp(map, cx, cy, direction, pattern, pair, stamped, stampCenters) {
+function placeStamp(map, cx, cy, direction, pattern, pair, stamped, stampCenters, matchedPatternName) {
     if (!pattern.positionTiles) return false;
     
     const height = map.length;
@@ -714,6 +723,10 @@ function placeStamp(map, cx, cy, direction, pattern, pair, stamped, stampCenters
             targetTile.stampCenter = { x: cx, y: cy };
             targetTile.stampConfigName = direction;  // The actual calculated direction: N, S, E, W, NE, NW, SE, SW
             
+            // Debug info for labels
+            targetTile.detectedDirection = direction;  // Raw direction from getStampDirection()
+            targetTile.matchedPattern = matchedPatternName;  // The pattern directionId that was matched
+            
             stamped.add(key);
             placedAny = true;
         }
@@ -731,69 +744,18 @@ function placeStamp(map, cx, cy, direction, pattern, pair, stamped, stampCenters
  * The stamp is oriented so the "facing" positions are toward the other biome.
  */
 function getStampOffsets(direction) {
-    // Standard offsets (stamp faces NORTH - grass is above)
+    // Standard offsets - tiles go where they're named in the pattern
+    // The user designs each direction's stamp with correct orientation,
+    // so we don't need to rotate anything.
+    // 
     // NW  N  NE      (-1,-1) (0,-1) (1,-1)
     //  W CTR E   =>  (-1, 0) (0, 0) (1, 0)
     // SW  S  SE      (-1, 1) (0, 1) (1, 1)
     
-    const standardOffsets = {
+    return {
         'NW': [-1, -1], 'N': [0, -1], 'NE': [1, -1],
         'W':  [-1,  0], 'CENTER': [0, 0], 'E': [1, 0],
         'SW': [-1,  1], 'S': [0, 1], 'SE': [1, 1]
     };
-    
-    // For different directions, we rotate the stamp
-    // so the appropriate edge faces the other biome
-    switch (direction) {
-        case 'N':
-            // Grass is NORTH - standard orientation
-            return standardOffsets;
-            
-        case 'S':
-            // Grass is SOUTH - rotate 180°
-            // The S row should face the grass, so we flip
-            return {
-                'SW': [-1, -1], 'S': [0, -1], 'SE': [1, -1],
-                'W':  [-1,  0], 'CENTER': [0, 0], 'E': [1, 0],
-                'NW': [-1,  1], 'N': [0, 1], 'NE': [1, 1]
-            };
-            
-        case 'E':
-            // Grass is EAST - rotate 90° CW
-            // The E column should face the grass
-            return {
-                'NE': [-1, -1], 'E': [-1, 0], 'SE': [-1, 1],
-                'N':  [0, -1], 'CENTER': [0, 0], 'S': [0, 1],
-                'NW': [1, -1], 'W': [1, 0], 'SW': [1, 1]
-            };
-            
-        case 'W':
-            // Grass is WEST - rotate 90° CCW
-            // The W column should face the grass
-            return {
-                'NW': [1, -1], 'W': [1, 0], 'SW': [1, 1],
-                'N':  [0, -1], 'CENTER': [0, 0], 'S': [0, 1],
-                'NE': [-1, -1], 'E': [-1, 0], 'SE': [-1, 1]
-            };
-            
-        case 'NE':
-            // Grass is NE corner - NE position goes toward corner
-            return standardOffsets; // Use standard, NE is already top-right
-            
-        case 'NW':
-            // Grass is NW corner
-            return standardOffsets; // Use standard, NW is already top-left
-            
-        case 'SE':
-            // Grass is SE corner
-            return standardOffsets; // Use standard for now
-            
-        case 'SW':
-            // Grass is SW corner
-            return standardOffsets; // Use standard for now
-            
-        default:
-            return standardOffsets;
-    }
 }
 

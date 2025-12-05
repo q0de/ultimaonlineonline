@@ -37,7 +37,7 @@ import {
     getBiomeEdgePatterns,
     matchTilePattern,
     applyStampBasedTransitions
-} from '../data/waterTileMappings.js?v=20251205_bothbiomes';
+} from '../data/waterTileMappings.js?v=20251205_norotate';
 // Note: If you're not seeing updated tile mappings, try hard refresh (Ctrl+Shift+R)
 import { 
     apply8BitTransitions,
