@@ -726,17 +726,6 @@
                 <span id="savedPatternIndicator" style="color: #4CAF50; font-size: 12px; display: none;">✓ Pattern Saved</span>
             </div>
             
-            <!-- Rock Pattern Type Toggle (only visible when a rock biome is selected) -->
-            <div id="rockTypeToggle" style="margin-bottom: 15px; display: none; padding: 10px; background: #2a1a1a; border-radius: 6px; border: 1px solid #444;">
-                <label style="color: #aaa; margin-right: 15px;">Active Rock Type for Generation:</label>
-                <label style="color: #ccc; cursor: pointer;">
-                    <input type="radio" name="rockType" value="rock_mountain" checked onchange="onRockTypeChange()"> Mountain/Rock
-                </label>
-                <label style="color: #ccc; margin-left: 15px; cursor: pointer;">
-                    <input type="radio" name="rockType" value="rock" onchange="onRockTypeChange()"> Grey Rock
-                </label>
-            </div>
-            
             <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
                 <!-- The Grid -->
                 <div style="background: #1a0e0e; padding: 10px; border-radius: 6px;">
@@ -3533,14 +3522,6 @@
             updateSavedIndicator(biome);
             renderStitchGrid();
             renderPatternPreview();
-            
-            // Load saved rock type preference and show toggle if rock biome
-            loadRockTypePreference();
-            const rockToggle = document.getElementById('rockTypeToggle');
-            if (rockToggle) {
-                const isRockBiome = (biome === 'rock_mountain' || biome === 'rock');
-                rockToggle.style.display = isRockBiome ? 'block' : 'none';
-            }
         };
         
         window.onBlobBiomeChange = function() {
@@ -3564,32 +3545,7 @@
             // Clear current selection when biome changes
             currentStitchTile = null;
             document.getElementById('currentStitchTileDisplay').innerText = 'None';
-            
-            // Show/hide rock type toggle based on biome selection
-            const rockToggle = document.getElementById('rockTypeToggle');
-            if (rockToggle) {
-                const isRockBiome = (biome === 'rock_mountain' || biome === 'rock');
-                rockToggle.style.display = isRockBiome ? 'block' : 'none';
-            }
         };
-        
-        // Handle rock type preference change
-        window.onRockTypeChange = function() {
-            const selectedType = document.querySelector('input[name="rockType"]:checked');
-            if (selectedType) {
-                localStorage.setItem('activeRockType', selectedType.value);
-                console.log('[RockType] Preference saved:', selectedType.value);
-            }
-        };
-        
-        // Load saved rock type preference on init
-        function loadRockTypePreference() {
-            const savedType = localStorage.getItem('activeRockType') || 'rock_mountain';
-            const radio = document.querySelector(`input[name="rockType"][value="${savedType}"]`);
-            if (radio) {
-                radio.checked = true;
-            }
-        }
         
         function populateBlobPalette(biome) {
             const palette = document.getElementById('stitchPalette');
