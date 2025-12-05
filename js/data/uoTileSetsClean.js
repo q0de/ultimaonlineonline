@@ -360,15 +360,17 @@ export function initializeDynamicSets(discoveredSets) {
  * @param {boolean} useVariants - Whether to randomly pick a variant (default: false for backwards compat)
  */
 export function getCleanTileAtPosition(biome, x, y, useVariants = false) {
-    // For rock biome, check saved patterns
-    // UI saves: "Grey Rock" -> 'rock' key, "Mountain/Rock" -> 'rock_mountain' key
+    // For rock biome, check saved patterns based on user preference
     if (biome === 'rock') {
-        // Check 'rock' first (Grey Rock from UI dropdown)
-        const rockPatternTile = getBlobPatternTile('rock', x, y);
-        if (rockPatternTile) return rockPatternTile;
-        // Then try 'rock_mountain' (Mountain/Rock from UI dropdown)
-        const rockMtnPatternTile = getBlobPatternTile('rock_mountain', x, y);
-        if (rockMtnPatternTile) return rockMtnPatternTile;
+        // Check user preference for which rock pattern to use
+        const activeRockType = localStorage.getItem('activeRockType') || 'rock_mountain';
+        const patternTile = getBlobPatternTile(activeRockType, x, y);
+        if (patternTile) return patternTile;
+        
+        // Fallback: try the other rock type
+        const fallbackType = activeRockType === 'rock_mountain' ? 'rock' : 'rock_mountain';
+        const fallbackTile = getBlobPatternTile(fallbackType, x, y);
+        if (fallbackTile) return fallbackTile;
     }
     
     // Check for user-defined blob pattern (other biomes)
@@ -479,9 +481,11 @@ export function getBlobPatternTile(biome, x, y) {
         
         // Debug: log what keys exist on first call
         if (!getBlobPatternTile._keysLogged) {
+            const activeRockType = localStorage.getItem('activeRockType') || 'rock_mountain';
             console.log('[BlobPattern] Available keys in localStorage:', Object.keys(patterns));
             console.log('[BlobPattern] rock (Grey Rock) pattern exists:', !!patterns['rock']);
             console.log('[BlobPattern] rock_mountain pattern exists:', !!patterns['rock_mountain']);
+            console.log('[BlobPattern] Active rock type preference:', activeRockType);
             getBlobPatternTile._keysLogged = true;
         }
         
@@ -546,21 +550,23 @@ export function getContextualTile(biome, x, y, context = {}) {
         isInterior = false 
     } = context;
     
-    // For rock biome, check saved patterns
-    // UI saves: "Grey Rock" -> 'rock' key, "Mountain/Rock" -> 'rock_mountain' key
+    // For rock biome, check saved patterns based on user preference
     if (biome === 'rock') {
-        // Check 'rock' first (Grey Rock from UI dropdown)
-        const rockPatternTile = getBlobPatternTile('rock', x, y);
-        if (rockPatternTile) return rockPatternTile;
-        // Then try 'rock_mountain' (Mountain/Rock from UI dropdown)
-        const rockMtnPatternTile = getBlobPatternTile('rock_mountain', x, y);
-        if (rockMtnPatternTile) return rockMtnPatternTile;
+        // Check user preference for which rock pattern to use
+        const activeRockType = localStorage.getItem('activeRockType') || 'rock_mountain';
+        const patternTile = getBlobPatternTile(activeRockType, x, y);
+        if (patternTile) return patternTile;
+        
+        // Fallback: try the other rock type
+        const fallbackType = activeRockType === 'rock_mountain' ? 'rock' : 'rock_mountain';
+        const fallbackTile = getBlobPatternTile(fallbackType, x, y);
+        if (fallbackTile) return fallbackTile;
     }
     
     // Check for user-defined blob pattern (other biomes)
     const patternTile = getBlobPatternTile(biome, x, y);
     if (patternTile) return patternTile;
-    
+
     // Grass near forest should use foliage variant
     if (biome === 'grass' && nearForest) {
         const roll = ((x * 11 + y * 23) % 100) / 100;
