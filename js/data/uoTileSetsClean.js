@@ -450,9 +450,45 @@ export function getDarkForestTile(x, y) {
 }
 
 /**
+ * Get a tile from a saved blob pattern (4x4 tessellation)
+ * Patterns are saved in localStorage by the Blob Pattern Configurator
+ * @param {string} biome - The biome key (e.g., 'rock_mountain', 'grass', 'dirt')
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @returns {number|null} Tile ID if pattern exists, null otherwise
+ */
+export function getBlobPatternTile(biome, x, y) {
+    try {
+        const patterns = JSON.parse(localStorage.getItem('blobPatterns') || '{}');
+        const pattern = patterns[biome];
+        
+        if (pattern && pattern.length === 16) {
+            // Use 4x4 pattern tiled across the blob
+            const patternX = ((x % 4) + 4) % 4; // Handle negative coords
+            const patternY = ((y % 4) + 4) % 4;
+            const tileId = pattern[patternY * 4 + patternX];
+            
+            if (tileId && tileId !== '0x0000') {
+                // Convert hex string to integer
+                return parseInt(tileId.replace('0x', ''), 16);
+            }
+        }
+    } catch (e) {
+        console.warn('[getBlobPatternTile] Error loading pattern:', e);
+    }
+    return null; // No pattern found
+}
+
+/**
  * Get a tile specifically for mountain rock
+ * Now checks for saved blob patterns first
  */
 export function getMountainRockTile(x, y) {
+    // Check for saved blob pattern first
+    const patternTile = getBlobPatternTile('rock_mountain', x, y);
+    if (patternTile) return patternTile;
+    
+    // Fallback to original behavior
     const sets = UO_TILE_SETS_CLEAN['rock_mountain'];
     if (!sets || sets.length === 0) {
         return getCleanTileAtPosition('rock', x, y);
@@ -469,6 +505,7 @@ export function getMountainRockTile(x, y) {
 /**
  * Get a tile based on context (neighbors, elevation, moisture)
  * This provides more intelligent tile selection for authentic UO look
+ * Now checks for user-defined blob patterns first
  */
 export function getContextualTile(biome, x, y, context = {}) {
     const { 
@@ -478,6 +515,17 @@ export function getContextualTile(biome, x, y, context = {}) {
         moisture = 0.5,
         isInterior = false 
     } = context;
+    
+    // Check for user-defined blob pattern FIRST (highest priority)
+    // This allows users to override default tile selection
+    const patternTile = getBlobPatternTile(biome, x, y);
+    if (patternTile) return patternTile;
+    
+    // Also check for grey rock pattern if this is rock biome
+    if (biome === 'rock') {
+        const rockPatternTile = getBlobPatternTile('rock', x, y);
+        if (rockPatternTile) return rockPatternTile;
+    }
     
     // Grass near forest should use foliage variant
     if (biome === 'grass' && nearForest) {
