@@ -773,10 +773,7 @@
             </div>
             
             <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button onclick="saveBlobPattern()" style="background: #2196F3; padding: 8px 15px;">💾 Save Pattern</button>
-                <button onclick="loadBlobPattern()" style="background: #9C27B0; padding: 8px 15px;">📂 Load Saved</button>
                 <button onclick="applyStitchPattern()" style="background: #4CAF50; padding: 8px 15px;">▶️ Test Pattern</button>
-                <button onclick="clearStitchGrid()" style="background: #FF9800;">🧹 Clear</button>
                 <button onclick="togglePatternDesigner()" style="background: #f44336;">❌ Close</button>
             </div>
         </div>
@@ -3749,6 +3746,12 @@
             if (!currentStitchTile) return;
             stitchGridState[index] = currentStitchTile;
             renderStitchGrid();
+            
+            // Auto-save pattern after each paint
+            const biome = document.getElementById('blobPatternBiome').value;
+            const patterns = JSON.parse(localStorage.getItem('blobPatterns') || '{}');
+            patterns[biome] = [...stitchGridState];
+            localStorage.setItem('blobPatterns', JSON.stringify(patterns));
         };
         
         window.clearStitchGrid = function() {
