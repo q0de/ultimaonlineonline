@@ -360,15 +360,15 @@ export function initializeDynamicSets(discoveredSets) {
  * @param {boolean} useVariants - Whether to randomly pick a variant (default: false for backwards compat)
  */
 export function getCleanTileAtPosition(biome, x, y, useVariants = false) {
-    // Check for user-defined blob pattern first (highest priority)
-    const patternTile = getBlobPatternTile(biome, x, y);
-    if (patternTile) return patternTile;
-    
-    // For rock biome, also check 'rock_mountain' pattern (UI uses this key)
+    // For rock biome, check 'rock_mountain' pattern FIRST (UI uses this key)
     if (biome === 'rock') {
         const rockMtnPatternTile = getBlobPatternTile('rock_mountain', x, y);
         if (rockMtnPatternTile) return rockMtnPatternTile;
     }
+    
+    // Check for user-defined blob pattern (fallback to generic biome key)
+    const patternTile = getBlobPatternTile(biome, x, y);
+    if (patternTile) return patternTile;
     
     let sets = UO_TILE_SETS_CLEAN[biome];
     
@@ -481,10 +481,11 @@ export function getBlobPatternTile(biome, x, y) {
             if (tileId && tileId !== '0x0000') {
                 // Convert hex string to integer
                 const result = parseInt(tileId.replace('0x', ''), 16);
-                // Debug: log first time pattern is used
-                if (!getBlobPatternTile._logged) {
+                // Debug: log first time each pattern type is used
+                const logKey = `_logged_${biome}`;
+                if (!getBlobPatternTile[logKey]) {
                     console.log(`[BlobPattern] Using saved ${biome} pattern! Tile at (${x},${y}) = ${tileId}`);
-                    getBlobPatternTile._logged = true;
+                    getBlobPatternTile[logKey] = true;
                 }
                 return result;
             }
@@ -532,16 +533,15 @@ export function getContextualTile(biome, x, y, context = {}) {
         isInterior = false 
     } = context;
     
-    // Check for user-defined blob pattern FIRST (highest priority)
-    // This allows users to override default tile selection
-    const patternTile = getBlobPatternTile(biome, x, y);
-    if (patternTile) return patternTile;
-    
-    // For rock biome, also check 'rock_mountain' pattern (UI uses this key)
+    // For rock biome, check 'rock_mountain' pattern FIRST (UI uses this key)
     if (biome === 'rock') {
         const rockMtnPatternTile = getBlobPatternTile('rock_mountain', x, y);
         if (rockMtnPatternTile) return rockMtnPatternTile;
     }
+    
+    // Check for user-defined blob pattern (fallback to generic biome key)
+    const patternTile = getBlobPatternTile(biome, x, y);
+    if (patternTile) return patternTile;
     
     // Grass near forest should use foliage variant
     if (biome === 'grass' && nearForest) {
