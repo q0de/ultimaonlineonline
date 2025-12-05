@@ -360,6 +360,16 @@ export function initializeDynamicSets(discoveredSets) {
  * @param {boolean} useVariants - Whether to randomly pick a variant (default: false for backwards compat)
  */
 export function getCleanTileAtPosition(biome, x, y, useVariants = false) {
+    // Check for user-defined blob pattern first (highest priority)
+    const patternTile = getBlobPatternTile(biome, x, y);
+    if (patternTile) return patternTile;
+    
+    // For rock biome, also check 'rock_mountain' pattern (UI uses this key)
+    if (biome === 'rock') {
+        const rockMtnPatternTile = getBlobPatternTile('rock_mountain', x, y);
+        if (rockMtnPatternTile) return rockMtnPatternTile;
+    }
+    
     let sets = UO_TILE_SETS_CLEAN[biome];
     
     // If using variants, pick a weighted random variant
@@ -470,7 +480,13 @@ export function getBlobPatternTile(biome, x, y) {
             
             if (tileId && tileId !== '0x0000') {
                 // Convert hex string to integer
-                return parseInt(tileId.replace('0x', ''), 16);
+                const result = parseInt(tileId.replace('0x', ''), 16);
+                // Debug: log first time pattern is used
+                if (!getBlobPatternTile._logged) {
+                    console.log(`[BlobPattern] Using saved ${biome} pattern! Tile at (${x},${y}) = ${tileId}`);
+                    getBlobPatternTile._logged = true;
+                }
+                return result;
             }
         }
     } catch (e) {
@@ -521,10 +537,10 @@ export function getContextualTile(biome, x, y, context = {}) {
     const patternTile = getBlobPatternTile(biome, x, y);
     if (patternTile) return patternTile;
     
-    // Also check for grey rock pattern if this is rock biome
+    // For rock biome, also check 'rock_mountain' pattern (UI uses this key)
     if (biome === 'rock') {
-        const rockPatternTile = getBlobPatternTile('rock', x, y);
-        if (rockPatternTile) return rockPatternTile;
+        const rockMtnPatternTile = getBlobPatternTile('rock_mountain', x, y);
+        if (rockMtnPatternTile) return rockMtnPatternTile;
     }
     
     // Grass near forest should use foliage variant
