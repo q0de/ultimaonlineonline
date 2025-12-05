@@ -21,7 +21,7 @@ import {
     getDarkForestTile,
     getMountainRockTile,
     BIOME_VARIANT_WEIGHTS
-} from '../data/uoTileSetsClean.js?v=no_toggle_fix';
+} from '../data/uoTileSetsClean.js?v=single_rock';
 import { 
     SAND_TO_GRASS_TRANSITIONS,
     GRASS_TO_SAND_TRANSITIONS, 

@@ -360,18 +360,7 @@ export function initializeDynamicSets(discoveredSets) {
  * @param {boolean} useVariants - Whether to randomly pick a variant (default: false for backwards compat)
  */
 export function getCleanTileAtPosition(biome, x, y, useVariants = false) {
-    // For rock biome, check saved patterns
-    if (biome === 'rock') {
-        // Try rock_mountain pattern first (Mountain/Rock in dropdown)
-        const mtnPattern = getBlobPatternTile('rock_mountain', x, y);
-        if (mtnPattern) return mtnPattern;
-        
-        // Then try rock pattern (Grey Rock in dropdown)
-        const rockPattern = getBlobPatternTile('rock', x, y);
-        if (rockPattern) return rockPattern;
-    }
-    
-    // Check for user-defined blob pattern (other biomes)
+    // Check for user-defined blob pattern
     const patternTile = getBlobPatternTile(biome, x, y);
     if (patternTile) return patternTile;
     
@@ -480,8 +469,7 @@ export function getBlobPatternTile(biome, x, y) {
         // Debug: log what keys exist on first call
         if (!getBlobPatternTile._keysLogged) {
             console.log('[BlobPattern] Available keys in localStorage:', Object.keys(patterns));
-            console.log('[BlobPattern] rock (Grey Rock) pattern exists:', !!patterns['rock']);
-            console.log('[BlobPattern] rock_mountain pattern exists:', !!patterns['rock_mountain']);
+            console.log('[BlobPattern] rock pattern exists:', !!patterns['rock']);
             getBlobPatternTile._keysLogged = true;
         }
         
@@ -514,8 +502,8 @@ export function getBlobPatternTile(biome, x, y) {
  * Now checks for saved blob patterns first
  */
 export function getMountainRockTile(x, y) {
-    // Check for saved blob pattern first
-    const patternTile = getBlobPatternTile('rock_mountain', x, y);
+    // Check for saved blob pattern first (now uses unified 'rock' key)
+    const patternTile = getBlobPatternTile('rock', x, y);
     if (patternTile) return patternTile;
     
     // Fallback to original behavior
@@ -546,18 +534,7 @@ export function getContextualTile(biome, x, y, context = {}) {
         isInterior = false 
     } = context;
     
-    // For rock biome, check saved patterns
-    if (biome === 'rock') {
-        // Try rock_mountain pattern first (Mountain/Rock in dropdown)
-        const mtnPattern = getBlobPatternTile('rock_mountain', x, y);
-        if (mtnPattern) return mtnPattern;
-        
-        // Then try rock pattern (Grey Rock in dropdown)
-        const rockPattern = getBlobPatternTile('rock', x, y);
-        if (rockPattern) return rockPattern;
-    }
-    
-    // Check for user-defined blob pattern (other biomes)
+    // Check for user-defined blob pattern
     const patternTile = getBlobPatternTile(biome, x, y);
     if (patternTile) return patternTile;
 

@@ -716,8 +716,7 @@
             <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                 <label style="color: #aaa;">Biome:</label>
                 <select id="blobPatternBiome" onchange="onBlobBiomeChange()" style="padding: 5px 10px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
-                    <option value="rock_mountain">Mountain/Rock</option>
-                    <option value="rock">Grey Rock</option>
+                    <option value="rock">Rock</option>
                     <option value="grass">Grass</option>
                     <option value="dirt">Dirt</option>
                     <option value="sand">Sand</option>
@@ -828,7 +827,7 @@
     <script type="module">
         import { LandTileLoader } from './js/modules/landTileLoader.js';
         import { TerrainGenerator } from './js/modules/terrainGenerator.js';
-        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=no_toggle_fix'; // Force reload - removed rock type toggle
+        import { TerrainGeneratorV2 } from './js/modules/terrainGeneratorV2.js?v=single_rock'; // Force reload - single rock pattern
         import { WebGLTerrainRenderer } from './js/modules/webglTerrainRenderer.js?v=camerafollow1';
         import { initializeDynamicSets } from './js/data/uoTileSetsClean.js';
         import { UOMapLoader } from './js/modules/uoMapLoader.js';
@@ -3361,19 +3360,12 @@
         
         // Default patterns for each biome - these are designed to tessellate well
         const DEFAULT_BLOB_PATTERNS = {
-            'rock_mountain': [
+            'rock': [
                 // 4x4 pattern using tiles 0x01D3 - 0x01DA (8 mountain rock variants)
                 '0x01D3', '0x01D4', '0x01D5', '0x01D6',
                 '0x01D7', '0x01D8', '0x01D9', '0x01DA',
                 '0x01D5', '0x01D6', '0x01D3', '0x01D4',
                 '0x01D9', '0x01DA', '0x01D7', '0x01D8'
-            ],
-            'rock': [
-                // Grey rock tiles 0x0220 - 0x0227
-                '0x0220', '0x0221', '0x0222', '0x0223',
-                '0x0224', '0x0225', '0x0226', '0x0227',
-                '0x0222', '0x0223', '0x0220', '0x0221',
-                '0x0226', '0x0227', '0x0224', '0x0225'
             ],
             'grass': [
                 // Grass tiles 0x0003, 0x0004, 0x0005, 0x0006
@@ -3471,10 +3463,8 @@
         
         // Biome tile ranges for the blob pattern configurator
         const BIOME_TILE_RANGES = {
-            'rock_mountain': [
-                { start: 0x01D3, end: 0x01DA, name: 'Mountain Rock' },
-            ],
             'rock': [
+                { start: 0x01D3, end: 0x01DA, name: 'Mountain Rock' },
                 { start: 0x00E4, end: 0x00E7, name: 'Grey Rock 1' },
                 { start: 0x00F4, end: 0x00F7, name: 'Grey Rock 2' },
                 { start: 0x0104, end: 0x0107, name: 'Grey Rock 3' },
@@ -3559,8 +3549,7 @@
             
             // Update title
             const biomeNames = {
-                'rock_mountain': 'Mountain Rock',
-                'rock': 'Grey Rock',
+                'rock': 'Rock',
                 'grass': 'Grass',
                 'dirt': 'Dirt',
                 'sand': 'Sand',
@@ -3568,7 +3557,7 @@
             };
             paletteTitle.innerText = (biomeNames[biome] || biome) + ' Tiles';
             
-            const ranges = BIOME_TILE_RANGES[biome] || BIOME_TILE_RANGES['rock_mountain'];
+            const ranges = BIOME_TILE_RANGES[biome] || BIOME_TILE_RANGES['rock'];
             const toHex = (num) => '0x' + num.toString(16).toUpperCase().padStart(4, '0');
             
             ranges.forEach(range => {
@@ -4928,14 +4917,23 @@
                 console.log(`[DEBUG] ${key} pattern (${pattern ? pattern.length : 0} tiles):`, pattern ? pattern.slice(0, 4).join(',') + '...' : 'null');
             }
             
-            // AUTO-CLEAN: Remove stale patterns with wrong tiles
-            // 'rock' and 'sand' keys shouldn't have 0x022F tiles
+            // AUTO-CLEAN: Migrate rock_mountain to rock and clean stale patterns
             let cleaned = false;
-            if (blobPatterns['rock'] && blobPatterns['rock'][0] === '0x022F') {
-                delete blobPatterns['rock'];
+            
+            // Migrate rock_mountain pattern to rock (consolidation)
+            if (blobPatterns['rock_mountain'] && !blobPatterns['rock']) {
+                blobPatterns['rock'] = blobPatterns['rock_mountain'];
+                console.log('[AutoClean] Migrated rock_mountain pattern to rock');
                 cleaned = true;
-                console.log('[AutoClean] Removed stale "rock" pattern with grey rock tiles');
             }
+            // Remove old rock_mountain key
+            if (blobPatterns['rock_mountain']) {
+                delete blobPatterns['rock_mountain'];
+                console.log('[AutoClean] Removed old rock_mountain key');
+                cleaned = true;
+            }
+            
+            // Clean stale patterns with wrong tiles
             if (blobPatterns['sand'] && blobPatterns['sand'][0] === '0x022F') {
                 delete blobPatterns['sand'];
                 cleaned = true;
