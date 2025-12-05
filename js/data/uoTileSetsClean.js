@@ -472,6 +472,14 @@ export function getBlobPatternTile(biome, x, y) {
         const patterns = JSON.parse(localStorage.getItem('blobPatterns') || '{}');
         const pattern = patterns[biome];
         
+        // Debug: log what keys exist on first call
+        if (!getBlobPatternTile._keysLogged) {
+            console.log('[BlobPattern] Available keys in localStorage:', Object.keys(patterns));
+            console.log('[BlobPattern] rock_mountain pattern exists:', !!patterns['rock_mountain']);
+            console.log('[BlobPattern] rock pattern exists:', !!patterns['rock']);
+            getBlobPatternTile._keysLogged = true;
+        }
+        
         if (pattern && pattern.length === 16) {
             // Use 4x4 pattern tiled across the blob
             const patternX = ((x % 4) + 4) % 4; // Handle negative coords

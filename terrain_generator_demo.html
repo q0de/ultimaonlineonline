@@ -4891,6 +4891,32 @@
         
         // Set up drag-to-pan
         document.addEventListener('DOMContentLoaded', () => {
+            // DEBUG: Log blob patterns in localStorage
+            const blobPatterns = JSON.parse(localStorage.getItem('blobPatterns') || '{}');
+            console.log('[DEBUG] blobPatterns keys:', Object.keys(blobPatterns));
+            for (const key of Object.keys(blobPatterns)) {
+                const pattern = blobPatterns[key];
+                console.log(`[DEBUG] ${key} pattern (${pattern ? pattern.length : 0} tiles):`, pattern ? pattern.slice(0, 4).join(',') + '...' : 'null');
+            }
+            
+            // AUTO-CLEAN: Remove stale patterns with wrong tiles
+            // 'rock' and 'sand' keys shouldn't have 0x022F tiles
+            let cleaned = false;
+            if (blobPatterns['rock'] && blobPatterns['rock'][0] === '0x022F') {
+                delete blobPatterns['rock'];
+                cleaned = true;
+                console.log('[AutoClean] Removed stale "rock" pattern with grey rock tiles');
+            }
+            if (blobPatterns['sand'] && blobPatterns['sand'][0] === '0x022F') {
+                delete blobPatterns['sand'];
+                cleaned = true;
+                console.log('[AutoClean] Removed stale "sand" pattern with grey rock tiles');
+            }
+            if (cleaned) {
+                localStorage.setItem('blobPatterns', JSON.stringify(blobPatterns));
+                console.log('[AutoClean] Cleaned localStorage');
+            }
+            
             const container = document.getElementById('canvasContainer');
             
             // Helper to check if WebGL canvas is active
