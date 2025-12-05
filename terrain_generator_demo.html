@@ -3415,6 +3415,10 @@
         function populateBlobPalette(biome) {
             const palette = document.getElementById('stitchPalette');
             const paletteTitle = document.getElementById('paletteTitle');
+            if (!palette || !paletteTitle) {
+                console.error('[BlobPalette] Could not find palette elements!');
+                return;
+            }
             palette.innerHTML = '';
             // Grid is set in HTML: repeat(5, 40px)
             
@@ -9018,6 +9022,7 @@ CORNERS:
             if (!range) return;
             
             const picker = document.getElementById('tilePicker');
+            if (!picker) return; // Guard against null
             picker.innerHTML = '';
             
             for (let id = range.start; id <= range.end; id++) {
