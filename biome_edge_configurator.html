@@ -1445,7 +1445,8 @@
                 [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }],
                 [{ tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }, { tileId: '0x0003', type: 'land' }]
             ];
-            document.getElementById('patternName').value = '';
+            const patternNameEl = document.getElementById('patternName');
+            if (patternNameEl) patternNameEl.value = '';
             activeCell = null;
             buildGridUI();
         }
@@ -2013,10 +2014,27 @@
                 'shallow': '0x0003'
             };
             
+            // Color fallbacks for biomes (used if tile doesn't load)
+            const biomeColors = {
+                'grass': '#2e7d32',
+                'water': '#1565c0',
+                'sand': '#d4a84b',
+                'rock': '#5d5d5d',
+                'forest': '#1b4d1b',
+                'dirt': '#8b6914',
+                'cliff': '#2e7d32',
+                'shallow': '#2e7d32'
+            };
+            
             const primaryTileId = biomeTiles[primaryBiome] || '0x0003';
             const secondaryTileId = primaryBiome === 'cliff' || primaryBiome === 'shallow' 
                 ? '0x00A8'  // Water for cliff/shallow
                 : biomeTiles[secondaryBiome] || '0x0003';
+            
+            const primaryColor = biomeColors[primaryBiome] || '#2e7d32';
+            const secondaryColor = (primaryBiome === 'cliff' || primaryBiome === 'shallow')
+                ? '#1565c0' 
+                : biomeColors[secondaryBiome] || '#2e7d32';
             
             // Update each cell in the surround grid
             const cells = document.querySelectorAll('#surroundGrid .surround-cell');
@@ -2025,13 +2043,16 @@
                 const pos = cell.dataset.pos;
                 let tileId = null;
                 let isConfigured = true;
+                let fallbackColor = null;
                 
                 if (pos === 'outer') {
                     // Outer ring = secondary biome
                     tileId = secondaryTileId;
+                    fallbackColor = secondaryColor;
                 } else if (pos === 'center') {
                     // Center = primary biome
                     tileId = primaryTileId;
+                    fallbackColor = primaryColor;
                 } else {
                     // Transition positions - get center tile from saved config
                     const dirId = directionMap[pos];
@@ -2043,7 +2064,8 @@
                     } else {
                         // Not configured - show placeholder
                         isConfigured = false;
-                        tileId = primaryTileId; // Show primary as placeholder
+                        tileId = null;
+                        fallbackColor = '#3f2a1a'; // Dark orange for unconfigured
                     }
                 }
                 
@@ -2055,19 +2077,23 @@
                 if (existingImg) existingImg.remove();
                 
                 // Load and display tile image
-                if (tileId && tiles[tileId]) {
-                    const img = document.createElement('img');
-                    img.src = tiles[tileId].src;
-                    img.alt = tileId;
-                    cell.appendChild(img);
-                } else if (tileId) {
-                    // Try to load the tile
-                    const hexId = tileId.replace('0x', '').toUpperCase().padStart(4, '0');
-                    const img = document.createElement('img');
-                    img.src = `assets/tiles/land/0x${hexId}.png`;
-                    img.alt = tileId;
-                    img.onerror = () => { img.style.display = 'none'; };
-                    cell.appendChild(img);
+                let tileLoaded = false;
+                if (tileId) {
+                    const tile = await loadTile(tileId);
+                    if (tile) {
+                        const img = document.createElement('img');
+                        img.src = tile.toDataURL();
+                        img.alt = tileId;
+                        cell.appendChild(img);
+                        tileLoaded = true;
+                    }
+                }
+                
+                // Apply fallback color if tile didn't load
+                if (!tileLoaded && fallbackColor) {
+                    cell.style.setProperty('background-color', fallbackColor, 'important');
+                } else if (tileLoaded) {
+                    cell.style.removeProperty('background-color');
                 }
             }
         }
