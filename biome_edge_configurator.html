@@ -2093,8 +2093,8 @@
             }
         }
         
-        // Render the grid to canvas
-        async function renderGridToCanvas(grid) {
+        // Render the grid to canvas using colored rectangles (top-down view)
+        function renderGridToCanvas(grid) {
             const canvas = document.getElementById('terrainPreviewCanvas');
             const ctx = canvas.getContext('2d');
             const width = grid[0].length;
@@ -2105,33 +2105,21 @@
             ctx.fillStyle = '#0a1628';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Draw each tile
+            // Draw each tile as a colored rectangle
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     const cell = grid[y][x];
                     const px = x * tileSize;
                     const py = y * tileSize;
                     
-                    // Try to load and draw the tile
-                    let tileDrawn = false;
-                    if (cell.tileId) {
-                        const tile = await loadTile(cell.tileId);
-                        if (tile) {
-                            ctx.drawImage(tile, px, py, tileSize, tileSize);
-                            tileDrawn = true;
-                        }
-                    }
+                    // Draw colored rectangle based on biome
+                    ctx.fillStyle = BIOME_COLORS[cell.biome] || '#333';
+                    ctx.fillRect(px, py, tileSize, tileSize);
                     
-                    // Fallback to color if tile couldn't be loaded
-                    if (!tileDrawn) {
-                        ctx.fillStyle = BIOME_COLORS[cell.biome] || '#333';
-                        ctx.fillRect(px, py, tileSize, tileSize);
-                    }
-                    
-                    // Draw edge indicator for debugging (optional)
+                    // Draw edge indicator border for pattern-applied tiles
                     if (cell.isEdge && cell.patternApplied) {
-                        ctx.strokeStyle = 'rgba(255, 152, 0, 0.5)';
-                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = '#ff9800';
+                        ctx.lineWidth = 2;
                         ctx.strokeRect(px + 1, py + 1, tileSize - 2, tileSize - 2);
                     }
                 }
@@ -2157,7 +2145,7 @@
             applyEdgePatternsToGrid(grid);
             
             // Step 4: Render to canvas
-            await renderGridToCanvas(grid);
+            renderGridToCanvas(grid);
             
             console.log('[TerrainPreview] Preview generated');
         }
