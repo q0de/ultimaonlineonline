@@ -357,83 +357,49 @@
         }
         .instructions strong { color: #00bcd4; }
         
-        /* Surround Preview - Shows all 8 direction tiles around center */
-        .surround-preview {
+        /* Terrain Preview - Mini terrain simulation */
+        .terrain-preview {
             background: #0a1628;
             border-radius: 8px;
             padding: 15px;
             margin-top: 15px;
             border: 2px solid #00bcd4;
         }
-        .surround-preview h3 {
+        .terrain-preview h3 {
             color: #00bcd4;
             margin: 0 0 10px 0;
             font-size: 14px;
             text-align: center;
         }
-        .surround-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 48px);
-            gap: 2px;
-            justify-content: center;
+        .terrain-preview .btn-generate {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background: #00bcd4;
+            color: #0a1628;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
         }
-        .surround-cell {
-            width: 48px;
-            height: 48px;
+        .terrain-preview .btn-generate:hover {
+            background: #4dd0e1;
+        }
+        .terrain-preview canvas {
+            display: block;
+            margin: 0 auto;
             border: 1px solid #2a3f5f;
-            border-radius: 3px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            font-size: 8px;
-            color: #666;
-            overflow: hidden; /* Clip isometric tile edges */
-        }
-        .surround-cell img {
-            max-width: 44px;
-            max-height: 44px;
+            border-radius: 4px;
             image-rendering: pixelated;
         }
-        .surround-cell.primary { background: #1a3f2a; border-color: #2e7d32; }
-        .surround-cell.secondary { background: #1a2f4a; border-color: #1565c0; }
-        .surround-cell.transition { background: #3f2a1a; border-color: #ff9800; }
-        .surround-cell .cell-dir {
-            position: absolute;
-            top: 1px;
-            left: 2px;
-            font-size: 7px;
-            color: rgba(255,255,255,0.6);
-        }
-        .surround-cell.not-configured {
-            opacity: 0.4;
-        }
-        .surround-cell.not-configured::after {
-            content: '?';
-            position: absolute;
-            font-size: 16px;
-            color: #ff5722;
-        }
-        .surround-legend {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
+        .terrain-preview .preview-info {
             margin-top: 8px;
-            font-size: 9px;
+            font-size: 10px;
+            color: #888;
+            text-align: center;
         }
-        .surround-legend span {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .legend-box {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }
-        .legend-box.primary { background: #2e7d32; }
-        .legend-box.secondary { background: #1565c0; }
-        .legend-box.transition { background: #ff9800; }
     </style>
 </head>
 <body>
@@ -518,47 +484,12 @@
                 <div id="progressIndicator">Select a tile set above</div>
             </div>
             
-            <!-- Surround Preview - Shows how all configured tiles look together -->
-            <div class="surround-preview" id="surroundPreviewPanel">
-                <h3>👁️ Surround Preview</h3>
-                <div class="surround-grid" id="surroundGrid">
-                    <!-- 5x5 grid: outer ring is secondary biome, inner ring is transitions, center is primary -->
-                    <!-- Row 0: secondary -->
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <!-- Row 1: secondary, corner_nw, north, corner_ne, secondary -->
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell transition" data-pos="corner_nw"><span class="cell-dir">NW</span></div>
-                    <div class="surround-cell transition" data-pos="north"><span class="cell-dir">N</span></div>
-                    <div class="surround-cell transition" data-pos="corner_ne"><span class="cell-dir">NE</span></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <!-- Row 2: secondary, west, PRIMARY, east, secondary -->
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell transition" data-pos="west"><span class="cell-dir">W</span></div>
-                    <div class="surround-cell primary" data-pos="center"><span class="cell-dir">●</span></div>
-                    <div class="surround-cell transition" data-pos="east"><span class="cell-dir">E</span></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <!-- Row 3: secondary, corner_sw, south, corner_se, secondary -->
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell transition" data-pos="corner_sw"><span class="cell-dir">SW</span></div>
-                    <div class="surround-cell transition" data-pos="south"><span class="cell-dir">S</span></div>
-                    <div class="surround-cell transition" data-pos="corner_se"><span class="cell-dir">SE</span></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <!-- Row 4: secondary -->
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                    <div class="surround-cell secondary" data-pos="outer"></div>
-                </div>
-                <div class="surround-legend">
-                    <span><div class="legend-box primary"></div> Primary</span>
-                    <span><div class="legend-box transition"></div> Transitions</span>
-                    <span><div class="legend-box secondary"></div> Secondary</span>
-                </div>
+            <!-- Terrain Preview - Mini terrain simulation showing patterns applied -->
+            <div class="terrain-preview" id="terrainPreviewPanel">
+                <h3>🗺️ Terrain Preview</h3>
+                <button class="btn-generate" onclick="generateTerrainPreview()">Generate Preview</button>
+                <canvas id="terrainPreviewCanvas" width="330" height="330"></canvas>
+                <div class="preview-info">15x15 terrain simulation with your configured patterns</div>
             </div>
         </div>
         
@@ -1694,8 +1625,8 @@
                 selectDirection(directions[0].id);
             }
             
-            // Update surround preview with all configured tiles for this set
-            renderSurroundPreview();
+            // Auto-generate terrain preview when switching sets
+            generateTerrainPreview();
         }
         
         // Select a direction within the current set
@@ -1763,8 +1694,8 @@
             selectTileSet(currentSet); // Refresh to show saved state
             selectDirection(currentDirection); // Re-select current direction
             
-            // Update surround preview to show the newly saved tile
-            renderSurroundPreview();
+            // Update terrain preview to show the newly saved tile
+            generateTerrainPreview();
             
             // Visual feedback - show it was saved AND applied
             const btn = document.querySelector('.btn-save');
@@ -1995,122 +1926,240 @@
             return `Overall: ${totalConfigured}/${totalDirections} | ` + setStats.join(' | ');
         }
         
-        // Render the Surround Preview - shows all 8 direction tiles around a center
-        async function renderSurroundPreview() {
-            const setConfig = setConfigurations[currentSet] || {};
-            const prefix = currentSet; // e.g., 'rock_grass', 'sand_grass', etc.
-            
-            // Direction mapping: position in our 5x5 grid -> direction ID suffix
-            const directionMap = {
-                'north': `${prefix}_north`,
-                'south': `${prefix}_south`,
-                'east': `${prefix}_east`,
-                'west': `${prefix}_west`,
-                'corner_nw': `${prefix}_corner_nw`,
-                'corner_ne': `${prefix}_corner_ne`,
-                'corner_sw': `${prefix}_corner_sw`,
-                'corner_se': `${prefix}_corner_se`
-            };
-            
-            // Get biome tiles for primary and secondary
+        // ============================================
+        // TERRAIN PREVIEW - Mini terrain simulation
+        // ============================================
+        
+        // Default tiles for each biome
+        const BIOME_TILES = {
+            'grass': '0x0003',
+            'water': '0x00A8',
+            'sand': '0x0016',
+            'rock': '0x021F',
+            'forest': '0x00C4',
+            'dirt': '0x0071',
+            'cliff': '0x0003',
+            'shallow': '0x0003'
+        };
+        
+        // Color fallbacks for biomes
+        const BIOME_COLORS = {
+            'grass': '#2e7d32',
+            'water': '#1565c0',
+            'sand': '#d4a84b',
+            'rock': '#5d5d5d',
+            'forest': '#1b4d1b',
+            'dirt': '#8b6914',
+            'cliff': '#2e7d32',
+            'shallow': '#2e7d32'
+        };
+        
+        // Create a test terrain grid with a blob in the center
+        function createTestTerrain(width, height) {
+            const grid = [];
+            const prefix = currentSet || 'rock_grass';
             const biomePair = prefix.split('_');
-            const primaryBiome = biomePair[0]; // e.g., 'rock', 'sand'
+            const primaryBiome = biomePair[0]; // e.g., 'rock'
             const secondaryBiome = biomePair[1] || 'grass';
             
-            // Default tiles for each biome
-            const biomeTiles = {
-                'grass': '0x0003',
-                'water': '0x00A8',
-                'sand': '0x0016',
-                'rock': '0x021F',
-                'forest': '0x00C4',
-                'dirt': '0x0071',
-                'cliff': '0x0003', // For cliff sets, primary is grass/land
-                'shallow': '0x0003'
-            };
+            // Handle special cases for water sets
+            let actualPrimary = primaryBiome;
+            let actualSecondary = secondaryBiome;
+            if (primaryBiome === 'cliff' || primaryBiome === 'shallow') {
+                actualPrimary = 'grass';
+                actualSecondary = 'water';
+            }
             
-            // Color fallbacks for biomes (used if tile doesn't load)
-            const biomeColors = {
-                'grass': '#2e7d32',
-                'water': '#1565c0',
-                'sand': '#d4a84b',
-                'rock': '#5d5d5d',
-                'forest': '#1b4d1b',
-                'dirt': '#8b6914',
-                'cliff': '#2e7d32',
-                'shallow': '#2e7d32'
-            };
+            const centerX = Math.floor(width / 2);
+            const centerY = Math.floor(height / 2);
+            const blobRadius = Math.min(width, height) / 3;
             
-            const primaryTileId = biomeTiles[primaryBiome] || '0x0003';
-            const secondaryTileId = primaryBiome === 'cliff' || primaryBiome === 'shallow' 
-                ? '0x00A8'  // Water for cliff/shallow
-                : biomeTiles[secondaryBiome] || '0x0003';
+            for (let y = 0; y < height; y++) {
+                grid[y] = [];
+                for (let x = 0; x < width; x++) {
+                    // Create irregular blob shape using distance + noise
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Add some irregularity to the blob
+                    const angle = Math.atan2(dy, dx);
+                    const noise = Math.sin(angle * 4) * 0.8 + Math.sin(angle * 7) * 0.4;
+                    const adjustedRadius = blobRadius + noise;
+                    
+                    const isPrimary = distance < adjustedRadius;
+                    
+                    grid[y][x] = {
+                        x: x,
+                        y: y,
+                        biome: isPrimary ? actualPrimary : actualSecondary,
+                        tileId: isPrimary ? BIOME_TILES[actualPrimary] : BIOME_TILES[actualSecondary],
+                        isEdge: false,
+                        edgeDirection: null
+                    };
+                }
+            }
             
-            const primaryColor = biomeColors[primaryBiome] || '#2e7d32';
-            const secondaryColor = (primaryBiome === 'cliff' || primaryBiome === 'shallow')
-                ? '#1565c0' 
-                : biomeColors[secondaryBiome] || '#2e7d32';
+            return grid;
+        }
+        
+        // Detect edges and determine direction for each edge tile
+        function detectEdges(grid) {
+            const width = grid[0].length;
+            const height = grid.length;
+            const prefix = currentSet || 'rock_grass';
+            const biomePair = prefix.split('_');
+            const primaryBiome = biomePair[0];
             
-            // Update each cell in the surround grid
-            const cells = document.querySelectorAll('#surroundGrid .surround-cell');
+            // Handle special cases
+            let targetBiome = primaryBiome;
+            if (primaryBiome === 'cliff' || primaryBiome === 'shallow') {
+                targetBiome = 'grass';
+            }
             
-            for (const cell of cells) {
-                const pos = cell.dataset.pos;
-                let tileId = null;
-                let isConfigured = true;
-                let fallbackColor = null;
-                
-                if (pos === 'outer') {
-                    // Outer ring = secondary biome
-                    tileId = secondaryTileId;
-                    fallbackColor = secondaryColor;
-                } else if (pos === 'center') {
-                    // Center = primary biome
-                    tileId = primaryTileId;
-                    fallbackColor = primaryColor;
-                } else {
-                    // Transition positions - get center tile from saved config
-                    const dirId = directionMap[pos];
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const cell = grid[y][x];
+                    if (cell.biome !== targetBiome) continue;
+                    
+                    // Check 8 neighbors
+                    const neighbors = {
+                        n: y > 0 ? grid[y-1][x].biome : null,
+                        s: y < height-1 ? grid[y+1][x].biome : null,
+                        e: x < width-1 ? grid[y][x+1].biome : null,
+                        w: x > 0 ? grid[y][x-1].biome : null,
+                        nw: (y > 0 && x > 0) ? grid[y-1][x-1].biome : null,
+                        ne: (y > 0 && x < width-1) ? grid[y-1][x+1].biome : null,
+                        sw: (y < height-1 && x > 0) ? grid[y+1][x-1].biome : null,
+                        se: (y < height-1 && x < width-1) ? grid[y+1][x+1].biome : null
+                    };
+                    
+                    // Count different biome neighbors
+                    const diffNeighbors = Object.values(neighbors).filter(b => b !== null && b !== targetBiome).length;
+                    
+                    if (diffNeighbors > 0) {
+                        cell.isEdge = true;
+                        cell.edgeDirection = determineEdgeDirection(neighbors, targetBiome);
+                    }
+                }
+            }
+        }
+        
+        // Determine the edge direction based on neighbor pattern
+        function determineEdgeDirection(neighbors, targetBiome) {
+            const isDiff = (b) => b !== null && b !== targetBiome;
+            
+            // Cardinal edges (opposite side is different)
+            if (isDiff(neighbors.n) && !isDiff(neighbors.s) && !isDiff(neighbors.e) && !isDiff(neighbors.w)) return 'north';
+            if (isDiff(neighbors.s) && !isDiff(neighbors.n) && !isDiff(neighbors.e) && !isDiff(neighbors.w)) return 'south';
+            if (isDiff(neighbors.e) && !isDiff(neighbors.n) && !isDiff(neighbors.s) && !isDiff(neighbors.w)) return 'east';
+            if (isDiff(neighbors.w) && !isDiff(neighbors.n) && !isDiff(neighbors.s) && !isDiff(neighbors.e)) return 'west';
+            
+            // Outer corners (two adjacent cardinals are different)
+            if (isDiff(neighbors.n) && isDiff(neighbors.w) && !isDiff(neighbors.s) && !isDiff(neighbors.e)) return 'corner_nw';
+            if (isDiff(neighbors.n) && isDiff(neighbors.e) && !isDiff(neighbors.s) && !isDiff(neighbors.w)) return 'corner_ne';
+            if (isDiff(neighbors.s) && isDiff(neighbors.w) && !isDiff(neighbors.n) && !isDiff(neighbors.e)) return 'corner_sw';
+            if (isDiff(neighbors.s) && isDiff(neighbors.e) && !isDiff(neighbors.n) && !isDiff(neighbors.w)) return 'corner_se';
+            
+            // Inner corners (only diagonal is different)
+            if (isDiff(neighbors.nw) && !isDiff(neighbors.n) && !isDiff(neighbors.w)) return 'inner_nw';
+            if (isDiff(neighbors.ne) && !isDiff(neighbors.n) && !isDiff(neighbors.e)) return 'inner_ne';
+            if (isDiff(neighbors.sw) && !isDiff(neighbors.s) && !isDiff(neighbors.w)) return 'inner_sw';
+            if (isDiff(neighbors.se) && !isDiff(neighbors.s) && !isDiff(neighbors.e)) return 'inner_se';
+            
+            return null;
+        }
+        
+        // Apply saved edge patterns to the grid
+        function applyEdgePatternsToGrid(grid) {
+            const setConfig = setConfigurations[currentSet] || {};
+            const prefix = currentSet || 'rock_grass';
+            
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[0].length; x++) {
+                    const cell = grid[y][x];
+                    if (!cell.isEdge || !cell.edgeDirection) continue;
+                    
+                    // Build the direction ID
+                    const dirId = `${prefix}_${cell.edgeDirection}`;
                     const savedConfig = setConfig[dirId];
                     
                     if (savedConfig && savedConfig[1] && savedConfig[1][1]) {
-                        // Get center tile (row 1, col 1) from the 3x3 grid
-                        tileId = savedConfig[1][1].tileId;
-                    } else {
-                        // Not configured - show placeholder
-                        isConfigured = false;
-                        tileId = null;
-                        fallbackColor = '#3f2a1a'; // Dark orange for unconfigured
+                        // Use center tile from the saved 3x3 pattern
+                        cell.tileId = savedConfig[1][1].tileId;
+                        cell.patternApplied = true;
                     }
-                }
-                
-                // Update cell styling
-                cell.classList.toggle('not-configured', !isConfigured && pos !== 'outer' && pos !== 'center');
-                
-                // Clear existing image
-                const existingImg = cell.querySelector('img');
-                if (existingImg) existingImg.remove();
-                
-                // Load and display tile image
-                let tileLoaded = false;
-                if (tileId) {
-                    const tile = await loadTile(tileId);
-                    if (tile) {
-                        const img = document.createElement('img');
-                        img.src = tile.toDataURL();
-                        img.alt = tileId;
-                        cell.appendChild(img);
-                        tileLoaded = true;
-                    }
-                }
-                
-                // Apply fallback color if tile didn't load
-                if (!tileLoaded && fallbackColor) {
-                    cell.style.setProperty('background-color', fallbackColor, 'important');
-                } else if (tileLoaded) {
-                    cell.style.removeProperty('background-color');
                 }
             }
+        }
+        
+        // Render the grid to canvas
+        async function renderGridToCanvas(grid) {
+            const canvas = document.getElementById('terrainPreviewCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = grid[0].length;
+            const height = grid.length;
+            const tileSize = Math.floor(canvas.width / width);
+            
+            // Clear canvas
+            ctx.fillStyle = '#0a1628';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw each tile
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const cell = grid[y][x];
+                    const px = x * tileSize;
+                    const py = y * tileSize;
+                    
+                    // Try to load and draw the tile
+                    let tileDrawn = false;
+                    if (cell.tileId) {
+                        const tile = await loadTile(cell.tileId);
+                        if (tile) {
+                            ctx.drawImage(tile, px, py, tileSize, tileSize);
+                            tileDrawn = true;
+                        }
+                    }
+                    
+                    // Fallback to color if tile couldn't be loaded
+                    if (!tileDrawn) {
+                        ctx.fillStyle = BIOME_COLORS[cell.biome] || '#333';
+                        ctx.fillRect(px, py, tileSize, tileSize);
+                    }
+                    
+                    // Draw edge indicator for debugging (optional)
+                    if (cell.isEdge && cell.patternApplied) {
+                        ctx.strokeStyle = 'rgba(255, 152, 0, 0.5)';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(px + 1, py + 1, tileSize - 2, tileSize - 2);
+                    }
+                }
+            }
+        }
+        
+        // Main function to generate terrain preview
+        async function generateTerrainPreview() {
+            if (!currentSet) {
+                alert('Please select a tile set first (e.g., Rock-Grass)');
+                return;
+            }
+            
+            console.log('[TerrainPreview] Generating preview for:', currentSet);
+            
+            // Step 1: Create test terrain with blob
+            const grid = createTestTerrain(15, 15);
+            
+            // Step 2: Detect edges
+            detectEdges(grid);
+            
+            // Step 3: Apply saved patterns
+            applyEdgePatternsToGrid(grid);
+            
+            // Step 4: Render to canvas
+            await renderGridToCanvas(grid);
+            
+            console.log('[TerrainPreview] Preview generated');
         }
         
         // Event listeners
