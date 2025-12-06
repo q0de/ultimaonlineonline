@@ -2093,8 +2093,8 @@
             }
         }
         
-        // Render the grid to canvas using colored rectangles (top-down view)
-        function renderGridToCanvas(grid) {
+        // Render the grid to canvas with mini tile thumbnails for edges
+        async function renderGridToCanvas(grid) {
             const canvas = document.getElementById('terrainPreviewCanvas');
             const ctx = canvas.getContext('2d');
             const width = grid[0].length;
@@ -2105,7 +2105,7 @@
             ctx.fillStyle = '#0a1628';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Draw each tile as a colored rectangle
+            // First pass: Draw colored rectangles for all cells
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     const cell = grid[y][x];
@@ -2115,9 +2115,27 @@
                     // Draw colored rectangle based on biome
                     ctx.fillStyle = BIOME_COLORS[cell.biome] || '#333';
                     ctx.fillRect(px, py, tileSize, tileSize);
+                }
+            }
+            
+            // Second pass: Draw tile thumbnails for edge cells with patterns
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const cell = grid[y][x];
+                    const px = x * tileSize;
+                    const py = y * tileSize;
                     
-                    // Draw edge indicator border for pattern-applied tiles
-                    if (cell.isEdge && cell.patternApplied) {
+                    // For edge cells with patterns, load and draw the actual tile thumbnail
+                    if (cell.isEdge && cell.patternApplied && cell.tileId) {
+                        const tile = await loadTile(cell.tileId);
+                        if (tile) {
+                            // Draw tile scaled to fit cell (with small padding)
+                            const padding = 2;
+                            const drawSize = tileSize - padding * 2;
+                            ctx.drawImage(tile, px + padding, py + padding, drawSize, drawSize);
+                        }
+                        
+                        // Draw orange border around edge tiles
                         ctx.strokeStyle = '#ff9800';
                         ctx.lineWidth = 2;
                         ctx.strokeRect(px + 1, py + 1, tileSize - 2, tileSize - 2);
@@ -2145,7 +2163,7 @@
             applyEdgePatternsToGrid(grid);
             
             // Step 4: Render to canvas
-            renderGridToCanvas(grid);
+            await renderGridToCanvas(grid);
             
             console.log('[TerrainPreview] Preview generated');
         }
