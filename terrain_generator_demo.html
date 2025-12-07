@@ -9056,9 +9056,11 @@ CORNERS:
                 updatePlayerAnimationSprite(deltaTime);
                 
                 // Auto-swing system: automatically attack when in war mode with target in range
+                // Don't auto-swing while being hit (in hit stun)
                 if (playerCharacter.combatState?.warMode && selectedCreature && !selectedCreature.isDead) {
                     const dist = distanceBetween(selectedCreature.x, selectedCreature.y, playerCharacter.x, playerCharacter.y);
-                    if (dist <= 2 && !playerCharacter.combatState.isAttacking) {
+                    const notInHitStun = (playerCharacter.combatState.hitStunRemaining || 0) <= 0;
+                    if (dist <= 2 && !playerCharacter.combatState.isAttacking && notInHitStun) {
                         if (now - lastAutoSwingTime >= AUTO_SWING_COOLDOWN) {
                             attackCreature(selectedCreature);
                             lastAutoSwingTime = now;
