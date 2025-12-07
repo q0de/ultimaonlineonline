@@ -2118,6 +2118,22 @@
                 }
             }
             
+            // Direction label abbreviations
+            const DIRECTION_LABELS = {
+                'north': 'N',
+                'south': 'S',
+                'east': 'E',
+                'west': 'W',
+                'corner_ne': 'NE',
+                'corner_nw': 'NW',
+                'corner_se': 'SE',
+                'corner_sw': 'SW',
+                'inner_ne': 'iNE',
+                'inner_nw': 'iNW',
+                'inner_se': 'iSE',
+                'inner_sw': 'iSW'
+            };
+            
             // Second pass: Draw tile thumbnails for edge cells with patterns
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
@@ -2139,6 +2155,24 @@
                         ctx.strokeStyle = '#ff9800';
                         ctx.lineWidth = 2;
                         ctx.strokeRect(px + 1, py + 1, tileSize - 2, tileSize - 2);
+                        
+                        // Draw direction label
+                        if (cell.edgeDirection) {
+                            const label = DIRECTION_LABELS[cell.edgeDirection] || cell.edgeDirection;
+                            
+                            // Draw dark background for label
+                            ctx.font = 'bold 8px Arial';
+                            const textWidth = ctx.measureText(label).width;
+                            const labelX = px + (tileSize - textWidth) / 2;
+                            const labelY = py + tileSize - 4;
+                            
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                            ctx.fillRect(labelX - 2, labelY - 8, textWidth + 4, 10);
+                            
+                            // Draw white text
+                            ctx.fillStyle = '#fff';
+                            ctx.fillText(label, labelX, labelY);
+                        }
                     }
                 }
             }
