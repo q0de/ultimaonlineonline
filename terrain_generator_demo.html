@@ -7913,12 +7913,36 @@ CORNERS:
             const [minDmg, maxDmg] = creature.damage;
             const damage = Math.floor(minDmg + Math.random() * (maxDmg - minDmg + 1));
             
-            if (target.resources) {
+            // Use takeDamage method if available (triggers hit animation)
+            if (target.takeDamage && typeof target.takeDamage === 'function') {
+                const died = target.takeDamage(damage, 'melee');
+                console.log(`[${creature.name}] Hit player for ${damage}! HP: ${target.resources?.health || 0}`);
+                
+                // Update status display
+                document.getElementById('status').textContent = died 
+                    ? `💀 ${creature.name} killed you! (${damage} damage)`
+                    : `🩸 ${creature.name} hit you for ${damage} damage! (HP: ${target.resources?.health}/${target.resources?.maxHealth})`;
+                
+                if (died) {
+                    console.log(`[${creature.name}] KILLED the player!`);
+                }
+            } else if (target.resources) {
+                // Fallback: directly modify health and trigger hit animation
                 target.resources.health = Math.max(0, target.resources.health - damage);
+                
+                // Trigger hit animation via combatState
+                if (target.combatState) {
+                    target.combatState.hitStunRemaining = 500; // 500ms hit animation
+                    target.combatState.currentAnimation = 'getHit';
+                }
+                
                 console.log(`[${creature.name}] Hit player for ${damage}! HP: ${target.resources.health}`);
+                document.getElementById('status').textContent = `🩸 ${creature.name} hit you for ${damage} damage!`;
                 
                 if (target.resources.health <= 0) {
                     console.log(`[${creature.name}] KILLED the player!`);
+                    if (target.combatState) target.combatState.alive = false;
+                    document.getElementById('status').textContent = `💀 ${creature.name} killed you!`;
                 }
             }
         }
@@ -8108,14 +8132,28 @@ CORNERS:
             
             // Calculate damage (use Character's weapon if equipped)
             let damage;
-            if (playerCharacter.equipment && playerCharacter.equipment.weapon && playerCharacter.equipment.weaponEquipped) {
+            let attackType = 'melee';
+            const isUnarmed = !playerCharacter.equipment?.weaponEquipped;
+            
+            if (!isUnarmed && playerCharacter.equipment?.weapon) {
+                // Armed attack - use weapon damage
                 const weapon = playerCharacter.equipment.weapon;
                 const minDmg = weapon.damageMin || 10;
                 const maxDmg = weapon.damageMax || 30;
                 damage = Math.floor(minDmg + Math.random() * (maxDmg - minDmg + 1));
+                attackType = weapon.type || 'bash';
             } else {
-                // Unarmed attack
-                damage = Math.floor(5 + Math.random() * 10);
+                // Wrestling/Unarmed attack - use bash animation
+                // Wrestling damage: base 1-5 + wrestling skill bonus
+                const wrestlingSkill = playerCharacter.skills?.wrestling || 50; // Default 50 skill
+                const baseDamage = Math.floor(1 + Math.random() * 5);
+                const skillBonus = Math.floor(wrestlingSkill / 10);
+                damage = baseDamage + skillBonus;
+                attackType = 'bash'; // Wrestling uses bash_1h animation (punch/kick)
+                
+                // Temporarily set weapon type to bash for animation selection
+                if (!playerCharacter.equipment) playerCharacter.equipment = {};
+                playerCharacter.equipment._wrestlingAttack = true;
             }
             
             // Face the creature
@@ -8130,6 +8168,7 @@ CORNERS:
                 playerCharacter.direction = directions[index]; // Also update direction for sprite selection
                 playerCharacter.combatState.currentAnimation = 'attack';
                 playerCharacter.combatState.isAttacking = true;
+                playerCharacter.combatState._attackType = attackType; // Store attack type for animation
                 
                 // Reset attack animation frame counters
                 attackAnimationFrame = 0;
@@ -8139,9 +8178,10 @@ CORNERS:
             // Apply damage
             const died = damageCreature(creature, damage);
             
+            const attackName = isUnarmed ? '👊 Wrestling' : '⚔️';
             document.getElementById('status').textContent = died 
-                ? `⚔️ Hit ${creature.name} for ${damage} damage! KILLED!`
-                : `⚔️ Hit ${creature.name} for ${damage} damage! (HP: ${creature.health}/${creature.maxHealth})`;
+                ? `${attackName} Hit ${creature.name} for ${damage} damage! KILLED!`
+                : `${attackName} Hit ${creature.name} for ${damage} damage! (HP: ${creature.health}/${creature.maxHealth})`;
             
             // The attack animation will auto-complete via updatePlayerAnimationSprite
         }
@@ -8808,6 +8848,10 @@ CORNERS:
         const ATTACK_ANIM_FRAME_DURATION = 80; // ms per frame for attack animations
         const SPELL_ANIM_FRAME_DURATION = 100; // ms per frame for spell casting
         
+        // Auto-swing system for war mode combat
+        let lastAutoSwingTime = 0;
+        const AUTO_SWING_COOLDOWN = 2000; // 2 seconds between auto-swings (UO standard)
+        
         // Update player character animation sprite based on current state
         function updatePlayerAnimationSprite(deltaTime) {
             if (!playerCharacter || !playerCharacter.combatState) return;
@@ -8844,14 +8888,19 @@ CORNERS:
             }
             
             if (state.isAttacking) {
-                // Attack animation - select correct type based on weapon
+                // Attack animation - select correct type based on weapon or wrestling
                 let attackFrames = [];
                 const weapon = playerCharacter.equipment?.weapon;
-                const isTwoHanded = weapon?.twoHanded || false;
-                const weaponType = weapon?.type || 'bash'; // slash, pierce, or bash
+                const isWrestling = playerCharacter.equipment?._wrestlingAttack || !playerCharacter.equipment?.weaponEquipped;
+                const isTwoHanded = !isWrestling && (weapon?.twoHanded || false);
+                // Use stored attack type from combat state, or default to weapon type, or bash for wrestling
+                const weaponType = state._attackType || weapon?.type || 'bash';
                 
                 // Select appropriate attack animation
-                if (isTwoHanded) {
+                if (isWrestling) {
+                    // Wrestling always uses bash_1h (punch/kick animation)
+                    attackFrames = dirSprites.attack_bash_1h || [];
+                } else if (isTwoHanded) {
                     switch (weaponType) {
                         case 'slash': attackFrames = dirSprites.attack_slash_2h || []; break;
                         case 'pierce': attackFrames = dirSprites.attack_pierce_2h || []; break;
@@ -8882,6 +8931,10 @@ CORNERS:
                             attackAnimationFrame = 0;
                             state.isAttacking = false;
                             state.currentAnimation = 'idle';
+                            state._attackType = null; // Clear attack type
+                            if (playerCharacter.equipment) {
+                                playerCharacter.equipment._wrestlingAttack = false; // Clear wrestling flag
+                            }
                             playerCharacter.sprite = dirSprites.idle;
                             return;
                         }
@@ -8959,6 +9012,17 @@ CORNERS:
                 
                 // Update character animation (attacks, spells, hit reactions)
                 updatePlayerAnimationSprite(deltaTime);
+                
+                // Auto-swing system: automatically attack when in war mode with target in range
+                if (playerCharacter.combatState?.warMode && selectedCreature && !selectedCreature.isDead) {
+                    const dist = distanceBetween(selectedCreature.x, selectedCreature.y, playerCharacter.x, playerCharacter.y);
+                    if (dist <= 2 && !playerCharacter.combatState.isAttacking) {
+                        if (now - lastAutoSwingTime >= AUTO_SWING_COOLDOWN) {
+                            attackCreature(selectedCreature);
+                            lastAutoSwingTime = now;
+                        }
+                    }
+                }
                 
                 // ALWAYS render when character exists (camera follow mode)
                 renderScene();
