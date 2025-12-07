@@ -7151,16 +7151,16 @@ CORNERS:
             // Sprite folder direction correction: UO animation direction IDs don't match compass directions
             // Direction 0 from Ultima.dll = South-facing sprite (toward camera)
             // To get a sprite facing direction X, we need to load from a different folder
-            // This map corrects for the offset: to get 'n' facing sprite, load from 'ne' folder
+            // This map corrects for the offset (COUNTER-CLOCKWISE shift)
             const SPRITE_FOLDER_MAP = {
-                'n': 'ne',    // To get north-facing, load from northeast folder
-                'ne': 'e',    // To get northeast-facing, load from east folder
-                'e': 'se',
-                'se': 's',
-                's': 'sw',
-                'sw': 'w',
-                'w': 'nw',
-                'nw': 'n'
+                'n': 'nw',    // To get north-facing, load from northwest folder
+                'ne': 'n',    // To get northeast-facing, load from north folder
+                'e': 'ne',
+                'se': 'e',
+                's': 'se',
+                'sw': 's',
+                'w': 'sw',
+                'nw': 'w'
             };
             
             // Helper to load frames from PNG folder (new extraction format)
