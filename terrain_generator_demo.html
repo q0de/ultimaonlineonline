@@ -7146,7 +7146,7 @@ CORNERS:
         
         // Load all directional sprites INCLUDING walk animation frames
         async function loadAllCharacterSprites() {
-            console.log('[Character] Loading character sprites with walk animations...');
+            console.log('[Character] Loading ALL character animations (walk, run, attacks, spells, hit, death)...');
             
             // Sprite folder fix: Each folder's sprites face one direction COUNTER-CLOCKWISE
             // from the folder name. To compensate, load from folder one step CLOCKWISE.
@@ -7162,58 +7162,163 @@ CORNERS:
                 'nw': 'n'
             };
             
+            // Helper to load frames from PNG folder (new extraction format)
+            async function loadAnimationFrames(folderName, maxFrames = 15) {
+                const frames = [];
+                for (let i = 0; i < maxFrames; i++) {
+                    const path = `assets/sprites/animations/${folderName}/frame_${String(i).padStart(3, '0')}.png`;
+                    const sprite = await tryLoadSprite(path);
+                    if (sprite) {
+                        frames.push(sprite);
+                    } else {
+                        break; // Stop when no more frames found
+                    }
+                }
+                return frames;
+            }
+            
+            // Helper to load frames from old BMP folder format (legacy)
+            async function loadLegacyBmpFrames(folderName, mobId = 400, maxFrames = 15) {
+                const frames = [];
+                for (let i = 0; i < maxFrames; i++) {
+                    const path = `assets/sprites/animations/${folderName}/Mob ${mobId}-${i}.bmp`;
+                    const sprite = await tryLoadSprite(path);
+                    if (sprite) {
+                        frames.push(sprite);
+                    }
+                }
+                return frames;
+            }
+            
             for (const dir of Object.keys(DIRECTIONS)) {
-                // Initialize sprite data structure
+                // Initialize expanded sprite data structure with ALL animation types
                 characterSprites[dir] = {
+                    // Basic movement
                     idle: null,
                     walk: [],
-                    run: []
+                    run: [],
+                    walk_armed: [],
+                    run_armed: [],
+                    
+                    // Melee attacks (6 types)
+                    attack_slash_1h: [],
+                    attack_pierce_1h: [],
+                    attack_bash_1h: [],
+                    attack_slash_2h: [],
+                    attack_pierce_2h: [],
+                    attack_bash_2h: [],
+                    
+                    // Spell casting (3 types)
+                    cast_area: [],      // Area effect spells
+                    cast_directed: [],  // Targeted spells (fireball, etc)
+                    cast_summon: [],    // Self/summon spells
+                    
+                    // Combat reactions
+                    hit: [],            // Getting hit
+                    block: [],          // Blocking/parrying
+                    
+                    // Death animations
+                    death_back: [],     // Fall backward
+                    death_forward: [],  // Fall forward
+                    
+                    // Ranged attacks
+                    attack_bow: [],
+                    attack_xbow: [],
+                    
+                    // Ready stances
+                    ready_1h: null,
+                    ready_2h: null
                 };
                 
                 // Get corrected folder to load from
                 const folderDir = SPRITE_FOLDER_MAP[dir] || dir;
                 
-                // 1. Load idle sprite - try multiple paths
-                const idlePaths = [
-                    `assets/sprites/animations/idle-static_${folderDir}/Mob 400-0.bmp`,
-                    `assets/sprites/animations/idle-static_${folderDir}/Mob 400.bmp`,
-                    `assets/sprites/animations/walk_${folderDir}/Mob 400-0.bmp`,
-                ];
-                
-                for (const path of idlePaths) {
-                    const sprite = await tryLoadSprite(path);
-                    if (sprite) {
-                        characterSprites[dir].idle = sprite;
-                        console.log(`[Character] Loaded ${dir} idle from: ${path} (folder: ${folderDir})`);
-                        break;
+                // 1. Load idle sprite - try new PNG format first, then legacy BMP
+                const idleFrames = await loadAnimationFrames(`human_idle_${folderDir}`, 5);
+                if (idleFrames.length > 0) {
+                    characterSprites[dir].idle = idleFrames[0];
+                } else {
+                    // Fallback to legacy BMP format
+                    const legacyPaths = [
+                        `assets/sprites/animations/idle-static_${folderDir}/Mob 400-0.bmp`,
+                        `assets/sprites/animations/idle-static_${folderDir}/Mob 400.bmp`,
+                        `assets/sprites/animations/walk_${folderDir}/Mob 400-0.bmp`,
+                    ];
+                    for (const path of legacyPaths) {
+                        const sprite = await tryLoadSprite(path);
+                        if (sprite) {
+                            characterSprites[dir].idle = sprite;
+                            break;
+                        }
                     }
                 }
                 
-                // 2. Load walk animation frames (Mob 400-0.bmp through Mob 400-9.bmp)
-                for (let frame = 0; frame < 10; frame++) {
-                    const path = `assets/sprites/animations/walk_${folderDir}/Mob 400-${frame}.bmp`;
-                    const sprite = await tryLoadSprite(path);
-                    if (sprite) {
-                        characterSprites[dir].walk.push(sprite);
-                    }
+                // 2. Load walk animation - try new PNG first, then legacy BMP
+                characterSprites[dir].walk = await loadAnimationFrames(`human_walk_${folderDir}`, 15);
+                if (characterSprites[dir].walk.length === 0) {
+                    characterSprites[dir].walk = await loadLegacyBmpFrames(`walk_${folderDir}`, 400, 10);
                 }
                 
-                // 3. Load run animation frames (if available)
-                for (let frame = 0; frame < 10; frame++) {
-                    const path = `assets/sprites/animations/run_${folderDir}/Mob 400-${frame}.bmp`;
-                    const sprite = await tryLoadSprite(path);
-                    if (sprite) {
-                        characterSprites[dir].run.push(sprite);
-                    }
+                // 3. Load run animation - try new PNG first, then legacy BMP
+                characterSprites[dir].run = await loadAnimationFrames(`human_run_${folderDir}`, 15);
+                if (characterSprites[dir].run.length === 0) {
+                    characterSprites[dir].run = await loadLegacyBmpFrames(`run_${folderDir}`, 400, 10);
                 }
                 
-                console.log(`[Character] ${dir}: idle=${characterSprites[dir].idle ? '✓' : '✗'}, walk=${characterSprites[dir].walk.length} frames, run=${characterSprites[dir].run.length} frames`);
+                // 4. Load armed movement
+                characterSprites[dir].walk_armed = await loadAnimationFrames(`human_walk_armed_${folderDir}`, 15);
+                characterSprites[dir].run_armed = await loadAnimationFrames(`human_run_armed_${folderDir}`, 15);
+                
+                // 5. Load ALL melee attack animations
+                characterSprites[dir].attack_slash_1h = await loadAnimationFrames(`human_attack_slash_1h_${folderDir}`, 10);
+                characterSprites[dir].attack_pierce_1h = await loadAnimationFrames(`human_attack_pierce_1h_${folderDir}`, 10);
+                characterSprites[dir].attack_bash_1h = await loadAnimationFrames(`human_attack_bash_1h_${folderDir}`, 10);
+                characterSprites[dir].attack_slash_2h = await loadAnimationFrames(`human_attack_slash_2h_${folderDir}`, 10);
+                characterSprites[dir].attack_pierce_2h = await loadAnimationFrames(`human_attack_pierce_2h_${folderDir}`, 10);
+                characterSprites[dir].attack_bash_2h = await loadAnimationFrames(`human_attack_bash_2h_${folderDir}`, 10);
+                
+                // 6. Load spell casting animations
+                characterSprites[dir].cast_area = await loadAnimationFrames(`human_cast_area_${folderDir}`, 10);
+                characterSprites[dir].cast_directed = await loadAnimationFrames(`human_cast_directed_${folderDir}`, 10);
+                characterSprites[dir].cast_summon = await loadAnimationFrames(`human_cast_summon_${folderDir}`, 10);
+                
+                // 7. Load combat reaction animations
+                characterSprites[dir].hit = await loadAnimationFrames(`human_hit_${folderDir}`, 12);
+                characterSprites[dir].block = await loadAnimationFrames(`human_block_${folderDir}`, 10);
+                
+                // 8. Load death animations
+                characterSprites[dir].death_back = await loadAnimationFrames(`human_death_back_${folderDir}`, 10);
+                characterSprites[dir].death_forward = await loadAnimationFrames(`human_death_forward_${folderDir}`, 10);
+                
+                // 9. Load ranged attack animations
+                characterSprites[dir].attack_bow = await loadAnimationFrames(`human_attack_bow_${folderDir}`, 10);
+                characterSprites[dir].attack_xbow = await loadAnimationFrames(`human_attack_xbow_${folderDir}`, 10);
+                
+                // 10. Load ready stances (single frame)
+                const ready1h = await loadAnimationFrames(`human_ready_1h_${folderDir}`, 2);
+                const ready2h = await loadAnimationFrames(`human_ready_2h_${folderDir}`, 2);
+                characterSprites[dir].ready_1h = ready1h.length > 0 ? ready1h[0] : null;
+                characterSprites[dir].ready_2h = ready2h.length > 0 ? ready2h[0] : null;
             }
             
+            // Log summary
             const loaded = Object.values(characterSprites).filter(s => s.idle).length;
             const totalWalkFrames = Object.values(characterSprites).reduce((sum, s) => sum + s.walk.length, 0);
             const totalRunFrames = Object.values(characterSprites).reduce((sum, s) => sum + s.run.length, 0);
-            console.log(`[Character] Loaded ${loaded}/8 directions, ${totalWalkFrames} walk frames, ${totalRunFrames} run frames`);
+            const totalAttackFrames = Object.values(characterSprites).reduce((sum, s) => 
+                sum + s.attack_slash_1h.length + s.attack_slash_2h.length + s.attack_bash_2h.length, 0);
+            const totalCastFrames = Object.values(characterSprites).reduce((sum, s) => 
+                sum + s.cast_area.length + s.cast_directed.length + s.cast_summon.length, 0);
+            const totalHitFrames = Object.values(characterSprites).reduce((sum, s) => sum + s.hit.length, 0);
+            const totalDeathFrames = Object.values(characterSprites).reduce((sum, s) => 
+                sum + s.death_back.length + s.death_forward.length, 0);
+            
+            console.log(`[Character] ✅ Loaded ${loaded}/8 directions`);
+            console.log(`[Character]    Walk: ${totalWalkFrames}, Run: ${totalRunFrames} frames`);
+            console.log(`[Character]    Attacks: ${totalAttackFrames} frames`);
+            console.log(`[Character]    Spells: ${totalCastFrames} frames`);
+            console.log(`[Character]    Hit: ${totalHitFrames}, Death: ${totalDeathFrames} frames`);
+            
             return loaded;
         }
         
@@ -8020,8 +8125,13 @@ CORNERS:
                 const directions = ['east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'north', 'northeast'];
                 const index = Math.round(normalized / (Math.PI / 4)) % 8;
                 playerCharacter.combatState.facing = directions[index];
+                playerCharacter.direction = directions[index]; // Also update direction for sprite selection
                 playerCharacter.combatState.currentAnimation = 'attack';
                 playerCharacter.combatState.isAttacking = true;
+                
+                // Reset attack animation frame counters
+                attackAnimationFrame = 0;
+                attackAnimationTime = 0;
             }
             
             // Apply damage
@@ -8030,14 +8140,8 @@ CORNERS:
             document.getElementById('status').textContent = died 
                 ? `⚔️ Hit ${creature.name} for ${damage} damage! KILLED!`
                 : `⚔️ Hit ${creature.name} for ${damage} damage! (HP: ${creature.health}/${creature.maxHealth})`;
-                
-            // Reset attack animation after delay
-            setTimeout(() => {
-                if (playerCharacter && playerCharacter.combatState) {
-                    playerCharacter.combatState.isAttacking = false;
-                    playerCharacter.combatState.currentAnimation = 'idle';
-                }
-            }, 500);
+            
+            // The attack animation will auto-complete via updatePlayerAnimationSprite
         }
         
         // Keyboard shortcut to attack selected creature
@@ -8696,6 +8800,142 @@ CORNERS:
             loadRealUOMap(targetX, targetY, `Auto ${direction}`, { blendProcedural: currentRegionBlendProcedural });
         }
         
+        // Track attack/spell animation state
+        let attackAnimationFrame = 0;
+        let attackAnimationTime = 0;
+        const ATTACK_ANIM_FRAME_DURATION = 80; // ms per frame for attack animations
+        const SPELL_ANIM_FRAME_DURATION = 100; // ms per frame for spell casting
+        
+        // Update player character animation sprite based on current state
+        function updatePlayerAnimationSprite(deltaTime) {
+            if (!playerCharacter || !playerCharacter.combatState) return;
+            
+            const dirSprites = characterSprites[playerCharacter.direction];
+            if (!dirSprites) return;
+            
+            const state = playerCharacter.combatState;
+            
+            // Check for different animation states
+            if (!state.alive) {
+                // Death animation
+                const deathFrames = dirSprites.death_back || dirSprites.death_forward || [];
+                if (deathFrames.length > 0) {
+                    attackAnimationTime += deltaTime;
+                    if (attackAnimationTime >= 120) {
+                        attackAnimationTime = 0;
+                        attackAnimationFrame = Math.min(attackAnimationFrame + 1, deathFrames.length - 1);
+                    }
+                    playerCharacter.sprite = deathFrames[attackAnimationFrame];
+                }
+                return;
+            }
+            
+            if (state.hitStunRemaining > 0) {
+                // Hit stun animation
+                const hitFrames = dirSprites.hit || [];
+                if (hitFrames.length > 0) {
+                    const progress = 1 - (state.hitStunRemaining / 500);
+                    const frameIndex = Math.min(Math.floor(progress * hitFrames.length), hitFrames.length - 1);
+                    playerCharacter.sprite = hitFrames[frameIndex];
+                }
+                return;
+            }
+            
+            if (state.isAttacking) {
+                // Attack animation - select correct type based on weapon
+                let attackFrames = [];
+                const weapon = playerCharacter.equipment?.weapon;
+                const isTwoHanded = weapon?.twoHanded || false;
+                const weaponType = weapon?.type || 'bash'; // slash, pierce, or bash
+                
+                // Select appropriate attack animation
+                if (isTwoHanded) {
+                    switch (weaponType) {
+                        case 'slash': attackFrames = dirSprites.attack_slash_2h || []; break;
+                        case 'pierce': attackFrames = dirSprites.attack_pierce_2h || []; break;
+                        default: attackFrames = dirSprites.attack_bash_2h || []; break;
+                    }
+                } else {
+                    switch (weaponType) {
+                        case 'slash': attackFrames = dirSprites.attack_slash_1h || []; break;
+                        case 'pierce': attackFrames = dirSprites.attack_pierce_1h || []; break;
+                        default: attackFrames = dirSprites.attack_bash_1h || []; break;
+                    }
+                }
+                
+                // Fallback to any available attack animation
+                if (attackFrames.length === 0) {
+                    attackFrames = dirSprites.attack_bash_2h || dirSprites.attack_slash_2h || 
+                                   dirSprites.attack_bash_1h || dirSprites.attack_slash_1h || [];
+                }
+                
+                if (attackFrames.length > 0) {
+                    attackAnimationTime += deltaTime;
+                    if (attackAnimationTime >= ATTACK_ANIM_FRAME_DURATION) {
+                        attackAnimationTime = 0;
+                        attackAnimationFrame++;
+                        
+                        if (attackAnimationFrame >= attackFrames.length) {
+                            // Attack animation complete
+                            attackAnimationFrame = 0;
+                            state.isAttacking = false;
+                            state.currentAnimation = 'idle';
+                            playerCharacter.sprite = dirSprites.idle;
+                            return;
+                        }
+                    }
+                    playerCharacter.sprite = attackFrames[attackAnimationFrame];
+                }
+                return;
+            }
+            
+            if (state.casting) {
+                // Spell casting animation
+                let castFrames = [];
+                const spell = state.currentSpell;
+                
+                // Select spell animation type
+                if (spell?.type === 'area' || spell?.name?.includes('Field')) {
+                    castFrames = dirSprites.cast_area || [];
+                } else if (spell?.type === 'summon' || spell?.name?.includes('Summon') || spell?.name?.includes('Recall')) {
+                    castFrames = dirSprites.cast_summon || [];
+                } else {
+                    castFrames = dirSprites.cast_directed || []; // Default for targeted spells
+                }
+                
+                // Fallback
+                if (castFrames.length === 0) {
+                    castFrames = dirSprites.cast_directed || dirSprites.cast_area || dirSprites.cast_summon || [];
+                }
+                
+                if (castFrames.length > 0) {
+                    const castProgress = playerCharacter.getCastProgress() / 100;
+                    const frameIndex = Math.min(Math.floor(castProgress * castFrames.length), castFrames.length - 1);
+                    playerCharacter.sprite = castFrames[frameIndex];
+                }
+                return;
+            }
+            
+            // Not in a special animation state - handled by movement update
+            // Only update idle sprite if standing still
+            if (!isMoving && nextTileX === null && nextTileY === null) {
+                // Show ready stance if weapon equipped and in war mode
+                if (state.warMode && playerCharacter.equipment?.weaponEquipped) {
+                    const weapon = playerCharacter.equipment.weapon;
+                    const readySprite = weapon?.twoHanded ? dirSprites.ready_2h : dirSprites.ready_1h;
+                    if (readySprite) {
+                        playerCharacter.sprite = readySprite;
+                        return;
+                    }
+                }
+                
+                // Default idle
+                if (dirSprites.idle) {
+                    playerCharacter.sprite = dirSprites.idle;
+                }
+            }
+        }
+        
         // Game loop (UO-authentic - continuous updates at 60fps)
         function gameLoop() {
             if (!gameLoopRunning) return;
@@ -8714,6 +8954,10 @@ CORNERS:
                 if (isMoving || nextTileX !== null || nextTileY !== null) {
                     updateCharacterMovement(deltaTime);
                 }
+                
+                // Update character animation (attacks, spells, hit reactions)
+                updatePlayerAnimationSprite(deltaTime);
+                
                 // ALWAYS render when character exists (camera follow mode)
                 renderScene();
             }
