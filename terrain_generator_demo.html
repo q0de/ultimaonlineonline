@@ -8751,7 +8751,19 @@ CORNERS:
                 animationTime += deltaTime;
                 
                 const dirSprites = characterSprites[playerCharacter.direction];
-                const frames = isRunning ? (dirSprites?.run || dirSprites?.walk || []) : (dirSprites?.walk || []);
+                const inWarMode = playerCharacter.combatState?.warMode;
+                
+                // Use armed walk/run animations when in war mode
+                let frames;
+                if (isRunning) {
+                    frames = inWarMode 
+                        ? (dirSprites?.run_armed || dirSprites?.run || dirSprites?.walk || [])
+                        : (dirSprites?.run || dirSprites?.walk || []);
+                } else {
+                    frames = inWarMode 
+                        ? (dirSprites?.walk_armed || dirSprites?.walk || [])
+                        : (dirSprites?.walk || []);
+                }
                 
                 if (frames.length > 0) {
                     const effectiveFrameCount = getEffectiveFrameCount(frames);
@@ -9451,6 +9463,11 @@ CORNERS:
                                 const mapHeight = currentMap.length;
                                 
                                 if (tile.x >= 0 && tile.x < mapWidth && tile.y >= 0 && tile.y < mapHeight) {
+                                    // Check for creature click FIRST (targeting/attacking)
+                                    if (handleCreatureClick(tile.x, tile.y)) {
+                                        return; // Creature was clicked - don't move
+                                    }
+                                    
                                     if (isTileWalkable(tile.x, tile.y)) {
                                         console.log(`[Mouse] Click-to-move to (${tile.x}, ${tile.y}) ${isRunning ? '(running)' : ''}`);
                                         moveToTile(tile.x, tile.y);
