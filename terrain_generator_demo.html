@@ -7148,10 +7148,10 @@ CORNERS:
         async function loadAllCharacterSprites() {
             console.log('[Character] Loading ALL character animations (walk, run, attacks, spells, hit, death)...');
             
-            // Sprite folder fix: Each folder's sprites face one direction COUNTER-CLOCKWISE
-            // from the folder name. To compensate, load from folder one step CLOCKWISE.
-            // e.g., 's' folder has 'se'-facing sprites, so to get 's' sprites load from 'sw' folder
-            const SPRITE_FOLDER_MAP = {
+            // LEGACY Sprite folder fix: OLD BMP extraction had sprites facing wrong direction
+            // Each folder's sprites face one direction COUNTER-CLOCKWISE from folder name
+            // This map is ONLY used for legacy BMP files, NOT for new PNG extraction
+            const LEGACY_SPRITE_FOLDER_MAP = {
                 'n': 'ne',    // n folder has nw sprites, ne folder has n sprites
                 'ne': 'e',
                 'e': 'se',
@@ -7163,6 +7163,7 @@ CORNERS:
             };
             
             // Helper to load frames from PNG folder (new extraction format)
+            // NEW extraction uses CORRECT direction names - no remapping needed!
             async function loadAnimationFrames(folderName, maxFrames = 15) {
                 const frames = [];
                 for (let i = 0; i < maxFrames; i++) {
@@ -7178,6 +7179,7 @@ CORNERS:
             }
             
             // Helper to load frames from old BMP folder format (legacy)
+            // LEGACY extraction needs direction remapping!
             async function loadLegacyBmpFrames(folderName, mobId = 400, maxFrames = 15) {
                 const frames = [];
                 for (let i = 0; i < maxFrames; i++) {
@@ -7230,19 +7232,20 @@ CORNERS:
                     ready_2h: null
                 };
                 
-                // Get corrected folder to load from
-                const folderDir = SPRITE_FOLDER_MAP[dir] || dir;
+                // NEW extraction uses correct direction names directly
+                // LEGACY extraction needs remapping
+                const legacyFolderDir = LEGACY_SPRITE_FOLDER_MAP[dir] || dir;
                 
-                // 1. Load idle sprite - try new PNG format first, then legacy BMP
-                const idleFrames = await loadAnimationFrames(`human_idle_${folderDir}`, 5);
+                // 1. Load idle sprite - try new PNG format first (NO remapping), then legacy BMP (WITH remapping)
+                const idleFrames = await loadAnimationFrames(`human_idle_${dir}`, 5);
                 if (idleFrames.length > 0) {
                     characterSprites[dir].idle = idleFrames[0];
                 } else {
-                    // Fallback to legacy BMP format
+                    // Fallback to legacy BMP format (use legacyFolderDir for remapping)
                     const legacyPaths = [
-                        `assets/sprites/animations/idle-static_${folderDir}/Mob 400-0.bmp`,
-                        `assets/sprites/animations/idle-static_${folderDir}/Mob 400.bmp`,
-                        `assets/sprites/animations/walk_${folderDir}/Mob 400-0.bmp`,
+                        `assets/sprites/animations/idle-static_${legacyFolderDir}/Mob 400-0.bmp`,
+                        `assets/sprites/animations/idle-static_${legacyFolderDir}/Mob 400.bmp`,
+                        `assets/sprites/animations/walk_${legacyFolderDir}/Mob 400-0.bmp`,
                     ];
                     for (const path of legacyPaths) {
                         const sprite = await tryLoadSprite(path);
@@ -7253,50 +7256,50 @@ CORNERS:
                     }
                 }
                 
-                // 2. Load walk animation - try new PNG first, then legacy BMP
-                characterSprites[dir].walk = await loadAnimationFrames(`human_walk_${folderDir}`, 15);
+                // 2. Load walk animation - try new PNG first (dir), then legacy BMP (legacyFolderDir)
+                characterSprites[dir].walk = await loadAnimationFrames(`human_walk_${dir}`, 15);
                 if (characterSprites[dir].walk.length === 0) {
-                    characterSprites[dir].walk = await loadLegacyBmpFrames(`walk_${folderDir}`, 400, 10);
+                    characterSprites[dir].walk = await loadLegacyBmpFrames(`walk_${legacyFolderDir}`, 400, 10);
                 }
                 
-                // 3. Load run animation - try new PNG first, then legacy BMP
-                characterSprites[dir].run = await loadAnimationFrames(`human_run_${folderDir}`, 15);
+                // 3. Load run animation - try new PNG first (dir), then legacy BMP (legacyFolderDir)
+                characterSprites[dir].run = await loadAnimationFrames(`human_run_${dir}`, 15);
                 if (characterSprites[dir].run.length === 0) {
-                    characterSprites[dir].run = await loadLegacyBmpFrames(`run_${folderDir}`, 400, 10);
+                    characterSprites[dir].run = await loadLegacyBmpFrames(`run_${legacyFolderDir}`, 400, 10);
                 }
                 
-                // 4. Load armed movement
-                characterSprites[dir].walk_armed = await loadAnimationFrames(`human_walk_armed_${folderDir}`, 15);
-                characterSprites[dir].run_armed = await loadAnimationFrames(`human_run_armed_${folderDir}`, 15);
+                // 4. Load armed movement (new PNG only - uses dir directly)
+                characterSprites[dir].walk_armed = await loadAnimationFrames(`human_walk_armed_${dir}`, 15);
+                characterSprites[dir].run_armed = await loadAnimationFrames(`human_run_armed_${dir}`, 15);
                 
-                // 5. Load ALL melee attack animations
-                characterSprites[dir].attack_slash_1h = await loadAnimationFrames(`human_attack_slash_1h_${folderDir}`, 10);
-                characterSprites[dir].attack_pierce_1h = await loadAnimationFrames(`human_attack_pierce_1h_${folderDir}`, 10);
-                characterSprites[dir].attack_bash_1h = await loadAnimationFrames(`human_attack_bash_1h_${folderDir}`, 10);
-                characterSprites[dir].attack_slash_2h = await loadAnimationFrames(`human_attack_slash_2h_${folderDir}`, 10);
-                characterSprites[dir].attack_pierce_2h = await loadAnimationFrames(`human_attack_pierce_2h_${folderDir}`, 10);
-                characterSprites[dir].attack_bash_2h = await loadAnimationFrames(`human_attack_bash_2h_${folderDir}`, 10);
+                // 5. Load ALL melee attack animations (new PNG - uses dir directly)
+                characterSprites[dir].attack_slash_1h = await loadAnimationFrames(`human_attack_slash_1h_${dir}`, 10);
+                characterSprites[dir].attack_pierce_1h = await loadAnimationFrames(`human_attack_pierce_1h_${dir}`, 10);
+                characterSprites[dir].attack_bash_1h = await loadAnimationFrames(`human_attack_bash_1h_${dir}`, 10);
+                characterSprites[dir].attack_slash_2h = await loadAnimationFrames(`human_attack_slash_2h_${dir}`, 10);
+                characterSprites[dir].attack_pierce_2h = await loadAnimationFrames(`human_attack_pierce_2h_${dir}`, 10);
+                characterSprites[dir].attack_bash_2h = await loadAnimationFrames(`human_attack_bash_2h_${dir}`, 10);
                 
-                // 6. Load spell casting animations
-                characterSprites[dir].cast_area = await loadAnimationFrames(`human_cast_area_${folderDir}`, 10);
-                characterSprites[dir].cast_directed = await loadAnimationFrames(`human_cast_directed_${folderDir}`, 10);
-                characterSprites[dir].cast_summon = await loadAnimationFrames(`human_cast_summon_${folderDir}`, 10);
+                // 6. Load spell casting animations (new PNG - uses dir directly)
+                characterSprites[dir].cast_area = await loadAnimationFrames(`human_cast_area_${dir}`, 10);
+                characterSprites[dir].cast_directed = await loadAnimationFrames(`human_cast_directed_${dir}`, 10);
+                characterSprites[dir].cast_summon = await loadAnimationFrames(`human_cast_summon_${dir}`, 10);
                 
-                // 7. Load combat reaction animations
-                characterSprites[dir].hit = await loadAnimationFrames(`human_hit_${folderDir}`, 12);
-                characterSprites[dir].block = await loadAnimationFrames(`human_block_${folderDir}`, 10);
+                // 7. Load combat reaction animations (new PNG - uses dir directly)
+                characterSprites[dir].hit = await loadAnimationFrames(`human_hit_${dir}`, 12);
+                characterSprites[dir].block = await loadAnimationFrames(`human_block_${dir}`, 10);
                 
-                // 8. Load death animations
-                characterSprites[dir].death_back = await loadAnimationFrames(`human_death_back_${folderDir}`, 10);
-                characterSprites[dir].death_forward = await loadAnimationFrames(`human_death_forward_${folderDir}`, 10);
+                // 8. Load death animations (new PNG - uses dir directly)
+                characterSprites[dir].death_back = await loadAnimationFrames(`human_death_back_${dir}`, 10);
+                characterSprites[dir].death_forward = await loadAnimationFrames(`human_death_forward_${dir}`, 10);
                 
-                // 9. Load ranged attack animations
-                characterSprites[dir].attack_bow = await loadAnimationFrames(`human_attack_bow_${folderDir}`, 10);
-                characterSprites[dir].attack_xbow = await loadAnimationFrames(`human_attack_xbow_${folderDir}`, 10);
+                // 9. Load ranged attack animations (new PNG - uses dir directly)
+                characterSprites[dir].attack_bow = await loadAnimationFrames(`human_attack_bow_${dir}`, 10);
+                characterSprites[dir].attack_xbow = await loadAnimationFrames(`human_attack_xbow_${dir}`, 10);
                 
-                // 10. Load ready stances (single frame)
-                const ready1h = await loadAnimationFrames(`human_ready_1h_${folderDir}`, 2);
-                const ready2h = await loadAnimationFrames(`human_ready_2h_${folderDir}`, 2);
+                // 10. Load ready stances (single frame, new PNG - uses dir directly)
+                const ready1h = await loadAnimationFrames(`human_ready_1h_${dir}`, 2);
+                const ready2h = await loadAnimationFrames(`human_ready_2h_${dir}`, 2);
                 characterSprites[dir].ready_1h = ready1h.length > 0 ? ready1h[0] : null;
                 characterSprites[dir].ready_2h = ready2h.length > 0 ? ready2h[0] : null;
             }
@@ -9155,6 +9158,35 @@ CORNERS:
         // - Right arrow = move toward right of screen (Northeast in game)
         document.addEventListener('keydown', (e) => {
             if (!playerCharacter) return;
+            
+            // TAB = Toggle War Mode (UO-style combat mode)
+            if (e.code === 'Tab') {
+                e.preventDefault();
+                if (playerCharacter.combatState) {
+                    playerCharacter.combatState.warMode = !playerCharacter.combatState.warMode;
+                    const mode = playerCharacter.combatState.warMode ? '⚔️ WAR MODE' : '☮️ PEACE MODE';
+                    document.getElementById('status').textContent = mode;
+                    console.log(`[Combat] ${mode}`);
+                    renderScene();
+                }
+                return;
+            }
+            
+            // SPACEBAR = Attack selected target (if in war mode and target nearby)
+            if (e.code === 'Space' && playerCharacter.combatState?.warMode) {
+                e.preventDefault();
+                if (selectedCreature && !selectedCreature.isDead) {
+                    const dist = distanceBetween(selectedCreature.x, selectedCreature.y, playerCharacter.x, playerCharacter.y);
+                    if (dist <= 2) {
+                        attackCreature(selectedCreature);
+                    } else {
+                        document.getElementById('status').textContent = '❌ Target too far away! Move closer.';
+                    }
+                } else {
+                    document.getElementById('status').textContent = '❌ No target selected! Click on a creature first.';
+                }
+                return;
+            }
             
             let direction = null;
             
