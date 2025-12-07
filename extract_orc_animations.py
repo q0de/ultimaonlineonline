@@ -1,6 +1,9 @@
 """
 Extract UO Orc Animations (Mob ID 7)
-Extracts animated sprite sheets from UO client files
+Extracts animated sprite frames from UO client files
+
+API: GetAnimation(body, action, direction, hue) returns Frame[]
+Each Frame has a Bitmap property
 """
 
 import clr
@@ -66,12 +69,16 @@ def extract_animation_frames(body_id, action_id, direction, output_dir):
     """
     Extract animation frames for a body/action/direction
     
+    API: GetAnimation(body, action, direction, hue) returns Frame[]
+    Each Frame has a Bitmap property
+    
     Monster Body IDs:
     - 7: Orc
     - 8: Orc Captain
     - 9: Orc Lord
     - 17: Ogre
     - 20: Ettin
+    - 50: Skeleton
     
     Action IDs for monsters:
     - 0: Walk
@@ -88,45 +95,39 @@ def extract_animation_frames(body_id, action_id, direction, output_dir):
     try:
         frames = []
         
-        # Try the GetAnimation method with hue and boolean params
-        # Signature: (int body, int action, int direction, int hue, bool preserveHue, bool firstFrame, bool lastFrame)
-        print(f"  Extracting body {body_id}, action {action_id}, direction {direction}...")
+        # Use the correct API: GetAnimation(body, action, direction, hue)
+        # Returns Frame[] where each Frame has a Bitmap property
+        anim_frames = Ultima.Animations.GetAnimation(body_id, action_id, direction, 0)
         
-        try:
-            anim_frames = Ultima.Animations.GetAnimation(body_id, action_id, direction, 0, False, False, False)
-            
-            if anim_frames is not None:
-                frame_count = len(anim_frames) if hasattr(anim_frames, '__len__') else 0
-                print(f"    Got {frame_count} frames")
+        if anim_frames is None or len(anim_frames) == 0:
+            print(f"    No frames found for body {body_id}, action {action_id}, dir {direction}")
+            return []
+        
+        frame_count = len(anim_frames)
+        print(f"  Body {body_id}, Action {action_id}, Dir {direction}: {frame_count} frames")
+        
+        for frame_idx in range(frame_count):
+            try:
+                frame = anim_frames[frame_idx]
                 
-                for frame_idx in range(frame_count):
-                    try:
-                        frame = anim_frames[frame_idx]
+                # Get bitmap from Frame object
+                if frame is None or frame.Bitmap is None:
+                    continue
+                    
+                bitmap = frame.Bitmap
+                pil_img = bitmap_to_pil(bitmap)
+                
+                if pil_img:
+                    frames.append(pil_img)
+                    
+                    # Save individual frame
+                    frame_path = output_dir / f"Mob {body_id}-{frame_idx}.bmp"
+                    pil_img.save(frame_path, "BMP")
                         
-                        # Try to get bitmap from frame
-                        bitmap = None
-                        if hasattr(frame, 'Bitmap'):
-                            bitmap = frame.Bitmap
-                        elif hasattr(frame, 'Image'):
-                            bitmap = frame.Image
-                        elif isinstance(frame, System.Drawing.Bitmap):
-                            bitmap = frame
-                        
-                        if bitmap is not None:
-                            pil_img = bitmap_to_pil(bitmap)
-                            if pil_img:
-                                frames.append(pil_img)
-                                
-                                # Save individual frame
-                                frame_path = output_dir / f"Mob {body_id}-{frame_idx}.bmp"
-                                pil_img.save(frame_path, "BMP")
-                                
-                    except Exception as e:
-                        print(f"    [WARN] Frame {frame_idx} failed: {e}")
-                        
-        except Exception as e:
-            print(f"    [WARN] GetAnimation failed: {e}")
-            
+            except Exception as e:
+                print(f"    [WARN] Frame {frame_idx} failed: {e}")
+                continue
+        
         return frames
         
     except Exception as e:
@@ -137,6 +138,7 @@ def extract_orc_animations():
     """Extract all orc animations"""
     
     # Direction names matching the human sprite folder convention
+    # UO directions: 0=S, 1=SW, 2=W, 3=NW, 4=N, 5=NE, 6=E, 7=SE
     DIRECTIONS = ['s', 'sw', 'w', 'nw', 'n', 'ne', 'e', 'se']
     
     # Actions to extract
@@ -146,11 +148,14 @@ def extract_orc_animations():
         4: 'attack1',   # Attack 1
         5: 'attack2',   # Attack 2
         7: 'hit',       # Get hit
+        2: 'death',     # Die (fall back)
     }
     
     mob_id = ORC_MOB_ID
     
     print(f"\n=== Extracting Orc (Mob {mob_id}) ===")
+    
+    total_extracted = 0
     
     for action_id, action_name in ACTIONS.items():
         for dir_idx, dir_name in enumerate(DIRECTIONS):
@@ -163,12 +168,16 @@ def extract_orc_animations():
             
             if frames:
                 print(f"  ✓ Saved {len(frames)} frames to {output_dir}")
+                total_extracted += len(frames)
             else:
                 print(f"  ✗ No frames extracted")
+    
+    return total_extracted
 
 def main():
     print("=" * 50)
     print("UO Orc Animation Extractor")
+    print("Using GetAnimation(body, action, dir, hue) API")
     print("=" * 50)
     
     if not setup_uo_path():
@@ -182,13 +191,12 @@ def main():
         print(f"[ERROR] Failed to load animations: {e}")
         return
     
-    extract_orc_animations()
+    total = extract_orc_animations()
     
     print("\n" + "=" * 50)
-    print("Extraction complete!")
+    print(f"Extraction complete! Total frames: {total}")
     print(f"Output: {OUTPUT_PATH}")
     print("=" * 50)
 
 if __name__ == "__main__":
     main()
-
