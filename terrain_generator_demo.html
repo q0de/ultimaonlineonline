@@ -8705,7 +8705,7 @@ CORNERS:
             if (event.data.type === 'apply_mappings') {
                 const mappings = event.data.mappings;
                 const count = Object.keys(mappings).length;
-                console.log('[TerrainGen] ⚡ LIVE: Received', count, 'mappings from Tile Teacher');
+                console.log('[TerrainGen] ⚡ LIVE: Received', count, 'mappings from Edge Configurator');
                 
                 // Store live mappings globally (overrides localStorage)
                 window.liveTileMappings = mappings;
@@ -8715,22 +8715,30 @@ CORNERS:
                 localStorage.setItem('waterTileMappings', JSON.stringify(mappings));
                 
                 // Show floating notification
-                showLiveNotif(`⚡ Received ${count} mappings...`);
+                showLiveNotif(`⚡ Received ${count} mappings - regenerating...`);
                 
                 // Show visual feedback
                 const statusEl = document.getElementById('directionModeStatus');
                 if (statusEl) {
-                    statusEl.innerHTML = `<span style="color: #FF9800;">⚡ Received ${count} mappings - applying...</span>`;
+                    statusEl.innerHTML = `<span style="color: #FF9800;">⚡ Received ${count} mappings - regenerating map...</span>`;
                 }
                 
-                // Immediately re-apply transitions with live mappings
-                if (window.currentMapData && window.applyLiveMappings) {
-                    window.applyLiveMappings(mappings);
-                    showLiveNotif(`✅ Applied to current map!`, true);
+                // AUTO-REGENERATE: Call testProceduralEnhanced to regenerate with new patterns
+                if (window.testProceduralEnhanced) {
+                    console.log('[TerrainGen] ⚡ Auto-regenerating map with new patterns...');
+                    window.testProceduralEnhanced().then(() => {
+                        showLiveNotif(`✅ Map regenerated with new patterns!`, true);
+                        if (statusEl) {
+                            statusEl.innerHTML = `<span style="color: #4CAF50;">✅ Map regenerated with ${count} pattern mappings!</span>`;
+                        }
+                    }).catch(err => {
+                        console.error('[TerrainGen] Regeneration failed:', err);
+                        showLiveNotif(`❌ Regeneration failed`);
+                    });
                 } else {
-                    showLiveNotif(`⚠️ Generate a map first!`);
+                    showLiveNotif(`⚠️ Terrain generator not ready`);
                     if (statusEl) {
-                        statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ Generate a map first (Procedural Enhanced) to see changes</span>`;
+                        statusEl.innerHTML = `<span style="color: #ff9800;">⚠️ Terrain generator not ready - click Procedural Enhanced</span>`;
                     }
                 }
             }
