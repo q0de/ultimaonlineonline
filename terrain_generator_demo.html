@@ -7307,8 +7307,11 @@ CORNERS:
             const loaded = Object.values(characterSprites).filter(s => s.idle).length;
             const totalWalkFrames = Object.values(characterSprites).reduce((sum, s) => sum + s.walk.length, 0);
             const totalRunFrames = Object.values(characterSprites).reduce((sum, s) => sum + s.run.length, 0);
+            const totalWalkArmedFrames = Object.values(characterSprites).reduce((sum, s) => sum + (s.walk_armed?.length || 0), 0);
+            const totalRunArmedFrames = Object.values(characterSprites).reduce((sum, s) => sum + (s.run_armed?.length || 0), 0);
             const totalAttackFrames = Object.values(characterSprites).reduce((sum, s) => 
                 sum + s.attack_slash_1h.length + s.attack_slash_2h.length + s.attack_bash_2h.length, 0);
+            const totalBash1hFrames = Object.values(characterSprites).reduce((sum, s) => sum + (s.attack_bash_1h?.length || 0), 0);
             const totalCastFrames = Object.values(characterSprites).reduce((sum, s) => 
                 sum + s.cast_area.length + s.cast_directed.length + s.cast_summon.length, 0);
             const totalHitFrames = Object.values(characterSprites).reduce((sum, s) => sum + s.hit.length, 0);
@@ -7317,6 +7320,9 @@ CORNERS:
             
             console.log(`[Character] ✅ Loaded ${loaded}/8 directions`);
             console.log(`[Character]    Walk: ${totalWalkFrames}, Run: ${totalRunFrames} frames`);
+            console.log(`[Character]    Walk Armed: ${totalWalkArmedFrames}, Run Armed: ${totalRunArmedFrames} frames`);
+            console.log(`[Character]    Attack Bash 1H (wrestling): ${totalBash1hFrames} frames`);
+            console.log(`[Character]    Hit: ${totalHitFrames} frames`);
             console.log(`[Character]    Attacks: ${totalAttackFrames} frames`);
             console.log(`[Character]    Spells: ${totalCastFrames} frames`);
             console.log(`[Character]    Hit: ${totalHitFrames}, Death: ${totalDeathFrames} frames`);
@@ -8889,12 +8895,23 @@ CORNERS:
             }
             
             if (state.hitStunRemaining > 0) {
+                // Decrement hit stun timer (Character.update() isn't called in this demo)
+                state.hitStunRemaining = Math.max(0, state.hitStunRemaining - deltaTime);
+                
                 // Hit stun animation
                 const hitFrames = dirSprites.hit || [];
                 if (hitFrames.length > 0) {
                     const progress = 1 - (state.hitStunRemaining / 500);
                     const frameIndex = Math.min(Math.floor(progress * hitFrames.length), hitFrames.length - 1);
                     playerCharacter.sprite = hitFrames[frameIndex];
+                    console.log(`[Hit] Frame ${frameIndex}/${hitFrames.length}, remaining: ${state.hitStunRemaining.toFixed(0)}ms`);
+                } else {
+                    console.warn('[Hit] No hit frames loaded for direction:', playerCharacter.direction);
+                }
+                
+                // When hit stun ends, return to idle
+                if (state.hitStunRemaining <= 0) {
+                    state.currentAnimation = 'idle';
                 }
                 return;
             }
@@ -8909,20 +8926,22 @@ CORNERS:
                 const weaponType = state._attackType || weapon?.type || 'bash';
                 
                 // Select appropriate attack animation
+                let animName = '';
                 if (isWrestling) {
                     // Wrestling always uses bash_1h (punch/kick animation)
                     attackFrames = dirSprites.attack_bash_1h || [];
+                    animName = 'attack_bash_1h (wrestling)';
                 } else if (isTwoHanded) {
                     switch (weaponType) {
-                        case 'slash': attackFrames = dirSprites.attack_slash_2h || []; break;
-                        case 'pierce': attackFrames = dirSprites.attack_pierce_2h || []; break;
-                        default: attackFrames = dirSprites.attack_bash_2h || []; break;
+                        case 'slash': attackFrames = dirSprites.attack_slash_2h || []; animName = 'attack_slash_2h'; break;
+                        case 'pierce': attackFrames = dirSprites.attack_pierce_2h || []; animName = 'attack_pierce_2h'; break;
+                        default: attackFrames = dirSprites.attack_bash_2h || []; animName = 'attack_bash_2h'; break;
                     }
                 } else {
                     switch (weaponType) {
-                        case 'slash': attackFrames = dirSprites.attack_slash_1h || []; break;
-                        case 'pierce': attackFrames = dirSprites.attack_pierce_1h || []; break;
-                        default: attackFrames = dirSprites.attack_bash_1h || []; break;
+                        case 'slash': attackFrames = dirSprites.attack_slash_1h || []; animName = 'attack_slash_1h'; break;
+                        case 'pierce': attackFrames = dirSprites.attack_pierce_1h || []; animName = 'attack_pierce_1h'; break;
+                        default: attackFrames = dirSprites.attack_bash_1h || []; animName = 'attack_bash_1h'; break;
                     }
                 }
                 
@@ -8930,6 +8949,12 @@ CORNERS:
                 if (attackFrames.length === 0) {
                     attackFrames = dirSprites.attack_bash_2h || dirSprites.attack_slash_2h || 
                                    dirSprites.attack_bash_1h || dirSprites.attack_slash_1h || [];
+                    animName = 'fallback';
+                }
+                
+                // Debug: Log attack animation start
+                if (attackAnimationFrame === 0 && attackAnimationTime === 0) {
+                    console.log(`[Attack] Starting ${animName}, frames: ${attackFrames.length}, wrestling: ${isWrestling}, 2H: ${isTwoHanded}, type: ${weaponType}`);
                 }
                 
                 if (attackFrames.length > 0) {
@@ -8940,6 +8965,7 @@ CORNERS:
                         
                         if (attackAnimationFrame >= attackFrames.length) {
                             // Attack animation complete
+                            console.log(`[Attack] Animation complete (${animName})`);
                             attackAnimationFrame = 0;
                             state.isAttacking = false;
                             state.currentAnimation = 'idle';
@@ -8952,6 +8978,10 @@ CORNERS:
                         }
                     }
                     playerCharacter.sprite = attackFrames[attackAnimationFrame];
+                } else {
+                    console.warn(`[Attack] No frames for ${animName} in direction ${playerCharacter.direction}!`);
+                    state.isAttacking = false;
+                    state.currentAnimation = 'idle';
                 }
                 return;
             }
