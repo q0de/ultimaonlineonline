@@ -8664,6 +8664,41 @@ CORNERS:
             
             // Render health bars overlay for creatures
             renderHealthBars(entities);
+            
+            // Render hit flash effect when player is in hit stun
+            if (playerCharacter && playerCharacter.combatState?.hitStunRemaining > 0) {
+                renderHitFlash(playerCharacter.combatState.hitStunRemaining);
+            }
+        }
+        
+        // Render red flash when player takes damage
+        function renderHitFlash(hitStunRemaining) {
+            const canvas = document.getElementById('mapCanvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            
+            // Calculate flash intensity based on remaining hit stun (starts strong, fades out)
+            const maxHitStun = 500; // ms
+            const progress = hitStunRemaining / maxHitStun;
+            const intensity = progress * 0.4; // Max 40% opacity at start
+            
+            // Draw red overlay that fades
+            ctx.fillStyle = `rgba(255, 0, 0, ${intensity})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Also show damage text
+            if (progress > 0.8) { // Only show text briefly at the start
+                ctx.font = 'bold 24px Arial';
+                ctx.fillStyle = '#ff4444';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 3;
+                ctx.textAlign = 'center';
+                const text = '💥 HIT!';
+                ctx.strokeText(text, canvas.width / 2, 50);
+                ctx.fillText(text, canvas.width / 2, 50);
+            }
         }
         
         // Render health bars above creatures
